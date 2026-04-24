@@ -188,19 +188,19 @@
     "whatsapp_message": "Bonjour, j'aimerais enregistrer ma clinique avec Eyadati",
     "delete_account_confirmation_message": "Veuillez entrer votre mot de passe pour confirmer la suppression du compte",
     "install_app_title": "Installer l'application Eyadati",
-    "install_app_message": "Pour une meilleure expérience, veuillez installer notre application mobile"
+    "install_app_message": "Pour une meilleure expérience, veuillez installer notre application mobile",
     "register_card_title": "Enregistrez Votre Clinique",
     "register_card_subtitle": "Rejoignez Eyadati pour gérer les rendez-vous de votre clinique",
     "verified_clinic_program": "Programme de Clinique Vérifiée",
     "registration_instruction_text": "Pour maintenir la plus haute qualité et confiance, les enregistrements Eyadati sont désormais traités directement. Contactez-nous sur WhatsApp pour planifier une visite de vérification et configurer votre compte.",
     "contact_on_whatsapp": "Contact sur WhatsApp",
-    "back_to_login": "Retour à la Connexion"
+    "back_to_login": "Retour à la Connexion",
     "account_settings": "Paramètres du compte",
     "appearance": "Apparence",
     "legal": "Légal",
-    "session": "Session"
+    "session": "Session",
     "my_appointments": "Mes Rendez-vous",
-    "show_favorites": "Afficher les Favoris"
+    "show_favorites": "Afficher les Favoris",
     "unknown": "Inconnu",
     "no_phone": "Pas de téléphone",
     "english": "English",
@@ -209,7 +209,7 @@
     "simulation_mode": "Mode Simulation",
     "ok": "OK",
     "the_chargily_api_key_is_missing_in_lib_chargili_paiment_dot_dart": "La clé API Chargily est manquante dans lib/chargili/paiment.dart",
-    "in_a_real_build_this_would_open_the_payment_gateway_for_testing_we_will_simulate_a_successful_payment_trigger": "Dans une vraie build, cela ouvrirait la passerelle de paiement. Pour les tests, nous allons simuler un paiement réussi."
+    "in_a_real_build_this_would_open_the_payment_gateway_for_testing_we_will_simulate_a_successful_payment_trigger": "Dans une vraie build, cela ouvrirait la passerelle de paiement. Pour les tests, nous allons simuler un paiement réussi.",
     "error_adding_to_favorites": "Erreur lors de l'ajout aux favoris : {{error}}",
     "error_generic": "Erreur : {{error}}",
     "clinic_unnamed": "Clinique sans nom",

@@ -188,19 +188,19 @@
     "whatsapp_message": "مرحبًا، أود تسجيل عيادتي مع عيادتي",
     "delete_account_confirmation_message": "يرجى إدخال كلمة المرور لتأكيد حذف الحساب",
     "install_app_title": "تثبيت تطبيق عيادتي",
-    "install_app_message": "للحصول على أفضل تجربة، يرجى تثبيت تطبيق الهاتف المحمول الخاص بنا"
+    "install_app_message": "للحصول على أفضل تجربة، يرجى تثبيت تطبيق الهاتف المحمول الخاص بنا",
     "register_card_title": "سجل عيادتك",
     "register_card_subtitle": "انضم إلى عيادتي لإدارة مواعيد عيادتك",
     "verified_clinic_program": "برنامج العيادة الموثقة",
     "registration_instruction_text": "لضمان أعلى جودة وثقة، يتم الآن التعامل مع تسجيلات عيادتي مباشرة. اتصل بنا على الواتساب لتحديد موعد زيارة للتحقق وإعداد حسابك.",
     "contact_on_whatsapp": "اتصل على الواتساب",
-    "back_to_login": "العودة لتسجيل الدخول"
+    "back_to_login": "العودة لتسجيل الدخول",
     "account_settings": "إعدادات الحساب",
     "appearance": "المظهر",
     "legal": "قانوني",
-    "session": "الجلسة"
+    "session": "الجلسة",
     "my_appointments": "مواعيدي",
-    "show_favorites": "إظهار المفضلة"
+    "show_favorites": "إظهار المفضلة",
     "unknown": "مجهول",
     "no_phone": "لا يوجد هاتف",
     "english": "English",
@@ -209,7 +209,7 @@
     "simulation_mode": "وضع المحاكاة",
     "ok": "حسناً",
     "the_chargily_api_key_is_missing_in_lib_chargili_paiment_dot_dart": "مفتاح API الخاص بشارجلي مفقود في lib/chargili/paiment.dart",
-    "in_a_real_build_this_would_open_the_payment_gateway_for_testing_we_will_simulate_a_successful_payment_trigger": "في النسخة الحقيقية، سيؤدي هذا إلى فتح بوابة الدفع. للاختبار، سنقوم بمحاكاة عملية دفع ناجحة."
+    "in_a_real_build_this_would_open_the_payment_gateway_for_testing_we_will_simulate_a_successful_payment_trigger": "في النسخة الحقيقية، سيؤدي هذا إلى فتح بوابة الدفع. للاختبار، سنقوم بمحاكاة عملية دفع ناجحة.",
     "error_adding_to_favorites": "خطأ في إضافة إلى المفضلة: {{error}}",
     "error_generic": "خطأ: {{error}}",
     "clinic_unnamed": "عيادة غير مسماة",

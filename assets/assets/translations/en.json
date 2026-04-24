@@ -188,31 +188,30 @@
     "whatsapp_message": "Hi, I'd like to register my clinic with Eyadati",
     "delete_account_confirmation_message": "Please enter your password to confirm account deletion",
     "install_app_title": "Install Eyadati App",
-    "install_app_message": "For the best experience, please install our mobile app"
+    "install_app_message": "For the best experience, please install our mobile app",
     "register_card_title": "Register Your Clinic",
     "register_card_subtitle": "Join Eyadati to manage your clinic appointments",
     "verified_clinic_program": "Verified Clinic Program",
     "registration_instruction_text": "To maintain the highest quality and trust, Eyadati registrations are now handled directly. Contact us on WhatsApp to schedule a verification visit and set up your account.",
     "contact_on_whatsapp": "Contact on WhatsApp",
-    "back_to_login": "Back to Login"
+    "back_to_login": "Back to Login",
     "account_settings": "Account Settings",
     "appearance": "Appearance",
     "legal": "Legal",
-    "session": "Session"
+    "session": "Session",
     "my_appointments": "My Appointments",
-    "show_favorites": "Show Favorites"
+    "show_favorites": "Show Favorites",
     "unknown": "Unknown",
     "no_phone": "No phone",
     "english": "English",
     "french": "Français",
     "arabic": "العربية",
     "simulation_mode": "Simulation Mode",
-    "ok": "OK",
+    
     "the_chargily_api_key_is_missing_in_lib_chargili_paiment_dot_dart": "The Chargily API Key is missing in lib/chargili/paiment.dart",
-    "in_a_real_build_this_would_open_the_payment_gateway_for_testing_we_will_simulate_a_successful_payment_trigger": "In a real build, this would open the payment gateway. For testing, we'll simulate a successful payment trigger."
+    "in_a_real_build_this_would_open_the_payment_gateway_for_testing_we_will_simulate_a_successful_payment_trigger": "In a real build, this would open the payment gateway. For testing, we'll simulate a successful payment trigger.",
     "error_adding_to_favorites": "Error adding to favorites: {{error}}",
     "error_generic": "Error: {{error}}",
-    "clinic_unnamed": "Unnamed Clinic",
     "no_slots_available": "No slots available",
     "book": "Book",
     "number_of_doctors": "Number of Doctors",
