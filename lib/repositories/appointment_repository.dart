@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/appointment.dart';
 import '../models/doctor.dart';
+import '../core/utils/input_validator.dart';
+import '../core/utils/security_validator.dart';
 
 class AppointmentRepository {
   final SupabaseClient _client;
@@ -14,6 +16,10 @@ class AppointmentRepository {
     try {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return [];
+
+      if (status != null && !_isValidStatus(status)) {
+        return [];
+      }
 
       final query = _client
           .from('appointments')
@@ -53,6 +59,10 @@ class AppointmentRepository {
     try {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return [];
+
+      if (status != null && !_isValidStatus(status)) {
+        return [];
+      }
 
       var query = _client
           .from('appointments')
@@ -106,6 +116,10 @@ class AppointmentRepository {
 
   Future<Appointment?> getAppointment(String appointmentId) async {
     try {
+      if (!SecurityValidator.isValidUuid(appointmentId)) {
+        return null;
+      }
+
       final response = await _client
           .from('appointments')
           .select()
@@ -134,6 +148,36 @@ class AppointmentRepository {
         return AppointmentResult.failure('User not authenticated');
       }
 
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return AppointmentResult.failure('Invalid doctor ID');
+      }
+
+      final dateError = InputValidator.validateAppointmentDate(scheduledAt);
+      if (dateError != null) {
+        return AppointmentResult.failure(dateError);
+      }
+
+      final durationError = InputValidator.validateDuration(duration);
+      if (durationError != null) {
+        return AppointmentResult.failure(durationError);
+      }
+
+      final nameError = InputValidator.validateRequired(patientName, 'Patient name');
+      if (nameError != null) {
+        return AppointmentResult.failure(nameError);
+      }
+
+      if (patientPhone != null && patientPhone.isNotEmpty) {
+        final phoneError = InputValidator.validatePhone(patientPhone);
+        if (phoneError != null) {
+          return AppointmentResult.failure(phoneError);
+        }
+      }
+
+      final sanitizedName = SecurityValidator.sanitizeHtml(patientName.trim());
+      final sanitizedPhone = patientPhone?.trim();
+      final sanitizedNotes = notes?.trim();
+
       final data = {
         'doctor_id': doctorId,
         'patient_id': userId,
@@ -142,9 +186,9 @@ class AppointmentRepository {
         'status': 'upcoming',
         'booking_type': 'online',
         'is_consultation': isConsultation,
-        'patient_name_snapshot': patientName,
-        'patient_phone_snapshot': patientPhone,
-        'notes': notes,
+        'patient_name_snapshot': sanitizedName,
+        'patient_phone_snapshot': sanitizedPhone,
+        'notes': sanitizedNotes,
       };
 
       final response = await _client
@@ -166,6 +210,12 @@ class AppointmentRepository {
       if (errorMsg.contains('not available for booking')) {
         return AppointmentResult.failure('Doctor is not available for booking');
       }
+      if (errorMsg.contains('invalid appointment date')) {
+        return AppointmentResult.failure('Invalid appointment date. Must be at least 30 minutes in the future.');
+      }
+      if (errorMsg.contains('invalid duration')) {
+        return AppointmentResult.failure('Invalid duration. Must be between 5 and 180 minutes.');
+      }
       return AppointmentResult.failure('Failed to create appointment');
     }
   }
@@ -184,6 +234,40 @@ class AppointmentRepository {
         return AppointmentResult.failure('User not authenticated');
       }
 
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return AppointmentResult.failure('Invalid doctor ID');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, doctorId)) {
+        return AppointmentResult.failure('Only doctors can create manual appointments');
+      }
+
+      final dateError = InputValidator.validateAppointmentDate(scheduledAt);
+      if (dateError != null) {
+        return AppointmentResult.failure(dateError);
+      }
+
+      final durationError = InputValidator.validateDuration(duration);
+      if (durationError != null) {
+        return AppointmentResult.failure(durationError);
+      }
+
+      final nameError = InputValidator.validateRequired(patientName, 'Patient name');
+      if (nameError != null) {
+        return AppointmentResult.failure(nameError);
+      }
+
+      if (patientPhone != null && patientPhone.isNotEmpty) {
+        final phoneError = InputValidator.validatePhone(patientPhone);
+        if (phoneError != null) {
+          return AppointmentResult.failure(phoneError);
+        }
+      }
+
+      final sanitizedName = SecurityValidator.sanitizeHtml(patientName.trim());
+      final sanitizedPhone = patientPhone?.trim();
+      final sanitizedNotes = notes?.trim();
+
       final data = {
         'doctor_id': doctorId,
         'scheduled_at': scheduledAt.toIso8601String(),
@@ -191,9 +275,9 @@ class AppointmentRepository {
         'status': 'upcoming',
         'booking_type': 'manual',
         'is_consultation': false,
-        'patient_name_snapshot': patientName,
-        'patient_phone_snapshot': patientPhone,
-        'notes': notes,
+        'patient_name_snapshot': sanitizedName,
+        'patient_phone_snapshot': sanitizedPhone,
+        'notes': sanitizedNotes,
       };
 
       final response = await _client
@@ -212,31 +296,73 @@ class AppointmentRepository {
     }
   }
 
-  Future<bool> cancelAppointment(String appointmentId) async {
+  Future<AppointmentResult> cancelAppointment(String appointmentId) async {
     try {
+      if (!SecurityValidator.isValidUuid(appointmentId)) {
+        return AppointmentResult.failure('Invalid appointment ID');
+      }
+
+      final appointment = await getAppointment(appointmentId);
+      if (appointment == null) {
+        return AppointmentResult.failure('Appointment not found');
+      }
+
+      if (appointment.status != AppointmentStatus.upcoming) {
+        return AppointmentResult.failure('Can only cancel upcoming appointments');
+      }
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return AppointmentResult.failure('User not authenticated');
+      }
+
+      if (!SecurityValidator.canModifyAppointment(userId, appointment.doctorId, appointment.patientId, 'upcoming')) {
+        return AppointmentResult.failure('You can only cancel your own appointments');
+      }
+
       await _client
           .from('appointments')
           .update({'status': 'cancelled'})
           .eq('id', appointmentId)
           .eq('status', 'upcoming');
-      return true;
+      
+      return AppointmentResult.success(appointment);
     } catch (e) {
-      return false;
+      return AppointmentResult.failure('Failed to cancel appointment');
     }
   }
 
-  Future<bool> updateAppointmentStatus(
+  Future<AppointmentResult> updateAppointmentStatus(
     String appointmentId,
     AppointmentStatus status,
   ) async {
     try {
+      if (!SecurityValidator.isValidUuid(appointmentId)) {
+        return AppointmentResult.failure('Invalid appointment ID');
+      }
+
+      final appointment = await getAppointment(appointmentId);
+      if (appointment == null) {
+        return AppointmentResult.failure('Appointment not found');
+      }
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return AppointmentResult.failure('User not authenticated');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, appointment.doctorId)) {
+        return AppointmentResult.failure('Only doctors can update appointment status');
+      }
+
       await _client
           .from('appointments')
           .update({'status': status.name})
           .eq('id', appointmentId);
-      return true;
+      
+      return AppointmentResult.success(appointment);
     } catch (e) {
-      return false;
+      return AppointmentResult.failure('Failed to update appointment');
     }
   }
 
@@ -246,6 +372,15 @@ class AppointmentRepository {
     required int durationMinutes,
   }) async {
     try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return [];
+      }
+
+      final durationError = InputValidator.validateDuration(durationMinutes);
+      if (durationError != null) {
+        return [];
+      }
+
       final doctorResponse = await _client
           .from('doctors')
           .select()
@@ -307,6 +442,10 @@ class AppointmentRepository {
     } catch (e) {
       return [];
     }
+  }
+
+  bool _isValidStatus(String status) {
+    return ['upcoming', 'completed', 'cancelled', 'absent'].contains(status);
   }
 
   String _getDayName(DateTime date) {

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/doctor.dart';
+import '../core/utils/security_validator.dart';
 
 class FavoriteRepository {
   final SupabaseClient _client;
@@ -32,6 +33,10 @@ class FavoriteRepository {
 
   Future<bool> isFavorite(String doctorId) async {
     try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return false;
+      }
+
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return false;
 
@@ -50,9 +55,18 @@ class FavoriteRepository {
 
   Future<FavoriteResult> addFavorite(String doctorId) async {
     try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return FavoriteResult.failure('Invalid doctor ID');
+      }
+
       final userId = _client.auth.currentUser?.id;
       if (userId == null) {
         return FavoriteResult.failure('User not authenticated');
+      }
+
+      final isAlreadyFavorite = await isFavorite(doctorId);
+      if (isAlreadyFavorite) {
+        return FavoriteResult.failure('Doctor is already in favorites');
       }
 
       await _client.from('favorites').insert({
@@ -66,10 +80,16 @@ class FavoriteRepository {
     }
   }
 
-  Future<bool> removeFavorite(String doctorId) async {
+  Future<FavoriteResult> removeFavorite(String doctorId) async {
     try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return FavoriteResult.failure('Invalid doctor ID');
+      }
+
       final userId = _client.auth.currentUser?.id;
-      if (userId == null) return false;
+      if (userId == null) {
+        return FavoriteResult.failure('User not authenticated');
+      }
 
       await _client
           .from('favorites')
@@ -77,20 +97,22 @@ class FavoriteRepository {
           .eq('patient_id', userId)
           .eq('doctor_id', doctorId);
 
-      return true;
+      return FavoriteResult.success();
     } catch (e) {
-      return false;
+      return FavoriteResult.failure('Failed to remove favorite');
     }
   }
 
-  Future<bool> toggleFavorite(String doctorId) async {
+  Future<FavoriteResult> toggleFavorite(String doctorId) async {
+    if (!SecurityValidator.isValidUuid(doctorId)) {
+      return FavoriteResult.failure('Invalid doctor ID');
+    }
+
     final isFav = await isFavorite(doctorId);
     if (isFav) {
-      final result = await removeFavorite(doctorId);
-      return !result;
+      return await removeFavorite(doctorId);
     } else {
-      final result = await addFavorite(doctorId);
-      return result.isSuccess;
+      return await addFavorite(doctorId);
     }
   }
 

@@ -118,13 +118,13 @@ class BookingNotifier extends StateNotifier<BookingState> {
   Future<bool> cancelAppointment(String appointmentId) async {
     state = const BookingState(isLoading: true);
 
-    final success = await _repository.cancelAppointment(appointmentId);
+    final result = await _repository.cancelAppointment(appointmentId);
 
-    if (success) {
-      state = const BookingState();
+    if (result.isSuccess) {
+      state = BookingState(appointment: result.appointment);
       return true;
     } else {
-      state = const BookingState(error: 'Failed to cancel appointment');
+      state = BookingState(error: result.error);
       return false;
     }
   }
@@ -132,13 +132,13 @@ class BookingNotifier extends StateNotifier<BookingState> {
   Future<bool> updateStatus(String appointmentId, AppointmentStatus status) async {
     state = const BookingState(isLoading: true);
 
-    final success = await _repository.updateAppointmentStatus(appointmentId, status);
+    final result = await _repository.updateAppointmentStatus(appointmentId, status);
 
-    if (success) {
-      state = const BookingState();
+    if (result.isSuccess) {
+      state = BookingState(appointment: result.appointment);
       return true;
     } else {
-      state = const BookingState(error: 'Failed to update appointment');
+      state = BookingState(error: result.error);
       return false;
     }
   }

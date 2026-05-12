@@ -23,7 +23,7 @@ class FavoriteNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final result = await _repository.toggleFavorite(doctorId);
       state = const AsyncValue.data(null);
-      return result;
+      return result.isSuccess;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       return false;
@@ -47,7 +47,7 @@ class FavoriteNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final result = await _repository.removeFavorite(doctorId);
       state = const AsyncValue.data(null);
-      return result;
+      return result.isSuccess;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       return false;

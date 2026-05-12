@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/doctor.dart';
+import '../core/utils/input_validator.dart';
+import '../core/utils/security_validator.dart';
 
 class DoctorRepository {
   final SupabaseClient _client;
@@ -20,20 +22,23 @@ class DoctorRepository {
           .gt('subscription_end', DateTime.now().toIso8601String());
 
       if (specialty != null && specialty.isNotEmpty) {
-        query = query.ilike('specialty', '%$specialty%');
+        final sanitizedSpecialty = SecurityValidator.sanitizeHtml(specialty.trim());
+        query = query.ilike('specialty', '%$sanitizedSpecialty%');
       }
 
       if (city != null && city.isNotEmpty) {
-        query = query.ilike('city', '%$city%');
+        final sanitizedCity = SecurityValidator.sanitizeHtml(city.trim());
+        query = query.ilike('city', '%$sanitizedCity%');
       }
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        query = query.or('specialty.ilike.%$searchQuery%,address.ilike.%$searchQuery%,bio.ilike.%$searchQuery%');
+        final sanitizedQuery = SecurityValidator.sanitizeHtml(searchQuery.trim());
+        query = query.or('specialty.ilike.%$sanitizedQuery%,address.ilike.%$sanitizedQuery%,bio.ilike.%$sanitizedQuery%');
       }
 
       final response = await query.order('created_at', ascending: false);
 
-      if (limit != null) {
+      if (limit != null && limit > 0) {
         return (response as List)
             .take(limit)
             .map((json) => Doctor.fromDatabase(json))
@@ -50,6 +55,10 @@ class DoctorRepository {
 
   Future<Doctor?> getDoctor(String doctorId) async {
     try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return null;
+      }
+
       final response = await _client
           .from('doctors')
           .select()
@@ -65,6 +74,10 @@ class DoctorRepository {
 
   Future<Doctor?> getMyDoctorProfile(String userId) async {
     try {
+      if (!SecurityValidator.isValidUuid(userId)) {
+        return null;
+      }
+
       final response = await _client
           .from('doctors')
           .select()
@@ -94,13 +107,42 @@ class DoctorRepository {
     List<String> workingDays = const ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
   }) async {
     try {
+      if (!SecurityValidator.isValidUuid(userId)) {
+        return DoctorResult.failure('Invalid user ID');
+      }
+
+      final specialtyError = InputValidator.validateRequired(specialty, 'Specialty');
+      if (specialtyError != null) {
+        return DoctorResult.failure(specialtyError);
+      }
+
+      final addressError = InputValidator.validateRequired(address, 'Address');
+      if (addressError != null) {
+        return DoctorResult.failure(addressError);
+      }
+
+      final hoursError = InputValidator.validateWorkingHours(openingAt, closingAt);
+      if (hoursError != null) {
+        return DoctorResult.failure(hoursError);
+      }
+
+      final durationError = InputValidator.validateDuration(appointmentDuration);
+      if (durationError != null) {
+        return DoctorResult.failure(durationError);
+      }
+
+      final bioError = InputValidator.validateBio(bio);
+      if (bioError != null) {
+        return DoctorResult.failure(bioError);
+      }
+
       final data = {
         'id': userId,
-        'specialty': specialty,
-        'address': address,
-        'city': city,
-        'maps_link': mapsLink,
-        'bio': bio,
+        'specialty': SecurityValidator.sanitizeHtml(specialty.trim()),
+        'address': SecurityValidator.sanitizeHtml(address.trim()),
+        'city': city?.trim(),
+        'maps_link': mapsLink?.trim(),
+        'bio': bio?.trim(),
         'appointment_duration': appointmentDuration,
         'consultation_duration': consultationDuration,
         'opening_at': openingAt,
@@ -129,6 +171,7 @@ class DoctorRepository {
 
   Future<DoctorResult> updateDoctorProfile({
     required String doctorId,
+    required String userId,
     String? specialty,
     String? address,
     String? city,
@@ -147,23 +190,92 @@ class DoctorRepository {
     bool? manualPause,
   }) async {
     try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return DoctorResult.failure('Invalid doctor ID');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, doctorId)) {
+        return DoctorResult.failure('You can only update your own profile');
+      }
+
       final updates = <String, dynamic>{};
-      if (specialty != null) updates['specialty'] = specialty;
-      if (address != null) updates['address'] = address;
-      if (city != null) updates['city'] = city;
-      if (mapsLink != null) updates['maps_link'] = mapsLink;
-      if (latitude != null) updates['latitude'] = latitude;
-      if (longitude != null) updates['longitude'] = longitude;
-      if (bio != null) updates['bio'] = bio;
-      if (photoUrl != null) updates['photo_url'] = photoUrl;
+      
+      if (specialty != null) {
+        final specialtyError = InputValidator.validateRequired(specialty, 'Specialty');
+        if (specialtyError != null) {
+          return DoctorResult.failure(specialtyError);
+        }
+        updates['specialty'] = SecurityValidator.sanitizeHtml(specialty.trim());
+      }
+      
+      if (address != null) {
+        final addressError = InputValidator.validateRequired(address, 'Address');
+        if (addressError != null) {
+          return DoctorResult.failure(addressError);
+        }
+        updates['address'] = SecurityValidator.sanitizeHtml(address.trim());
+      }
+      
+      if (city != null) {
+        final cityError = InputValidator.validateCity(city);
+        if (cityError != null) {
+          return DoctorResult.failure(cityError);
+        }
+        updates['city'] = city.trim();
+      }
+      
+      if (mapsLink != null) {
+        updates['maps_link'] = mapsLink.trim();
+      }
+      
+      if (latitude != null) {
+        updates['latitude'] = latitude;
+      }
+      
+      if (longitude != null) {
+        updates['longitude'] = longitude;
+      }
+      
+      if (bio != null) {
+        final bioError = InputValidator.validateBio(bio);
+        if (bioError != null) {
+          return DoctorResult.failure(bioError);
+        }
+        updates['bio'] = bio.trim();
+      }
+      
+      if (photoUrl != null) {
+        updates['photo_url'] = photoUrl.trim();
+      }
+      
       if (appointmentDuration != null) {
+        final durationError = InputValidator.validateDuration(appointmentDuration);
+        if (durationError != null) {
+          return DoctorResult.failure(durationError);
+        }
         updates['appointment_duration'] = appointmentDuration;
       }
+      
       if (consultationDuration != null) {
+        final durationError = InputValidator.validateDuration(consultationDuration);
+        if (durationError != null) {
+          return DoctorResult.failure(durationError);
+        }
         updates['consultation_duration'] = consultationDuration;
       }
-      if (openingAt != null) updates['opening_at'] = openingAt;
-      if (closingAt != null) updates['closing_at'] = closingAt;
+      
+      if (openingAt != null || closingAt != null) {
+        final hoursError = InputValidator.validateWorkingHours(
+          openingAt ?? 9,
+          closingAt ?? 17,
+        );
+        if (hoursError != null) {
+          return DoctorResult.failure(hoursError);
+        }
+        if (openingAt != null) updates['opening_at'] = openingAt;
+        if (closingAt != null) updates['closing_at'] = closingAt;
+      }
+      
       if (breakStart != null) updates['break_start'] = breakStart;
       if (breakEnd != null) updates['break_end'] = breakEnd;
       if (workingDays != null) updates['working_days'] = workingDays;
@@ -190,15 +302,29 @@ class DoctorRepository {
     }
   }
 
-  Future<bool> pauseProfile(String doctorId, bool pause) async {
+  Future<DoctorResult> pauseProfile(String doctorId, String userId, bool pause) async {
     try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return DoctorResult.failure('Invalid doctor ID');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, doctorId)) {
+        return DoctorResult.failure('You can only pause your own profile');
+      }
+
       await _client
           .from('doctors')
           .update({'manual_pause': pause})
           .eq('id', doctorId);
-      return true;
+      
+      return DoctorResult.success(Doctor(
+        id: doctorId,
+        specialty: '',
+        address: '',
+        manualPause: pause,
+      ));
     } catch (e) {
-      return false;
+      return DoctorResult.failure('Failed to pause profile');
     }
   }
 

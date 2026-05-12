@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/utils/input_validator.dart';
+import '../core/utils/security_validator.dart';
 
 class AuthRepository {
   final SupabaseClient _client;
@@ -17,9 +19,19 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
+    final emailError = InputValidator.validateEmail(email);
+    if (emailError != null) {
+      return AuthResult.failure(emailError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
     try {
       final response = await _client.auth.signInWithPassword(
-        email: email,
+        email: email.trim().toLowerCase(),
         password: password,
       );
 
@@ -41,12 +53,33 @@ class AuthRepository {
     required String fullName,
     required String role,
   }) async {
+    final emailError = InputValidator.validateEmail(email);
+    if (emailError != null) {
+      return AuthResult.failure(emailError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    final nameError = InputValidator.validateFullName(fullName);
+    if (nameError != null) {
+      return AuthResult.failure(nameError);
+    }
+
+    if (role != 'patient' && role != 'doctor') {
+      return AuthResult.failure('Invalid role. Must be patient or doctor.');
+    }
+
     try {
+      final sanitizedName = SecurityValidator.sanitizeHtml(fullName.trim());
+
       final response = await _client.auth.signUp(
-        email: email,
+        email: email.trim().toLowerCase(),
         password: password,
         data: {
-          'full_name': fullName,
+          'full_name': sanitizedName,
           'role': role,
         },
       );
@@ -67,8 +100,20 @@ class AuthRepository {
     await _client.auth.signOut();
   }
 
-  Future<void> resetPassword(String email) async {
-    await _client.auth.resetPasswordForEmail(email);
+  Future<AuthResult> resetPassword(String email) async {
+    final emailError = InputValidator.validateEmail(email);
+    if (emailError != null) {
+      return AuthResult.failure(emailError);
+    }
+
+    try {
+      await _client.auth.resetPasswordForEmail(email.trim().toLowerCase());
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Connection error. Please try again.');
+    }
   }
 
   String _mapAuthError(String message) {
@@ -97,7 +142,7 @@ class AuthResult {
     this.error,
   });
 
-  factory AuthResult.success(User user) {
+  factory AuthResult.success(User? user) {
     return AuthResult._(isSuccess: true, user: user);
   }
 
