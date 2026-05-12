@@ -14,6 +14,7 @@ class RouteNames {
   static const String patientProfile = '/patient/profile';
 
   static const String doctorDashboard = '/doctor/dashboard';
+  static const String doctorSetup = '/doctor/setup';
   static const String doctorSchedule = '/doctor/schedule';
   static const String doctorAppointments = '/doctor/appointments';
   static const String doctorProfile = '/doctor/profile';

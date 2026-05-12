@@ -3,6 +3,7 @@ class AppAuthState {
   final bool isDoctor;
   final bool isLoading;
   final bool isInitialized;
+  final bool setupCompleted;
   final String? errorMessage;
   final String? userId;
   final String? email;
@@ -13,6 +14,7 @@ class AppAuthState {
     this.isDoctor = false,
     this.isLoading = false,
     this.isInitialized = false,
+    this.setupCompleted = false,
     this.errorMessage,
     this.userId,
     this.email,
@@ -24,6 +26,7 @@ class AppAuthState {
     bool? isDoctor,
     bool? isLoading,
     bool? isInitialized,
+    bool? setupCompleted,
     String? errorMessage,
     String? userId,
     String? email,
@@ -34,6 +37,7 @@ class AppAuthState {
       isDoctor: isDoctor ?? this.isDoctor,
       isLoading: isLoading ?? this.isLoading,
       isInitialized: isInitialized ?? this.isInitialized,
+      setupCompleted: setupCompleted ?? this.setupCompleted,
       errorMessage: errorMessage,
       userId: userId ?? this.userId,
       email: email ?? this.email,

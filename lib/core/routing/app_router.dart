@@ -15,6 +15,7 @@ import '../../features/patient/presentation/pages/patient_appointments_page.dart
 import '../../features/patient/presentation/pages/favorites_page.dart';
 import '../../features/patient/presentation/pages/patient_profile_page.dart';
 import '../../features/doctor/presentation/pages/doctor_dashboard_page.dart';
+import '../../features/doctor/presentation/pages/doctor_setup_page.dart';
 import '../../features/doctor/presentation/pages/doctor_schedule_page.dart';
 import '../../features/doctor/presentation/pages/doctor_appointments_page.dart';
 import '../../features/doctor/presentation/pages/doctor_profile_page.dart';
@@ -67,6 +68,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // 2. If logged in but at an auth-only route (like Login or Splash)
       if (isLoggedIn && isAuthRoute) {
+        if (authState.isDoctor && !authState.setupCompleted) {
+          return RouteNames.doctorSetup;
+        }
         return authState.isDoctor ? RouteNames.doctorDashboard : RouteNames.patientHome;
       }
 
@@ -80,6 +84,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (isDoctorRoute && !authState.isDoctor) {
         return RouteNames.patientHome;
+      }
+
+      // 4. Prevent setup page if already completed
+      if (state.matchedLocation == RouteNames.doctorSetup && authState.setupCompleted) {
+        return RouteNames.doctorDashboard;
       }
 
       // Allow navigation if none of the above rules match
@@ -141,6 +150,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.doctorDashboard,
         builder: (context, state) => const DoctorDashboardPage(),
+      ),
+      GoRoute(
+        path: RouteNames.doctorSetup,
+        builder: (context, state) => const DoctorSetupPage(),
       ),
       GoRoute(
         path: RouteNames.doctorSchedule,
