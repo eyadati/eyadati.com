@@ -1,0 +1,377 @@
+# Eyadati — Current SaaS Overview
+
+## Product
+
+A Flutter PWA SaaS for doctors to manage appointments.
+
+Two roles:
+
+* patients
+* doctors
+
+Patients:
+
+* browse doctors
+* view profile/details
+* book appointments or consultations
+* favorite doctors
+* manage/cancel appointments
+
+Doctors:
+
+* manage online bookings
+* create manual appointments for walk-in patients
+* update appointment statuses
+* pause profile during vacations
+* pay subscription to remain visible
+
+Backend:
+
+* Supabase
+
+  * Auth
+  * Postgres
+  * RLS
+  * Realtime/Notifications later
+
+---
+
+# Core Features
+
+## Patient Features
+
+### Authentication
+
+* email/password
+* phone auth later if needed
+
+### Browse Doctors
+
+Visible doctors only:
+
+```sql
+subscription_end > now()
+AND manual_pause = false
+```
+
+Doctor cards:
+
+* name
+* specialty
+* address
+* profile image
+* working hours
+* consultation duration
+
+### Booking
+
+Patient:
+
+1. selects doctor
+2. selects slot
+3. books appointment
+
+Appointment types:
+
+* online booking
+* consultation
+
+### Favorites
+
+Patients can:
+
+* add/remove favorites
+* quickly access doctors
+
+### Appointment Management
+
+Appointment card:
+
+* doctor name
+* date/time
+* address
+* GPS/maps button
+* cancel button
+* status badge
+
+Statuses:
+
+* upcoming
+* completed
+* cancelled
+* absent
+
+---
+
+# Doctor Features
+
+## Authentication
+
+Email/password only.
+
+---
+
+## Dashboard
+
+Doctor can:
+
+* view appointments
+* filter by date/status
+* mark:
+
+  * completed
+  * absent
+  * cancelled
+
+---
+
+## Manual Appointments
+
+Doctor can create walk-in appointments manually.
+
+These use the same table as online appointments:
+
+```text
+booking_type:
+- online
+- manual
+```
+
+---
+
+## Vacation Mode
+
+```sql
+manual_pause boolean
+```
+
+When true:
+
+* doctor hidden from patient browsing
+* dashboard still accessible
+* no billing interruption
+
+---
+
+## Subscription System
+
+Doctor pays:
+
+```text
+6000 DA / month
+```
+
+Doctor visibility condition:
+
+```sql
+subscription_end > now()
+```
+
+If expired:
+
+* hidden from patients
+* dashboard can redirect to billing page
+
+No extra pause boolean needed.
+
+---
+
+# Database Structure
+
+## profiles
+
+Authenticated users.
+
+```text
+id
+role
+full_name
+email
+phone
+city
+avatar_url
+created_at
+```
+
+Roles:
+
+* patient
+* doctor
+
+---
+
+## doctors
+
+Doctor public/business data.
+
+```text
+id
+specialty
+address
+city
+maps_link
+latitude
+longitude
+bio
+photo_url
+
+appointment_duration
+consultation_duration
+
+opening_at
+closing_at
+break_start
+break_end
+
+working_days
+
+manual_pause
+subscription_end
+
+created_at
+```
+
+---
+
+## appointments
+
+Main system table.
+
+```text
+id
+doctor_id
+patient_id
+
+scheduled_at
+duration
+
+status
+booking_type
+
+patient_name_snapshot
+patient_phone_snapshot
+
+notes
+
+created_at
+updated_at
+```
+
+Status:
+
+* upcoming
+* completed
+* cancelled
+* absent
+
+Booking type:
+
+* online
+* manual
+
+---
+
+## favorites
+
+```text
+patient_id
+doctor_id
+created_at
+```
+
+Composite primary key:
+
+```text
+(patient_id, doctor_id)
+```
+
+---
+
+# Scheduling Logic
+
+Slots are NOT stored in database.
+
+Slots are generated dynamically from:
+
+* working days
+* opening/closing hours
+* breaks
+* duration
+* existing appointments
+
+Flow:
+
+1. generate possible slots
+2. remove occupied slots
+3. remaining = available slots
+
+Much cleaner and scalable.
+
+---
+
+# Security (Important)
+
+RLS enabled on all tables.
+
+Patients:
+
+* only see/manage their own appointments/favorites
+
+Doctors:
+
+* only manage their own profile/appointments
+
+Public:
+
+* only browse active doctors
+
+---
+
+# Recommended Flutter Structure
+
+```text
+lib/
+  core/
+  features/
+    auth/
+    doctors/
+    appointments/
+    favorites/
+    profile/
+
+  services/
+  repositories/
+  models/
+```
+
+Avoid:
+
+* direct Supabase calls inside widgets
+* giant controllers/providers
+
+---
+
+# MVP Scope
+
+Enough for launch:
+
+* auth
+* doctor browsing
+* booking
+* appointment management
+* favorites
+* subscription gating
+* vacation pause
+
+Do NOT add yet:
+
+* receptionist accounts
+* chat
+* AI
+* analytics
+* multi-clinic support
+* video consultation
+* payments inside app
+* complex availability rules
+
+Those are post-MVP features.

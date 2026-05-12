@@ -1,0 +1,54 @@
+{
+    "name": "Eyadati - حجز المواعيد",
+    "short_name": "Eyadati",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#FFFFFF",
+    "theme_color": "#0D6EFD",
+    "description": "منصة حجز مواعيد الأطباء للمرضى والأطباء",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "lang": "ar",
+    "categories": ["medical", "health", "productivity"],
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "screenshots": [],
+    "shortcuts": [
+        {
+            "name": "Browse Doctors",
+            "short_name": "Doctors",
+            "description": "Find and book appointments with doctors",
+            "url": "/patient/doctors",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        },
+        {
+            "name": "My Appointments",
+            "short_name": "Appointments",
+            "description": "View your appointments",
+            "url": "/patient/appointments",
+            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+        }
+    ]
+}
