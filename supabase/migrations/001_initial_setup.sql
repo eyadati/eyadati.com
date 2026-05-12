@@ -2,6 +2,7 @@
 -- This migration drops existing tables and creates fresh ones
 
 -- Drop existing tables and functions if they exist (for clean setup)
+drop table if exists public.doctor_schedule cascade;
 drop table if exists public.favorites cascade;
 drop table if exists public.appointments cascade;
 drop table if exists public.doctors cascade;
@@ -9,6 +10,10 @@ drop table if exists public.profiles cascade;
 
 drop function if exists public.handle_new_user cascade;
 drop function if exists public.update_updated_at cascade;
+drop function if exists public.check_doctor_availability cascade;
+drop function if exists public.check_slot_availability cascade;
+drop function if exists public.book_appointment cascade;
+
 drop function if exists public.check_doctor_availability cascade;
 drop function if exists public.check_slot_availability cascade;
 drop function if exists public.book_appointment cascade;
@@ -113,6 +118,66 @@ create policy "Doctors can update own doctor profile"
 create policy "Doctors can insert own doctor profile"
   on public.doctors for insert
   with check (auth.uid() = id);
+
+-- ============================================
+-- DOCTOR SCHEDULE TABLE
+-- Stores specific availability slots for doctors
+-- ============================================
+create table public.doctor_schedule (
+  id uuid primary key default gen_random_uuid(),
+  
+  doctor_id uuid not null references public.doctors(id) on delete cascade,
+  
+  day_of_week integer not null check (day_of_week between 0 and 6),
+  -- 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  
+  start_time time not null,
+  end_time time not null,
+  
+  is_active boolean default true,
+  
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  
+  constraint valid_time_range check (end_time > start_time)
+);
+
+-- Indexes for schedule queries
+create index idx_schedule_doctor on public.doctor_schedule(doctor_id);
+create index idx_schedule_day on public.doctor_schedule(doctor_id, day_of_week);
+create index idx_schedule_active on public.doctor_schedule(is_active) where is_active = true;
+
+-- Enable RLS
+alter table public.doctor_schedule enable row level security;
+
+-- RLS Policies for doctor_schedule
+create policy "Public can view active doctor schedules"
+  on public.doctor_schedule for select
+  using (
+    exists (
+      select 1 from public.doctors d
+      where d.id = doctor_schedule.doctor_id
+        and d.subscription_end > now()
+        and d.manual_pause = false
+    )
+    and is_active = true
+  );
+
+create policy "Doctors can view own schedules"
+  on public.doctor_schedule for select
+  using (auth.uid() = doctor_id);
+
+create policy "Doctors can insert own schedules"
+  on public.doctor_schedule for insert
+  with check (auth.uid() = doctor_id);
+
+create policy "Doctors can update own schedules"
+  on public.doctor_schedule for update
+  using (auth.uid() = doctor_id);
+
+create policy "Doctors can delete own schedules"
+  on public.doctor_schedule for delete
+  using (auth.uid() = doctor_id);
 
 -- ============================================
 -- APPOINTMENTS TABLE
@@ -262,6 +327,12 @@ create trigger appointments_updated_at
   before update on public.appointments
   for each row execute procedure public.update_updated_at();
 
+-- Trigger for doctor_schedule updated_at
+drop trigger if exists doctor_schedule_updated_at on public.doctor_schedule;
+create trigger doctor_schedule_updated_at
+  before update on public.doctor_schedule
+  for each row execute procedure public.update_updated_at();
+
 -- Function: Check doctor availability
 create or replace function public.check_doctor_availability(doctor_uuid uuid)
 returns boolean as $$
@@ -290,31 +361,53 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- Function: Check slot availability
-create or replace function public.check_slot_availability(
+-- Function: Check slot availability (based on schedule)
+create or replace function public.check_schedule_slot_availability(
   doctor_uuid uuid,
   slot_time timestamptz,
   slot_duration integer
 )
 returns boolean as $$
 declare
-  conflict_count integer;
+  v_day_of_week integer;
+  v_slot_time time;
+  v_has_schedule boolean;
+  v_conflict_count integer;
 begin
+  -- Get the day of week (0=Sunday, 6=Saturday)
+  v_day_of_week := extract(dow from slot_time at time zone 'UTC')::integer;
+  v_slot_time := (slot_time at time zone 'UTC')::time;
+  
+  -- Check if doctor has an active schedule slot for this day and time
+  select exists (
+    select 1 from public.doctor_schedule ds
+    where ds.doctor_id = doctor_uuid
+      and ds.day_of_week = v_day_of_week
+      and ds.is_active = true
+      and ds.start_time <= v_slot_time
+      and ds.end_time >= v_slot_time + (slot_duration || ' minutes')::interval
+  ) into v_has_schedule;
+  
+  if not v_has_schedule then
+    return false;
+  end if;
+  
+  -- Check for appointment conflicts
   select count(*) into conflict_count
-  from public.appointments
-  where doctor_id = doctor_uuid
-    and status = 'upcoming'
+  from public.appointments a
+  where a.doctor_id = doctor_uuid
+    and a.status = 'upcoming'
     and (
-      (scheduled_at, scheduled_at + (duration || ' minutes')::interval)
+      (a.scheduled_at, a.scheduled_at + (a.duration || ' minutes')::interval)
       overlaps
       (slot_time, slot_time + (slot_duration || ' minutes')::interval)
     );
-
+  
   return conflict_count = 0;
 end;
 $$ language plpgsql security definer;
 
--- Function: Book appointment with validation
+-- Function: Book appointment with validation (updated)
 create or replace function public.book_appointment(
   p_doctor_id uuid,
   p_patient_id uuid,
@@ -336,9 +429,9 @@ begin
     raise exception 'Doctor is not available for booking';
   end if;
 
-  select public.check_slot_availability(p_doctor_id, p_scheduled_at, p_duration) into v_available;
+  select public.check_schedule_slot_availability(p_doctor_id, p_scheduled_at, p_duration) into v_available;
   if not v_available then
-    raise exception 'This time slot is not available';
+    raise exception 'This time slot is not available or doctor has no schedule for this time';
   end if;
 
   insert into public.appointments (

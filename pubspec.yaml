@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
   cupertino_icons: ^1.0.8
 
   # Supabase
@@ -16,20 +19,28 @@ dependencies:
 
   # State Management
   flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
 
   # Routing
   go_router: ^14.8.1
+
+  # UI
+  google_fonts: ^6.2.1
+  lucide_flutter: ^1.14.0
+  flutter_slidable: ^3.1.2
+  cached_network_image: ^3.4.1
+  skeletonizer: ^0.1.0
+  flutter_animate: ^4.5.2
 
   # Code Generation
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
 
-  # Utilities
+  # Utils
   intl: ^0.20.2
-  flutter_slidable: ^3.1.2
-  cached_network_image: ^3.4.1
-
-  # Env file support
+  logger: ^2.5.0
+  shared_preferences: ^2.3.5
+  connectivity_plus: ^6.1.4
   flutter_dotenv: ^5.2.1
 
 dev_dependencies:
@@ -39,9 +50,11 @@ dev_dependencies:
   build_runner: ^2.4.15
   freezed: ^2.5.8
   json_serializable: ^6.9.4
+  riverpod_generator: ^2.6.3
 
 flutter:
   uses-material-design: true
 
   assets:
+    - assets/
     - .env

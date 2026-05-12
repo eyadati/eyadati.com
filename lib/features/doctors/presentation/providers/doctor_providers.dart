@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../models/doctor.dart';
-import '../../../../services/providers.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:eyadati/models/doctor.dart';
+import 'package:eyadati/services/providers.dart';
 
 final doctorsProvider = FutureProvider.family<List<Doctor>, DoctorFilter>((ref, filter) async {
   final repository = ref.watch(doctorRepositoryProvider);
@@ -24,9 +23,13 @@ final doctorProvider = FutureProvider.family<Doctor?, String>((ref, doctorId) as
 
 final myDoctorProfileProvider = FutureProvider<Doctor?>((ref) async {
   final repository = ref.watch(doctorRepositoryProvider);
-  final profile = ref.watch(currentProfileProvider);
-  if (profile == null || profile.role != 'doctor') return null;
-  return repository.getMyDoctorProfile(profile.id);
+  final profileAsync = ref.watch(currentProfileDataProvider);
+  
+  final profile = profileAsync.valueOrNull;
+  if (profile == null) return null;
+  if (profile['role'] != 'doctor') return null;
+  
+  return repository.getMyDoctorProfile(profile['id'] as String);
 });
 
 final specialtiesProvider = FutureProvider<List<String>>((ref) async {
@@ -38,3 +41,11 @@ final citiesProvider = FutureProvider<List<String>>((ref) async {
   final repository = ref.watch(doctorRepositoryProvider);
   return repository.getCities();
 });
+
+class DoctorFilter {
+  final String? specialty;
+  final String? city;
+  final String? searchQuery;
+
+  DoctorFilter({this.specialty, this.city, this.searchQuery});
+}

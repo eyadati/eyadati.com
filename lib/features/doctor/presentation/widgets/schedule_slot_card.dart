@@ -1,0 +1,99 @@
+import 'package:flutter/material.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+
+class ScheduleSlotCard extends StatelessWidget {
+  final ScheduleSlot slot;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const ScheduleSlotCard({
+    super.key,
+    required this.slot,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: slot.isActive ? AppColors.secondary.withValues(alpha: 0.3) : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 50,
+            decoration: BoxDecoration(
+              color: slot.isActive ? AppColors.secondary : AppColors.textHint,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${slot.startTime.substring(0, 5)} - ${slot.endTime.substring(0, 5)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: slot.isActive ? AppColors.textPrimary : AppColors.textHint,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: slot.isActive 
+                            ? AppColors.secondary.withValues(alpha: 0.1)
+                            : AppColors.textHint.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        slot.isActive ? 'Actif' : 'Inactif',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: slot.isActive ? AppColors.secondary : AppColors.textHint,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      ScheduleSlot.dayNameFrench(slot.dayOfWeek),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined),
+            color: AppColors.textSecondary,
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline),
+            color: AppColors.error,
+          ),
+        ],
+      ),
+    );
+  }
+}
