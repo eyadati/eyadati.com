@@ -2,20 +2,27 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/doctor.dart';
 import '../core/utils/input_validator.dart';
 import '../core/utils/security_validator.dart';
+import '../core/utils/pagination.dart';
+import '../core/utils/cache.dart';
 
 class DoctorRepository {
   final SupabaseClient _client;
+  final MemoryCache _cache = MemoryCache();
 
-  DoctorRepository(this._client);
+  DoctorRepository(this._client) {
+    _cache.startCleanupTimer();
+  }
 
   Future<List<Doctor>> getActiveDoctors({
     String? specialty,
     String? city,
     String? searchQuery,
-    int? limit,
+    PaginationParams? pagination,
   }) async {
     try {
-      var query = _client
+      final effectivePagination = pagination ?? const PaginationParams();
+      
+      PostgrestFilterBuilder query = _client
           .from('doctors')
           .select()
           .eq('manual_pause', false)
@@ -36,14 +43,16 @@ class DoctorRepository {
         query = query.or('specialty.ilike.%$sanitizedQuery%,address.ilike.%$sanitizedQuery%,bio.ilike.%$sanitizedQuery%');
       }
 
-      final response = await query.order('created_at', ascending: false);
-
-      if (limit != null && limit > 0) {
+      if (effectivePagination.hasPagination) {
+        final response = await query
+            .order('created_at', ascending: false)
+            .range(effectivePagination.effectiveOffset, effectivePagination.effectiveOffset + effectivePagination.effectiveLimit - 1);
         return (response as List)
-            .take(limit)
             .map((json) => Doctor.fromDatabase(json))
             .toList();
       }
+
+      final response = await query.order('created_at', ascending: false);
 
       return (response as List)
           .map((json) => Doctor.fromDatabase(json))
@@ -53,10 +62,37 @@ class DoctorRepository {
     }
   }
 
+  Future<PaginatedResult<Doctor>> getActiveDoctorsPaginated({
+    String? specialty,
+    String? city,
+    String? searchQuery,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final doctors = await getActiveDoctors(
+      specialty: specialty,
+      city: city,
+      searchQuery: searchQuery,
+      pagination: PaginationParams(page: page, pageSize: pageSize),
+    );
+
+    return PaginatedResult.fromItems(
+      items: doctors,
+      totalCount: doctors.length,
+      page: page,
+      pageSize: pageSize,
+    );
+  }
+
   Future<Doctor?> getDoctor(String doctorId) async {
     try {
       if (!SecurityValidator.isValidUuid(doctorId)) {
         return null;
+      }
+
+      final cacheKey = CacheKeys.doctor(doctorId);
+      if (_cache.contains(cacheKey)) {
+        return _cache.get<Doctor>(cacheKey);
       }
 
       final response = await _client
@@ -66,7 +102,11 @@ class DoctorRepository {
           .maybeSingle();
 
       if (response == null) return null;
-      return Doctor.fromDatabase(response);
+      
+      final doctor = Doctor.fromDatabase(response);
+      _cache.put(cacheKey, doctor, ttl: const Duration(minutes: 5));
+      
+      return doctor;
     } catch (e) {
       return null;
     }
@@ -162,6 +202,8 @@ class DoctorRepository {
       if (response == null) {
         return DoctorResult.failure('Failed to create doctor profile');
       }
+
+      _cache.removeByPrefix(CacheKeys.doctors);
 
       return DoctorResult.success(Doctor.fromDatabase(response));
     } catch (e) {
@@ -296,6 +338,9 @@ class DoctorRepository {
         return DoctorResult.failure('Failed to update doctor profile');
       }
 
+      _cache.remove(CacheKeys.doctor(doctorId));
+      _cache.removeByPrefix(CacheKeys.doctors);
+
       return DoctorResult.success(Doctor.fromDatabase(response));
     } catch (e) {
       return DoctorResult.failure('Failed to update doctor profile');
@@ -317,6 +362,9 @@ class DoctorRepository {
           .update({'manual_pause': pause})
           .eq('id', doctorId);
       
+      _cache.remove(CacheKeys.doctor(doctorId));
+      _cache.removeByPrefix(CacheKeys.doctors);
+      
       return DoctorResult.success(Doctor(
         id: doctorId,
         specialty: '',
@@ -330,6 +378,10 @@ class DoctorRepository {
 
   Future<List<String>> getSpecialties() async {
     try {
+      if (_cache.contains(CacheKeys.specialties)) {
+        return _cache.get<List<String>>(CacheKeys.specialties) ?? [];
+      }
+
       final response = await _client
           .from('doctors')
           .select('specialty')
@@ -341,6 +393,9 @@ class DoctorRepository {
           .toSet()
           .toList();
       specialties.sort();
+
+      _cache.put(CacheKeys.specialties, specialties, ttl: const Duration(minutes: 15));
+
       return specialties;
     } catch (e) {
       return [];
@@ -349,6 +404,10 @@ class DoctorRepository {
 
   Future<List<String>> getCities() async {
     try {
+      if (_cache.contains(CacheKeys.cities)) {
+        return _cache.get<List<String>>(CacheKeys.cities) ?? [];
+      }
+
       final response = await _client
           .from('doctors')
           .select('city')
@@ -362,10 +421,17 @@ class DoctorRepository {
           .toSet()
           .toList();
       cities.sort();
+
+      _cache.put(CacheKeys.cities, cities, ttl: const Duration(minutes: 15));
+
       return cities;
     } catch (e) {
       return [];
     }
+  }
+
+  void clearCache() {
+    _cache.clear();
   }
 }
 
