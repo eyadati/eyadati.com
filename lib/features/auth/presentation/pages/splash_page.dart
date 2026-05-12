@@ -17,22 +17,35 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   void initState() {
     super.initState();
+    print('[SplashPage] initState called');
     _checkAuth();
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2));
+    print('[SplashPage] _checkAuth started');
+    await Future.delayed(const Duration(seconds: 1));
+    print('[SplashPage] delay completed');
+    if (!mounted) {
+      print('[SplashPage] not mounted, returning');
+      return;
+    }
+    
     await ref.read(authProvider.notifier).checkAuthStatus();
-    if (!mounted) return;
+    print('[SplashPage] checkAuthStatus completed');
+    
+    if (!mounted) {
+      print('[SplashPage] not mounted after check, returning');
+      return;
+    }
     
     final authState = ref.read(authProvider);
+    print('[SplashPage] authState - isInitialized: ${authState.isInitialized}, isAuthenticated: ${authState.isAuthenticated}, isDoctor: ${authState.isDoctor}');
+    
     if (authState.isAuthenticated) {
-      if (authState.isDoctor) {
-        context.go(RouteNames.doctorDashboard);
-      } else {
-        context.go(RouteNames.patientHome);
-      }
+      print('[SplashPage] navigating to home');
+      context.go(authState.isDoctor ? RouteNames.doctorDashboard : RouteNames.patientHome);
     } else {
+      print('[SplashPage] navigating to login');
       context.go(RouteNames.login);
     }
   }

@@ -27,6 +27,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
+          isInitialized: true,
           userId: user.id,
           email: email,
           role: role,
@@ -36,6 +37,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       }
       state = state.copyWith(
         isLoading: false,
+        isInitialized: true,
         errorMessage: result.error ?? 'Identifiants incorrects',
       );
       return false;
@@ -67,6 +69,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
+          isInitialized: true,
           userId: result.user?.id,
           email: email,
           role: role,
@@ -76,12 +79,14 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       }
       state = state.copyWith(
         isLoading: false,
+        isInitialized: true,
         errorMessage: result.error ?? "Erreur lors de l'inscription",
       );
       return false;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
+        isInitialized: true,
         errorMessage: e.toString(),
       );
       return false;
@@ -90,28 +95,41 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
 
   Future<void> logout() async {
     await _repository.signOut();
-    state = const AppAuthState();
+    state = const AppAuthState(isInitialized: true);
   }
 
   Future<void> checkAuthStatus() async {
     state = state.copyWith(isLoading: true);
+    print('[AuthProvider] checkAuthStatus called');
     try {
       final user = _repository.currentUser;
+      print('[AuthProvider] currentUser: ${user?.id ?? "null"}, email: ${user?.email ?? "null"}');
       if (user != null) {
         final role = user.userMetadata?['role'] as String? ?? 'patient';
+        print('[AuthProvider] user role: $role');
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
+          isInitialized: true,
           userId: user.id,
           email: user.email,
           role: role,
           isDoctor: role == 'doctor',
         );
+        print('[AuthProvider] State updated - isAuthenticated: true, isInitialized: true');
       } else {
-        state = state.copyWith(isLoading: false);
+        print('[AuthProvider] No user found - setting isInitialized only');
+        state = state.copyWith(
+          isLoading: false,
+          isInitialized: true,
+        );
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false);
+      print('[AuthProvider] Error in checkAuthStatus: $e');
+      state = state.copyWith(
+        isLoading: false,
+        isInitialized: true,
+      );
     }
   }
 

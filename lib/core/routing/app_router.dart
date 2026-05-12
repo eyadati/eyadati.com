@@ -22,28 +22,67 @@ import '../../features/doctor/presentation/pages/doctor_subscription_page.dart';
 import '../../features/doctor/presentation/pages/doctor_settings_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
+/// A notifier that bridges the Riverpod AuthState to GoRouter's refreshListenable.
+class RouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+
+  RouterNotifier(this._ref) {
+    // Listen to auth changes and notify GoRouter to re-run the redirect logic.
+    _ref.listen(authProvider, (previous, next) {
+      print('[RouterNotifier] Auth state changed - isInitialized: ${next.isInitialized}, isAuthenticated: ${next.isAuthenticated}, isDoctor: ${next.isDoctor}');
+      notifyListeners();
+    });
+  }
+}
+
+final routerNotifierProvider = Provider<RouterNotifier>((ref) {
+  return RouterNotifier(ref);
+});
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  final notifier = ref.watch(routerNotifierProvider);
 
   return GoRouter(
     initialLocation: RouteNames.splash,
+    refreshListenable: notifier,
     debugLogDiagnostics: true,
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      
+      // If the app hasn't checked auth status yet, stay on splash screen
+      if (!authState.isInitialized) {
+        return RouteNames.splash;
+      }
+
       final isLoggedIn = authState.isAuthenticated;
       final isAuthRoute = state.matchedLocation == RouteNames.login ||
           state.matchedLocation == RouteNames.register ||
           state.matchedLocation == RouteNames.forgotPassword ||
-          state.matchedLocation == RouteNames.selectRole ||
           state.matchedLocation == RouteNames.splash;
 
-      if (!isLoggedIn && !isAuthRoute) {
-        return RouteNames.login;
+      // 1. If not logged in and trying to access a protected route, go to login
+      if (!isLoggedIn) {
+        return isAuthRoute ? null : RouteNames.login;
       }
 
+      // 2. If logged in but at an auth-only route (like Login or Splash)
       if (isLoggedIn && isAuthRoute) {
         return authState.isDoctor ? RouteNames.doctorDashboard : RouteNames.patientHome;
       }
 
+      // 3. Role-Based Access Control (RBAC)
+      final isPatientRoute = state.matchedLocation.startsWith('/patient');
+      final isDoctorRoute = state.matchedLocation.startsWith('/doctor');
+
+      if (isPatientRoute && authState.isDoctor) {
+        return RouteNames.doctorDashboard;
+      }
+
+      if (isDoctorRoute && !authState.isDoctor) {
+        return RouteNames.patientHome;
+      }
+
+      // Allow navigation if none of the above rules match
       return null;
     },
     routes: [
@@ -126,7 +165,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     errorBuilder: (context, state) => Scaffold(
       body: Center(
-        child: Text('Page not found: ${state.uri}'),
+        child: Text('Page non trouvée : ${state.uri}'),
       ),
     ),
   );
