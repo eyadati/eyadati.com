@@ -11,6 +11,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final doctorState = ref.watch(doctorProvider);
+    final all = doctorState.allAppointments;
 
     return Column(
       children: [
@@ -33,10 +34,11 @@ class DoctorAppointmentsPage extends ConsumerWidget {
               fontSize: 13,
               fontWeight: FontWeight.w300,
             ),
-            tabs: const [
-              Tab(text: 'Tous'),
-              Tab(text: 'Confirmés'),
-              Tab(text: 'En attente'),
+            tabs: [
+              Tab(text: 'Tous (${all.length})'),
+              Tab(text: 'Confirmés (${all.where((a) => a.status == 'confirmed').length})'),
+              Tab(text: 'En attente (${all.where((a) => a.status == 'pending').length})'),
+              Tab(text: 'Annulés (${all.where((a) => a.status == 'cancelled').length})'),
             ],
           ),
         ),
@@ -45,17 +47,10 @@ class DoctorAppointmentsPage extends ConsumerWidget {
             onRefresh: () => ref.read(doctorProvider.notifier).refresh(),
             child: TabBarView(
               children: [
-                _buildAppointmentsList(context, ref, doctorState.upcomingAppointments),
-                _buildAppointmentsList(
-                  context,
-                  ref,
-                  doctorState.upcomingAppointments.where((a) => a.status == 'confirmed').toList(),
-                ),
-                _buildAppointmentsList(
-                  context,
-                  ref,
-                  doctorState.upcomingAppointments.where((a) => a.status == 'pending').toList(),
-                ),
+                _buildList(context, all),
+                _buildList(context, all.where((a) => a.status == 'confirmed').toList()),
+                _buildList(context, all.where((a) => a.status == 'pending').toList()),
+                _buildList(context, all.where((a) => a.status == 'cancelled').toList()),
               ],
             ),
           ),
@@ -64,11 +59,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildAppointmentsList(
-    BuildContext context,
-    WidgetRef ref,
-    List<AppointmentData> appointments,
-  ) {
+  Widget _buildList(BuildContext context, List<AppointmentData> appointments) {
     if (appointments.isEmpty) {
       return Center(
         child: Column(
@@ -94,7 +85,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
       padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: appointments.length,
       itemBuilder: (context, index) {
-        final appointment = appointments[index];
+        final apt = appointments[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.md),
           child: InkWell(
@@ -103,7 +94,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
                 context: context,
                 isScrollControlled: true,
                 backgroundColor: Colors.transparent,
-                builder: (ctx) => AppointmentDetailsSheet(appointment: appointment),
+                builder: (ctx) => AppointmentDetailsSheet(appointment: apt),
               );
             },
             child: Container(
@@ -111,21 +102,32 @@ class DoctorAppointmentsPage extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(
+                  color: apt.status == 'cancelled'
+                      ? AppColors.error.withValues(alpha: 0.3)
+                      : AppColors.border,
+                ),
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      appointment.patientName.isNotEmpty
-                          ? appointment.patientName[0].toUpperCase()
-                          : 'P',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: apt.status == 'cancelled'
+                          ? AppColors.error.withValues(alpha: 0.1)
+                          : apt.isConsultation
+                              ? AppColors.consultationColor.withValues(alpha: 0.1)
+                              : AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      apt.isConsultation ? Icons.video_call_outlined : Icons.person_outline,
+                      size: 18,
+                      color: apt.status == 'cancelled'
+                          ? AppColors.error
+                          : apt.isConsultation
+                              ? AppColors.consultationColor
+                              : AppColors.primary,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -134,16 +136,19 @@ class DoctorAppointmentsPage extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          appointment.patientName,
+                          apt.patientName,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textPrimary,
+                            decoration: apt.status == 'cancelled'
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')} • ${appointment.startTime.day}/${appointment.startTime.month}',
+                          '${apt.startTime.day}/${apt.startTime.month}/${apt.startTime.year} à ${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w300,
@@ -153,29 +158,43 @@ class DoctorAppointmentsPage extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: appointment.status == 'confirmed'
-                          ? AppColors.success.withValues(alpha: 0.1)
-                          : AppColors.warning.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      appointment.status == 'confirmed' ? 'Confirmé' : 'En attente',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: appointment.status == 'confirmed' ? AppColors.success : AppColors.warning,
-                      ),
-                    ),
-                  ),
+                  _buildStatusBadge(apt.status),
                 ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    String label;
+    if (status == 'confirmed') {
+      color = AppColors.success;
+      label = 'Confirmé';
+    } else if (status == 'cancelled') {
+      color = AppColors.error;
+      label = 'Annulé';
+    } else {
+      color = AppColors.warning;
+      label = 'En attente';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 }

@@ -19,7 +19,7 @@ class DoctorState {
   final int todayAppointments;
   final int weekAppointments;
   final int totalPatients;
-  final double earnings;
+  final List<AppointmentData> allAppointments;
   final List<AppointmentData> upcomingAppointments;
   final List<ScheduleSlot> scheduleSlots;
   final bool isLoading;
@@ -42,7 +42,7 @@ class DoctorState {
     this.todayAppointments = 0,
     this.weekAppointments = 0,
     this.totalPatients = 0,
-    this.earnings = 0,
+    this.allAppointments = const [],
     this.upcomingAppointments = const [],
     this.scheduleSlots = const [],
     this.isLoading = false,
@@ -66,7 +66,7 @@ class DoctorState {
     int? todayAppointments,
     int? weekAppointments,
     int? totalPatients,
-    double? earnings,
+    List<AppointmentData>? allAppointments,
     List<AppointmentData>? upcomingAppointments,
     List<ScheduleSlot>? scheduleSlots,
     bool? isLoading,
@@ -89,7 +89,7 @@ class DoctorState {
       todayAppointments: todayAppointments ?? this.todayAppointments,
       weekAppointments: weekAppointments ?? this.weekAppointments,
       totalPatients: totalPatients ?? this.totalPatients,
-      earnings: earnings ?? this.earnings,
+      allAppointments: allAppointments ?? this.allAppointments,
       upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
       scheduleSlots: scheduleSlots ?? this.scheduleSlots,
       isLoading: isLoading ?? this.isLoading,
@@ -192,7 +192,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .lt('scheduled_at', endOfWeek.toIso8601String())
           .count();
 
-      final upcomingAppts = await _client
+      final allApptsData = await _client
           .from('appointments')
           .select('''
             id,
@@ -200,32 +200,17 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             duration,
             status,
             appointment_type,
+            notes,
             patient:profiles!patient_id (
+              id,
               full_name,
               avatar_url
             )
           ''')
           .eq('doctor_id', user.id)
-          .eq('status', 'confirmed')
-          .gte('scheduled_at', now.toIso8601String())
-          .order('scheduled_at')
-          .limit(5);
+          .order('scheduled_at', ascending: false);
 
-      final scheduleSlots = await _client
-          .from('doctor_schedule')
-          .select()
-          .eq('doctor_id', user.id)
-          .eq('is_active', true)
-          .order('day_of_week');
-
-      final workingDays = (doctorData['working_days'] as List<dynamic>?)
-              ?.map((d) => d.toString())
-              .toList() ??
-          [];
-      final startTimeStr = doctorData['opening_at']?.toString() ?? '09:00:00';
-      final endTimeStr = doctorData['closing_at']?.toString() ?? '17:00:00';
-
-      final upcomingAppointments = upcomingAppts.map((a) {
+      final allAppointments = allApptsData.map((a) {
         final start = DateTime.parse(a['scheduled_at'] as String);
         final duration = a['duration'] as int? ?? 30;
         return AppointmentData(
@@ -241,6 +226,25 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
         );
       }).toList();
+
+      final upcomingAppointments = allAppointments
+          .where((a) => a.startTime.isAfter(now))
+          .toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      final scheduleSlots = await _client
+          .from('doctor_schedule')
+          .select()
+          .eq('doctor_id', user.id)
+          .eq('is_active', true)
+          .order('day_of_week');
+
+      final workingDays = (doctorData['working_days'] as List<dynamic>?)
+              ?.map((d) => d.toString())
+              .toList() ??
+          [];
+      final startTimeStr = doctorData['opening_at']?.toString() ?? '09:00:00';
+      final endTimeStr = doctorData['closing_at']?.toString() ?? '17:00:00';
 
       final schedule = scheduleSlots.map((s) => ScheduleSlot(
         id: s['id'] as String,
@@ -269,7 +273,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         todayAppointments: todayAppts.count,
         weekAppointments: weekAppts.count,
         totalPatients: 0,
-        earnings: 0,
+        allAppointments: allAppointments,
         upcomingAppointments: upcomingAppointments,
         scheduleSlots: schedule,
       );

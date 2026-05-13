@@ -1,14 +1,144 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/providers/locale_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
-class DoctorSettingsPage extends ConsumerWidget {
+class DoctorSettingsPage extends ConsumerStatefulWidget {
   const DoctorSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DoctorSettingsPage> createState() => _DoctorSettingsPageState();
+}
+
+class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
+  bool _pushEnabled = true;
+  bool _emailEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _pushEnabled = prefs.getBool('push_notifications') ?? true;
+      _emailEnabled = prefs.getBool('email_reminders') ?? true;
+    });
+  }
+
+  Future<void> _savePushSetting(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('push_notifications', value);
+    setState(() => _pushEnabled = value);
+  }
+
+  Future<void> _saveEmailSetting(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('email_reminders', value);
+    setState(() => _emailEnabled = value);
+  }
+
+  void _showLanguageSheet() {
+    final locale = ref.read(localeProvider);
+    final isArabic = locale.languageCode == 'ar';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Langue',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ListTile(
+              leading: Text('🇫🇷', style: TextStyle(fontSize: 24)),
+              title: Text(
+                'Français',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              trailing: !isArabic
+                  ? Icon(Icons.check, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                ref.read(localeProvider.notifier).setLocale('fr');
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: Text('🇩🇿', style: TextStyle(fontSize: 24)),
+              title: Text(
+                'العربية',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              trailing: isArabic
+                  ? Icon(Icons.check, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                ref.read(localeProvider.notifier).setLocale('ar');
+                Navigator.pop(ctx);
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authProvider.notifier).logout();
+            },
+            child: Text('Déconnexion', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final locale = ref.watch(localeProvider);
+    final isArabic = locale.languageCode == 'ar';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -36,14 +166,14 @@ class DoctorSettingsPage extends ConsumerWidget {
           _buildToggleItem(
             icon: Icons.notifications_outlined,
             title: 'Notifications push',
-            value: true,
-            onChanged: (value) {},
+            value: _pushEnabled,
+            onChanged: _savePushSetting,
           ),
           _buildToggleItem(
             icon: Icons.email_outlined,
             title: 'Rappels par email',
-            value: true,
-            onChanged: (value) {},
+            value: _emailEnabled,
+            onChanged: _saveEmailSetting,
           ),
           const SizedBox(height: AppSpacing.lg),
           _buildSectionTitle('Langue'),
@@ -53,8 +183,8 @@ class DoctorSettingsPage extends ConsumerWidget {
             ref: ref,
             icon: Icons.language,
             title: 'Langue',
-            trailing: 'Français',
-            onTap: () {},
+            trailing: isArabic ? 'العربية' : 'Français',
+            onTap: _showLanguageSheet,
           ),
           const SizedBox(height: AppSpacing.lg),
           _buildSectionTitle('À propos'),
@@ -124,7 +254,7 @@ class DoctorSettingsPage extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _confirmLogout(context, ref),
+              onPressed: _confirmLogout,
               icon: const Icon(Icons.logout, size: 18),
               label: const Text('Déconnexion'),
               style: OutlinedButton.styleFrom(
@@ -136,29 +266,6 @@ class DoctorSettingsPage extends ConsumerWidget {
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmLogout(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await ref.read(authProvider.notifier).logout();
-            },
-            child: Text('Déconnexion', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
