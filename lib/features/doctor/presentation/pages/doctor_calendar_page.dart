@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
@@ -227,28 +228,12 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
   void _onSlotTapped(DateTime day, int hour, int minute) {
     final doctorState = ref.read(doctorProvider);
-    
-    final dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-    final dayName = dayNames[day.weekday % 7];
-    if (doctorState.workingDays.isNotEmpty && !doctorState.workingDays.contains(dayName)) {
+    final dayOfWeek = day.weekday % 7;
+
+    if (!_isSlotAvailable(day, hour, doctorState.scheduleSlots)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Vous ne travaillez pas le $dayName', style: TextStyle(color: AppColors.white)),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-      return;
-    }
-
-    final openingParts = doctorState.startTime.split(':');
-    final closingParts = doctorState.endTime.split(':');
-    final openHour = int.tryParse(openingParts[0]) ?? 9;
-    final closeHour = int.tryParse(closingParts[0]) ?? 17;
-
-    if (hour < openHour || hour >= closeHour) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('En dehors des heures de consultation ($openHour:00 - $closeHour:00)', style: TextStyle(color: AppColors.white)),
+          content: Text('Créneau non disponible pour ce jour', style: TextStyle(color: AppColors.white)),
           backgroundColor: AppColors.warning,
         ),
       );
@@ -264,6 +249,29 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
   }
 
+  bool _isSlotAvailable(DateTime day, int hour, List<ScheduleSlot> scheduleSlots) {
+    final dayOfWeek = day.weekday % 7;
+    final daySlots = scheduleSlots.where((s) => s.dayOfWeek == dayOfWeek && s.isActive).toList();
+    if (daySlots.isEmpty) return false;
+
+    for (final slot in daySlots) {
+      final cleanStart = slot.startTime.split('.').first.split(':');
+      final cleanEnd = slot.endTime.split('.').first.split(':');
+      final slotStartHour = int.tryParse(cleanStart[0]) ?? 0;
+      final slotEndHour = int.tryParse(cleanEnd[0]) ?? 24;
+
+      if (hour >= slotStartHour && hour < slotEndHour) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isDayScheduled(DateTime day, List<ScheduleSlot> scheduleSlots) {
+    final dayOfWeek = day.weekday % 7;
+    return scheduleSlots.any((s) => s.dayOfWeek == dayOfWeek && s.isActive);
+  }
+
   Widget _buildDayColumns(List<DateTime> weekDays, DoctorState doctorState) {
     final interval = 15;
     final slotsPerHour = 60 ~/ interval;
@@ -275,6 +283,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
     final hours = List.generate(closeHour - openHour, (i) => openHour + i);
     final slotsPerDay = hours.length * slotsPerHour;
+    final scheduleSlots = doctorState.scheduleSlots;
 
     return Column(
       children: [
@@ -306,6 +315,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
             ),
             ...weekDays.map((day) {
               final isToday = _isSameDay(day, DateTime.now());
+              final isDayScheduled = _isDayScheduled(day, scheduleSlots);
               final appointments = doctorState.upcomingAppointments
                   .where((apt) => _isSameDay(apt.startTime, day))
                   .toList();
@@ -313,9 +323,11 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               return Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isToday
-                        ? AppColors.primary.withValues(alpha: 0.04)
-                        : null,
+                    color: !isDayScheduled
+                        ? AppColors.background
+                        : isToday
+                            ? AppColors.primary.withValues(alpha: 0.04)
+                            : null,
                     border: Border(
                       right: BorderSide(color: AppColors.border, width: 0.5),
                     ),
@@ -343,12 +355,18 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                       }).toList();
 
                       final isFirstSlotOfHour = minute == 0;
+                      final isHourAvailable = isDayScheduled
+                          ? _isSlotAvailable(day, hour, scheduleSlots)
+                          : false;
 
                       return GestureDetector(
-                        onTap: () => _onSlotTapped(day, hour, minute),
+                        onTap: isHourAvailable ? () => _onSlotTapped(day, hour, minute) : null,
                         child: Container(
                           height: 36,
                           decoration: BoxDecoration(
+                            color: !isHourAvailable && isDayScheduled
+                                ? AppColors.border.withValues(alpha: 0.1)
+                                : null,
                             border: Border(
                               bottom: BorderSide(
                                 color: AppColors.border.withValues(alpha: 0.3),
@@ -369,7 +387,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                                             fontSize: 9,
                                             fontWeight: FontWeight.w300,
                                             color: AppColors.textHint
-                                                .withValues(alpha: 0.5),
+                                                .withValues(alpha: isHourAvailable ? 0.5 : 0.2),
                                           ),
                                         ),
                                       ),
@@ -387,9 +405,6 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                                       if (!isTopAligned) {
                                         return const SizedBox();
                                       }
-                                      return GestureDetector(
-                                        onTap: () {
-                                          showModalBottomSheet(
                                             context: context,
                                             isScrollControlled: true,
                                             backgroundColor: Colors.transparent,
