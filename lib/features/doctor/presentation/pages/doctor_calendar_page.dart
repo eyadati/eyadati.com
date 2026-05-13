@@ -136,9 +136,14 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
   Widget _buildWeekView(DoctorState doctorState) {
     final weekDays = _getWeekDays();
+    final openingParts = doctorState.startTime.split(':');
+    final closingParts = doctorState.endTime.split(':');
+    final openHour = int.tryParse(openingParts[0]) ?? 9;
+    final closeHour = int.tryParse(closingParts[0]) ?? 17;
 
     return Column(
       children: [
+        _buildWeekHeader(weekDays, openHour, closeHour),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -149,25 +154,123 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
   }
 
+  Widget _buildWeekHeader(List<DateTime> weekDays, int openHour, int closeHour) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              child: Text(
+                '$openHour-$closeHour',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.textHint,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          ...weekDays.map((day) {
+            final isToday = _isSameDay(day, DateTime.now());
+            final isWeekend = day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+            return Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: isToday ? AppColors.primary.withValues(alpha: 0.08) : null,
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      _getDayName(day.weekday),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isWeekend ? AppColors.textHint : AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: isToday ? AppColors.primary : null,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${day.day}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isToday ? AppColors.white : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   int _roundToSlotInterval(int minute, int interval) {
     return (minute ~/ interval) * interval;
   }
 
-void _onSlotTapped(DateTime day, int hour, int minute) {
-    final rounded = _roundToSlotInterval(minute, 15);
+  void _onSlotTapped(DateTime day, int hour, int minute) {
+    final doctorState = ref.read(doctorProvider);
+    final openingParts = doctorState.startTime.split(':');
+    final closingParts = doctorState.endTime.split(':');
+    final openHour = int.tryParse(openingParts[0]) ?? 9;
+    final closeHour = int.tryParse(closingParts[0]) ?? 17;
+
+    if (hour < openHour || hour >= closeHour) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('En dehors des heures de consultation ($openHour:00 - $closeHour:00)', style: TextStyle(color: AppColors.white)),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => DoctorAddAppointmentDialog(
         initialDate: day,
         initialHour: hour,
+        initialMinute: minute,
       ),
     );
+  }
+
+  int _parseHour(String timeStr) {
+    final parts = timeStr.split(':');
+    return int.tryParse(parts[0]) ?? 9;
   }
 
   Widget _buildDayColumns(List<DateTime> weekDays, DoctorState doctorState) {
     final interval = 15;
     final slotsPerHour = 60 ~/ interval;
-    final hours = List.generate(14, (i) => i + 7);
+
+    final openingParts = doctorState.startTime.split(':');
+    final closingParts = doctorState.endTime.split(':');
+    final openHour = int.tryParse(openingParts[0]) ?? 9;
+    final closeHour = int.tryParse(closingParts[0]) ?? 17;
+
+    final hours = List.generate(closeHour - openHour, (i) => openHour + i);
     final slotsPerDay = hours.length * slotsPerHour;
 
     return Column(

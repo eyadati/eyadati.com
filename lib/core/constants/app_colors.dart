@@ -37,7 +37,6 @@ class AppColors {
   static const Color statusCompleted = Color(0xFF1565C0);
 
   static const Color consultationColor = Color(0xFF7B1FA2);
-  static const Color regularColor = Color(0xFF1565C0);
 
   static const Color shadow = Color(0x0A000000);
   static const Color hover = Color(0xF5F5F5);

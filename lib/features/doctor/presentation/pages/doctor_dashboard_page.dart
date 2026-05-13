@@ -7,10 +7,11 @@ import 'doctor_calendar_page.dart';
 import 'doctor_appointments_page.dart';
 import 'doctor_profile_page.dart';
 import 'doctor_settings_page.dart';
+import 'doctor_schedule_page.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
 
-enum DoctorPage { dashboard, calendar, appointments, profile, settings }
+enum DoctorPage { dashboard, calendar, appointments, profile, settings, schedule }
 
 class DoctorDashboardPage extends ConsumerStatefulWidget {
   const DoctorDashboardPage({super.key});
@@ -126,6 +127,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         return 'Profil';
       case DoctorPage.settings:
         return 'Paramètres';
+      case DoctorPage.schedule:
+        return 'Planning';
     }
   }
 
@@ -141,23 +144,80 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         return const DoctorProfilePage();
       case DoctorPage.settings:
         return const DoctorSettingsPage();
+      case DoctorPage.schedule:
+        return const DoctorSchedulePage();
     }
   }
 
   Widget _buildDashboardContent() {
     final doctorState = ref.watch(doctorProvider);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildStatsSection(doctorState),
-          const SizedBox(height: AppSpacing.xl),
-          _buildQuickActionsSection(),
-          const SizedBox(height: AppSpacing.xl),
-          _buildUpcomingSection(doctorState),
-        ],
+    return RefreshIndicator(
+      onRefresh: () => ref.read(doctorProvider.notifier).refresh(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (doctorState.isLoading)
+              _buildLoadingSkeletons()
+            else ...[
+              _buildStatsSection(doctorState),
+              const SizedBox(height: AppSpacing.xl),
+              _buildQuickActionsSection(),
+              const SizedBox(height: AppSpacing.xl),
+              _buildUpcomingSection(doctorState),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSkeletons() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildLoadingCard(height: 100)),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: _buildLoadingCard(height: 100)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(child: _buildLoadingCard(height: 100)),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: _buildLoadingCard(height: 100)),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        _buildLoadingCard(height: 160),
+        const SizedBox(height: AppSpacing.xl),
+        _buildLoadingCard(height: 200),
+      ],
+    );
+  }
+
+  Widget _buildLoadingCard({required double height}) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.primary.withValues(alpha: 0.3),
+          ),
+        ),
       ),
     );
   }
@@ -267,7 +327,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   }
 
   int _getCompletedCount(DoctorState state) {
-    return 0;
+    final now = DateTime.now();
+    return state.upcomingAppointments.where((a) => a.startTime.isBefore(now)).length;
   }
 
   Widget _buildStatCard(
@@ -609,6 +670,11 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   Icons.list_alt_outlined,
                   'Rendez-vous',
                 ),
+                _buildDrawerItem(
+                  DoctorPage.schedule,
+                  Icons.schedule_outlined,
+                  'Planning',
+                ),
                 const Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: AppSpacing.md,
@@ -720,6 +786,11 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   DoctorPage.appointments,
                   Icons.list_alt_outlined,
                   'Rendez-vous',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.schedule,
+                  Icons.schedule_outlined,
+                  'Planning',
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(

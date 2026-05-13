@@ -12,51 +12,63 @@ class DoctorAppointmentsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final doctorState = ref.watch(doctorProvider);
 
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              border: Border(
-                bottom: BorderSide(color: AppColors.border, width: 1),
-              ),
-            ),
-            child: TabBar(
-              labelColor: AppColors.primary,
-              unselectedLabelColor: AppColors.textSecondary,
-              indicatorColor: AppColors.primary,
-              labelStyle: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              tabs: const [
-                Tab(text: 'Tous'),
-                Tab(text: 'Confirmés'),
-                Tab(text: 'En attente'),
-              ],
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            border: Border(
+              bottom: BorderSide(color: AppColors.border, width: 1),
             ),
           ),
-          Expanded(
+          child: TabBar(
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textSecondary,
+            indicatorColor: AppColors.primary,
+            labelStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w300,
+            ),
+            tabs: const [
+              Tab(text: 'Tous'),
+              Tab(text: 'Confirmés'),
+              Tab(text: 'En attente'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => ref.read(doctorProvider.notifier).refresh(),
             child: TabBarView(
               children: [
-                _buildAppointmentsList(doctorState.upcomingAppointments),
+                _buildAppointmentsList(context, ref, doctorState.upcomingAppointments),
                 _buildAppointmentsList(
+                  context,
+                  ref,
                   doctorState.upcomingAppointments.where((a) => a.status == 'confirmed').toList(),
                 ),
                 _buildAppointmentsList(
+                  context,
+                  ref,
                   doctorState.upcomingAppointments.where((a) => a.status == 'pending').toList(),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildAppointmentsList(List<AppointmentData> appointments) {
+  Widget _buildAppointmentsList(
+    BuildContext context,
+    WidgetRef ref,
+    List<AppointmentData> appointments,
+  ) {
     if (appointments.isEmpty) {
       return Center(
         child: Column(
@@ -78,6 +90,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
     }
 
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: appointments.length,
       itemBuilder: (context, index) {
@@ -94,71 +107,72 @@ class DoctorAppointmentsPage extends ConsumerWidget {
               );
             },
             child: Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  child: Text(
-                    appointment.patientName.isNotEmpty 
-                        ? appointment.patientName[0].toUpperCase() 
-                        : 'P',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    child: Text(
+                      appointment.patientName.isNotEmpty
+                          ? appointment.patientName[0].toUpperCase()
+                          : 'P',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appointment.patientName,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          appointment.patientName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')} • ${appointment.startTime.day}/${appointment.startTime.month}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
+                        const SizedBox(height: 4),
+                        Text(
+                          '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')} • ${appointment.startTime.day}/${appointment.startTime.month}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: appointment.status == 'confirmed'
-                        ? AppColors.success.withValues(alpha: 0.1)
-                        : AppColors.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    appointment.status == 'confirmed' ? 'Confirmé' : 'En attente',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: appointment.status == 'confirmed' ? AppColors.success : AppColors.warning,
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: appointment.status == 'confirmed'
+                          ? AppColors.success.withValues(alpha: 0.1)
+                          : AppColors.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      appointment.status == 'confirmed' ? 'Confirmé' : 'En attente',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: appointment.status == 'confirmed' ? AppColors.success : AppColors.warning,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
         );
       },

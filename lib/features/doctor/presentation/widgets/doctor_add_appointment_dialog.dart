@@ -9,11 +9,13 @@ import '../providers/doctor_provider.dart';
 class DoctorAddAppointmentDialog extends ConsumerStatefulWidget {
   final DateTime initialDate;
   final int initialHour;
+  final int? initialMinute;
 
   const DoctorAddAppointmentDialog({
     super.key,
     required this.initialDate,
     required this.initialHour,
+    this.initialMinute,
   });
 
   @override
@@ -31,14 +33,18 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   String _appointmentType = 'regular';
   late DateTime _selectedDate;
   late int _selectedHour;
-  int _duration = 30;
+  late int _selectedMinute;
+  late int _duration;
 
   @override
   void initState() {
     super.initState();
+    final doctorState = ref.read(doctorProvider);
     _selectedDate = DateTime(widget.initialDate.year, widget.initialDate.month, widget.initialDate.day);
     _selectedHour = widget.initialHour;
-    _duration = ref.read(doctorProvider).appointmentDuration;
+    final rounded = _roundToSlot(widget.initialMinute ?? 0);
+    _selectedMinute = rounded;
+    _duration = doctorState.appointmentDuration;
   }
 
   @override
@@ -417,6 +423,27 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
+                'Durée',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _buildDurationChip(15),
+                  const SizedBox(width: AppSpacing.sm),
+                  _buildDurationChip(20),
+                  const SizedBox(width: AppSpacing.sm),
+                  _buildDurationChip(30),
+                  const SizedBox(width: AppSpacing.sm),
+                  _buildDurationChip(45),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
                 'Type',
                 style: TextStyle(
                   fontSize: 13,
@@ -461,6 +488,32 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                 isLoading: _isLoading,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDurationChip(int minutes) {
+    final isSelected = _duration == minutes;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _duration = minutes),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.background,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
+          ),
+          child: Text(
+            '$minutes min',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+            ),
           ),
         ),
       ),
