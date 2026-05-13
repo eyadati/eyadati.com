@@ -24,10 +24,12 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       if (result.isSuccess) {
         final user = result.user!;
         final role = user.userMetadata?['role'] as String? ?? 'patient';
+        final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
           isInitialized: true,
+          setupCompleted: setupCompleted,
           userId: user.id,
           email: email,
           role: role,
@@ -66,10 +68,12 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         role: role,
       );
       if (result.isSuccess) {
+        final setupCompleted = role == 'patient' ? true : false;
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
           isInitialized: true,
+          setupCompleted: setupCompleted,
           userId: result.user?.id,
           email: email,
           role: role,
@@ -98,6 +102,19 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     state = const AppAuthState(isInitialized: true);
   }
 
+  Future<bool> _checkDoctorSetup(String userId) async {
+    try {
+      final doctor = await SupabaseInitializer.client
+          .from('doctors')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+      return doctor != null;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<void> checkAuthStatus() async {
     state = state.copyWith(isLoading: true);
     print('[AuthProvider] checkAuthStatus called');
@@ -107,16 +124,19 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       if (user != null) {
         final role = user.userMetadata?['role'] as String? ?? 'patient';
         print('[AuthProvider] user role: $role');
+        final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
+        print('[AuthProvider] doctor setup completed: $setupCompleted');
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
           isInitialized: true,
+          setupCompleted: setupCompleted,
           userId: user.id,
           email: user.email,
           role: role,
           isDoctor: role == 'doctor',
         );
-        print('[AuthProvider] State updated - isAuthenticated: true, isInitialized: true');
+        print('[AuthProvider] State updated - isAuthenticated: true, isInitialized: true, setupCompleted: $setupCompleted');
       } else {
         print('[AuthProvider] No user found - setting isInitialized only');
         state = state.copyWith(
@@ -133,6 +153,14 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     }
   }
 
+  Future<void> refreshSetupStatus() async {
+    final userId = state.userId;
+    if (userId == null || !state.isDoctor) return;
+
+    final setupCompleted = await _checkDoctorSetup(userId);
+    state = state.copyWith(setupCompleted: setupCompleted);
+  }
+
   void clearError() {
     state = AppAuthState(
       isAuthenticated: state.isAuthenticated,
@@ -141,6 +169,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       userId: state.userId,
       email: state.email,
       role: state.role,
+      setupCompleted: state.setupCompleted,
     );
   }
 
@@ -158,6 +187,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           userId: state.userId,
           email: state.email,
           role: state.role,
+          setupCompleted: state.setupCompleted,
         );
       }
       return result.isSuccess;

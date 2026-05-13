@@ -32,8 +32,8 @@ mixin _$Doctor {
   String? get photoUrl => throw _privateConstructorUsedError;
   int get appointmentDuration => throw _privateConstructorUsedError;
   int get consultationDuration => throw _privateConstructorUsedError;
-  int get openingAt => throw _privateConstructorUsedError;
-  int get closingAt => throw _privateConstructorUsedError;
+  String get openingAt => throw _privateConstructorUsedError;
+  String get closingAt => throw _privateConstructorUsedError;
   int? get breakStart => throw _privateConstructorUsedError;
   int? get breakEnd => throw _privateConstructorUsedError;
   List<String> get workingDays => throw _privateConstructorUsedError;
@@ -67,8 +67,8 @@ abstract class $DoctorCopyWith<$Res> {
     String? photoUrl,
     int appointmentDuration,
     int consultationDuration,
-    int openingAt,
-    int closingAt,
+    String openingAt,
+    String closingAt,
     int? breakStart,
     int? breakEnd,
     List<String> workingDays,
@@ -162,11 +162,11 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
             openingAt: null == openingAt
                 ? _value.openingAt
                 : openingAt // ignore: cast_nullable_to_non_nullable
-                      as int,
+                      as String,
             closingAt: null == closingAt
                 ? _value.closingAt
                 : closingAt // ignore: cast_nullable_to_non_nullable
-                      as int,
+                      as String,
             breakStart: freezed == breakStart
                 ? _value.breakStart
                 : breakStart // ignore: cast_nullable_to_non_nullable
@@ -217,8 +217,8 @@ abstract class _$$DoctorImplCopyWith<$Res> implements $DoctorCopyWith<$Res> {
     String? photoUrl,
     int appointmentDuration,
     int consultationDuration,
-    int openingAt,
-    int closingAt,
+    String openingAt,
+    String closingAt,
     int? breakStart,
     int? breakEnd,
     List<String> workingDays,
@@ -311,11 +311,11 @@ class __$$DoctorImplCopyWithImpl<$Res>
         openingAt: null == openingAt
             ? _value.openingAt
             : openingAt // ignore: cast_nullable_to_non_nullable
-                  as int,
+                  as String,
         closingAt: null == closingAt
             ? _value.closingAt
             : closingAt // ignore: cast_nullable_to_non_nullable
-                  as int,
+                  as String,
         breakStart: freezed == breakStart
             ? _value.breakStart
             : breakStart // ignore: cast_nullable_to_non_nullable
@@ -360,8 +360,8 @@ class _$DoctorImpl implements _Doctor {
     this.photoUrl,
     this.appointmentDuration = 20,
     this.consultationDuration = 40,
-    this.openingAt = 9,
-    this.closingAt = 17,
+    this.openingAt = '09:00:00',
+    this.closingAt = '17:00:00',
     this.breakStart,
     this.breakEnd,
     final List<String> workingDays = const [],
@@ -399,10 +399,10 @@ class _$DoctorImpl implements _Doctor {
   final int consultationDuration;
   @override
   @JsonKey()
-  final int openingAt;
+  final String openingAt;
   @override
   @JsonKey()
-  final int closingAt;
+  final String closingAt;
   @override
   final int? breakStart;
   @override
@@ -524,8 +524,8 @@ abstract class _Doctor implements Doctor {
     final String? photoUrl,
     final int appointmentDuration,
     final int consultationDuration,
-    final int openingAt,
-    final int closingAt,
+    final String openingAt,
+    final String closingAt,
     final int? breakStart,
     final int? breakEnd,
     final List<String> workingDays,
@@ -559,9 +559,9 @@ abstract class _Doctor implements Doctor {
   @override
   int get consultationDuration;
   @override
-  int get openingAt;
+  String get openingAt;
   @override
-  int get closingAt;
+  String get closingAt;
   @override
   int? get breakStart;
   @override

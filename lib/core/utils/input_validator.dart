@@ -84,10 +84,7 @@ class InputValidator {
     return null;
   }
 
-  static String? validateWorkingHours(int? opening, int? closing) {
-    if (opening == null || closing == null) {
-      return 'Working hours are required';
-    }
+  static String? validateWorkingHours(int opening, int closing) {
     if (opening < 0 || opening > 23) {
       return 'Invalid opening hour';
     }
@@ -99,6 +96,36 @@ class InputValidator {
     }
     if (closing - opening < 1) {
       return 'Must work at least 1 hour';
+    }
+    return null;
+  }
+
+  static String? validateWorkingHoursString(String? opening, String? closing) {
+    if (opening == null || closing == null) {
+      return 'Working hours are required';
+    }
+    try {
+      final openParts = opening.split(':');
+      final closeParts = closing.split(':');
+      if (openParts.length < 2 || closeParts.length < 2) {
+        return 'Invalid time format';
+      }
+      final openHour = int.parse(openParts[0]);
+      final openMin = int.parse(openParts[1]);
+      final closeHour = int.parse(closeParts[0]);
+      final closeMin = int.parse(closeParts[1]);
+      
+      final openMinutes = openHour * 60 + openMin;
+      final closeMinutes = closeHour * 60 + closeMin;
+      
+      if (openMinutes >= closeMinutes) {
+        return 'Opening time must be before closing time';
+      }
+      if (closeMinutes - openMinutes < 60) {
+        return 'Must work at least 1 hour';
+      }
+    } catch (e) {
+      return 'Invalid time format';
     }
     return null;
   }

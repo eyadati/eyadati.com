@@ -399,8 +399,10 @@ class AppointmentRepository {
       final existingAppointments = await getDoctorAppointmentsByDate(date);
 
       final slots = <TimeSlot>[];
-      final slotStart = doctor.openingAt;
-      final slotEnd = doctor.closingAt;
+      final slotStartParts = doctor.openingAt.split(':');
+      final slotEndParts = doctor.closingAt.split(':');
+      final slotStart = int.parse(slotStartParts[0]);
+      final slotEnd = int.parse(slotEndParts[0]);
 
       for (var hour = slotStart; hour < slotEnd; hour++) {
         for (var minute = 0; minute < 60; minute += durationMinutes) {

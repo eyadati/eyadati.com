@@ -76,8 +76,8 @@ create table public.doctors (
   appointment_duration integer not null default 20,
   consultation_duration integer not null default 40,
 
-  opening_at integer not null default 9,
-  closing_at integer not null default 17,
+  opening_at time not null default '09:00:00',
+  closing_at time not null default '17:00:00',
 
   break_start integer,
   break_end integer,
@@ -393,7 +393,7 @@ begin
   end if;
   
   -- Check for appointment conflicts
-  select count(*) into conflict_count
+  select count(*) into v_conflict_count
   from public.appointments a
   where a.doctor_id = doctor_uuid
     and a.status = 'upcoming'
@@ -403,7 +403,7 @@ begin
       (slot_time, slot_time + (slot_duration || ' minutes')::interval)
     );
   
-  return conflict_count = 0;
+  return v_conflict_count = 0;
 end;
 $$ language plpgsql security definer;
 

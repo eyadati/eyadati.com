@@ -18,8 +18,8 @@ _$DoctorImpl _$$DoctorImplFromJson(Map<String, dynamic> json) => _$DoctorImpl(
   photoUrl: json['photoUrl'] as String?,
   appointmentDuration: (json['appointmentDuration'] as num?)?.toInt() ?? 20,
   consultationDuration: (json['consultationDuration'] as num?)?.toInt() ?? 40,
-  openingAt: (json['openingAt'] as num?)?.toInt() ?? 9,
-  closingAt: (json['closingAt'] as num?)?.toInt() ?? 17,
+  openingAt: json['openingAt'] as String? ?? '09:00:00',
+  closingAt: json['closingAt'] as String? ?? '17:00:00',
   breakStart: (json['breakStart'] as num?)?.toInt(),
   breakEnd: (json['breakEnd'] as num?)?.toInt(),
   workingDays:

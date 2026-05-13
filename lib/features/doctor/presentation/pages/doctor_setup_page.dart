@@ -8,6 +8,8 @@ import '../../../../core/widgets/buttons/primary_button.dart';
 import '../../../../core/widgets/inputs/app_text_field.dart';
 import '../../../../core/widgets/inputs/app_dropdown.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../providers/doctor_provider.dart';
 
 class DoctorSetupPage extends ConsumerStatefulWidget {
   const DoctorSetupPage({super.key});
@@ -28,7 +30,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   int _appointmentDuration = 20;
   String? _specialty;
   String? _city;
-  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
 
   final List<String> _specialties = [
     'Médecin généraliste',
@@ -45,27 +47,27 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   ];
 
   final List<String> _cities = [
-    'Casablanca',
-    'Rabat',
-    'Marrakech',
-    'Fès',
-    'Agadir',
-    'Tanger',
-    'Meknès',
-    'Oujda',
-    'Kénitra',
-    'Tetouan',
-    'Safí',
-    'Beni Mellal',
+    'Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Djelfa',
+    'Sétif', 'Sidi Bel Abbès', 'Biskra', 'Tébessa', 'Ouargla', 'Béjaïa',
+    'Tlemcen', 'Béchar', 'Mascara', 'Tiaret', 'Bordj Bou Arréridj',
+    'Souk Ahras', 'Mila', 'Skikda', 'Bouira', 'Médéa', 'Laghouat',
+    'Ghardaia', 'Relizane', 'El Oued', 'Khenchela', 'Msila', 'BBA',
+    'Boumerdès', 'Sidi Aïssa', 'Tipaza', 'Aïn Témouchent', 'Bejaïa',
+    'Tizi Ouzou', 'Bouira', 'Djurdjura', 'Médéa', 'Blida', 'Cherchell',
+    'Tipasa', 'Mascara', 'Saïda', 'Tafraoui', 'Moulay Slissen',
   ];
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSubmit() async {
+  String _formatTimeForDb(TimeOfDay time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:00';
+  }
+
+Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDays.isEmpty) {
@@ -76,15 +78,57 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
     setState(() => _isLoading = true);
 
     try {
-      await Future.delayed(const Duration(seconds: 1));
+      print('[DoctorSetupPage] Starting setup submission...');
       
+      await ref.read(doctorProvider.notifier).saveSetup(
+        workingDays: _selectedDays.toList(),
+        startTime: _formatTimeForDb(_startTime),
+        endTime: _formatTimeForDb(_endTime),
+        consultationDuration: _consultationDuration,
+        appointmentDuration: _appointmentDuration,
+        specialty: _specialty!,
+        city: _city!,
+        address: _addressController.text.trim(),
+      );
+
+      print('[DoctorSetupPage] Setup saved, checking state...');
+
       if (!mounted) return;
 
-      AppSnackbar.showSuccess(context, message: 'Configuration enregistrée avec succès');
-      context.go(RouteNames.doctorDashboard);
-    } catch (e) {
+      final authState = ref.read(authProvider);
+      print('[DoctorSetupPage] Auth state after save - setupCompleted: ${authState.setupCompleted}');
+      
+      final doctorState = ref.read(doctorProvider);
+      print('[DoctorSetupPage] Doctor state - setupCompleted: ${doctorState.setupCompleted}');
+
       if (!mounted) return;
-      AppSnackbar.showError(context, message: 'Erreur lors de la sauvegarde');
+
+      if (doctorState.setupCompleted) {
+        AppSnackbar.showSuccess(context, message: 'Configuration enregistrée !');
+        
+        print('[DoctorSetupPage] Refreshing setup status...');
+        await ref.read(authProvider.notifier).refreshSetupStatus();
+        
+        if (!mounted) return;
+        
+        final updatedAuthState = ref.read(authProvider);
+        print('[DoctorSetupPage] Updated auth state - setupCompleted: ${updatedAuthState.setupCompleted}');
+        
+        if (updatedAuthState.setupCompleted) {
+          print('[DoctorSetupPage] Navigating to dashboard...');
+          context.go('/doctor/dashboard');
+        } else {
+          print('[DoctorSetupPage] Setup still not completed after refresh');
+          AppSnackbar.showError(context, message: 'Erreur lors de la configuration');
+        }
+      } else {
+        print('[DoctorSetupPage] Setup not marked as completed, showing error');
+        AppSnackbar.showError(context, message: 'Erreur lors de la configuration');
+      }
+    } catch (e) {
+      print('[DoctorSetupPage] Error: $e');
+      if (!mounted) return;
+      AppSnackbar.showError(context, message: 'Erreur: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -364,6 +408,21 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
+                AppTextField(
+                  label: 'Adresse du cabinet *',
+                  hint: '123 Rue Didouche Mourad, Alger Centre',
+                  controller: _addressController,
+                  keyboardType: TextInputType.streetAddress,
+                  prefixIcon: Icons.location_on_outlined,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Adresse requise';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.lg),
+
                 const Text(
                   'Ville *',
                   style: TextStyle(
@@ -381,21 +440,6 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Ville requise';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.lg),
-
-                AppTextField(
-                  label: 'Téléphone du cabinet',
-                  hint: '06 12 34 56 78',
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  prefixIcon: Icons.phone_outlined,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Téléphone requis';
                     }
                     return null;
                   },

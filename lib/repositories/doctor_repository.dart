@@ -140,8 +140,8 @@ class DoctorRepository {
     String? bio,
     int appointmentDuration = 20,
     int consultationDuration = 40,
-    int openingAt = 9,
-    int closingAt = 17,
+    String openingAt = '09:00',
+    String closingAt = '17:00',
     int? breakStart,
     int? breakEnd,
     List<String> workingDays = const ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
@@ -159,11 +159,6 @@ class DoctorRepository {
       final addressError = InputValidator.validateRequired(address, 'Address');
       if (addressError != null) {
         return DoctorResult.failure(addressError);
-      }
-
-      final hoursError = InputValidator.validateWorkingHours(openingAt, closingAt);
-      if (hoursError != null) {
-        return DoctorResult.failure(hoursError);
       }
 
       final durationError = InputValidator.validateDuration(appointmentDuration);
@@ -224,8 +219,8 @@ class DoctorRepository {
     String? photoUrl,
     int? appointmentDuration,
     int? consultationDuration,
-    int? openingAt,
-    int? closingAt,
+    String? openingAt,
+    String? closingAt,
     int? breakStart,
     int? breakEnd,
     List<String>? workingDays,
@@ -307,9 +302,9 @@ class DoctorRepository {
       }
       
       if (openingAt != null || closingAt != null) {
-        final hoursError = InputValidator.validateWorkingHours(
-          openingAt ?? 9,
-          closingAt ?? 17,
+        final hoursError = InputValidator.validateWorkingHoursString(
+          openingAt ?? '09:00',
+          closingAt ?? '17:00',
         );
         if (hoursError != null) {
           return DoctorResult.failure(hoursError);

@@ -30,7 +30,7 @@ class RouterNotifier extends ChangeNotifier {
   RouterNotifier(this._ref) {
     // Listen to auth changes and notify GoRouter to re-run the redirect logic.
     _ref.listen(authProvider, (previous, next) {
-      print('[RouterNotifier] Auth state changed - isInitialized: ${next.isInitialized}, isAuthenticated: ${next.isAuthenticated}, isDoctor: ${next.isDoctor}');
+      print('[RouterNotifier] Auth state changed - isInitialized: ${next.isInitialized}, isAuthenticated: ${next.isAuthenticated}, isDoctor: ${next.isDoctor}, setupCompleted: ${next.setupCompleted}');
       notifyListeners();
     });
   }
@@ -49,9 +49,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     debugLogDiagnostics: true,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
+      print('[RouterRedirect] location=${state.matchedLocation}, isInitialized=${authState.isInitialized}, isAuthenticated=${authState.isAuthenticated}, isDoctor=${authState.isDoctor}, setupCompleted=${authState.setupCompleted}');
       
       // If the app hasn't checked auth status yet, stay on splash screen
       if (!authState.isInitialized) {
+        print('[RouterRedirect] Not initialized, staying on splash');
         return RouteNames.splash;
       }
 
@@ -63,34 +65,53 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // 1. If not logged in and trying to access a protected route, go to login
       if (!isLoggedIn) {
+        print('[RouterRedirect] Not logged in, auth route: $isAuthRoute');
         return isAuthRoute ? null : RouteNames.login;
       }
 
       // 2. If logged in but at an auth-only route (like Login or Splash)
       if (isLoggedIn && isAuthRoute) {
+        print('[RouterRedirect] Logged in, at auth route');
         if (authState.isDoctor && !authState.setupCompleted) {
+          print('[RouterRedirect] Doctor without setup, redirecting to setup');
           return RouteNames.doctorSetup;
         }
+        print('[RouterRedirect] Redirecting to ${authState.isDoctor ? "doctor" : "patient"} home');
         return authState.isDoctor ? RouteNames.doctorDashboard : RouteNames.patientHome;
       }
 
-      // 3. Role-Based Access Control (RBAC)
+      // 3. Doctor setup check - redirect to setup if not completed
+      if (authState.isDoctor && !authState.setupCompleted) {
+        print('[RouterRedirect] Doctor without setup, current location: ${state.matchedLocation}');
+        if (state.matchedLocation != RouteNames.doctorSetup) {
+          print('[RouterRedirect] Redirecting to setup');
+          return RouteNames.doctorSetup;
+        }
+        print('[RouterRedirect] Already at setup, allowing access');
+        return null; // Allow access to setup page
+      }
+
+      // 4. Allow access to setup page if already completed
+      if (state.matchedLocation == RouteNames.doctorSetup && authState.setupCompleted) {
+        print('[RouterRedirect] At setup but completed, redirecting to dashboard');
+        return RouteNames.doctorDashboard;
+      }
+
+      // 5. Role-Based Access Control (RBAC)
       final isPatientRoute = state.matchedLocation.startsWith('/patient');
       final isDoctorRoute = state.matchedLocation.startsWith('/doctor');
 
       if (isPatientRoute && authState.isDoctor) {
+        print('[RouterRedirect] Patient route but doctor, redirecting to dashboard');
         return RouteNames.doctorDashboard;
       }
 
       if (isDoctorRoute && !authState.isDoctor) {
+        print('[RouterRedirect] Doctor route but patient, redirecting to patient home');
         return RouteNames.patientHome;
       }
 
-      // 4. Prevent setup page if already completed
-      if (state.matchedLocation == RouteNames.doctorSetup && authState.setupCompleted) {
-        return RouteNames.doctorDashboard;
-      }
-
+      print('[RouterRedirect] No redirect needed, allowing navigation');
       // Allow navigation if none of the above rules match
       return null;
     },
