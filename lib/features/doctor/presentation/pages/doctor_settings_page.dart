@@ -1,166 +1,216 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
-import '../../../../core/widgets/buttons/icon_button_tile.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_spacing.dart';
 
 class DoctorSettingsPage extends ConsumerWidget {
   const DoctorSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Paramètres'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle('Compte'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildMenuItem(
+            icon: Icons.person_outlined,
+            title: 'Modifier le profil',
+            onTap: () {},
+          ),
+          _buildMenuItem(
+            icon: Icons.lock_outlined,
+            title: 'Changer le mot de passe',
+            onTap: () {},
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _buildSectionTitle('Notifications'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildToggleItem(
+            icon: Icons.notifications_outlined,
+            title: 'Notifications push',
+            value: true,
+            onChanged: (value) {},
+          ),
+          _buildToggleItem(
+            icon: Icons.email_outlined,
+            title: 'Rappels par email',
+            value: true,
+            onChanged: (value) {},
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _buildSectionTitle('Langue'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildMenuItem(
+            icon: Icons.language,
+            title: 'Langue',
+            trailing: 'Français',
+            onTap: () {},
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _buildSectionTitle('À propos'),
+          const SizedBox(height: AppSpacing.sm),
+          _buildMenuItem(
+            icon: Icons.description_outlined,
+            title: "Conditions d'utilisation",
+            onTap: () {},
+          ),
+          _buildMenuItem(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Politique de confidentialité',
+            onTap: () {},
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.medical_services_outlined,
+                    color: AppColors.primary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Eyadati',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Version 1.0.0',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textSecondary,
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    String? trailing,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: AppColors.textSecondary),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (trailing != null)
+                Text(
+                  trailing,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                )
+              else
+                Icon(Icons.chevron_right, size: 20, color: AppColors.textHint),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleItem({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
           children: [
-            const Text(
-              'Compte',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+            Icon(icon, size: 20, color: AppColors.textSecondary),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Modifier le profil',
-              icon: Icons.person_outline,
-              onTap: () {},
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
+              thumbColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) return AppColors.primary;
+                return AppColors.textHint;
+              }),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Changer le mot de passe',
-              icon: Icons.lock_outline,
-              onTap: () {},
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Notifications',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Notifications push',
-              icon: Icons.notifications_outlined,
-              trailing: Switch(
-                value: true,
-                onChanged: (value) {},
-                activeColor: AppColors.primary,
-              ),
-              onTap: null,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Rappels par email',
-              icon: Icons.email_outlined,
-              trailing: Switch(
-                value: true,
-                onChanged: (value) {},
-                activeColor: AppColors.primary,
-              ),
-              onTap: null,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Langue',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Langue',
-              subtitle: 'Français',
-              icon: Icons.language,
-              onTap: () {},
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'À propos',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Version',
-              subtitle: '1.0.0',
-              icon: Icons.info_outline,
-              onTap: null,
-            ),
-            IconButtonTile(
-              title: 'Conditions d\'utilisation',
-              icon: Icons.description_outlined,
-              onTap: () {},
-            ),
-            IconButtonTile(
-              title: 'Politique de confidentialité',
-              icon: Icons.privacy_tip_outlined,
-              onTap: () {},
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.medical_services_outlined,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Eyadati',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'Plateforme de gestion de cabinet médical',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 100),
           ],
         ),
       ),

@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../../core/routing/route_names.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
-import '../../../../core/widgets/buttons/icon_button_tile.dart';
-import '../providers/providers.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_spacing.dart';
+import '../providers/doctor_provider.dart';
 
 class DoctorProfilePage extends ConsumerWidget {
   const DoctorProfilePage({super.key});
@@ -14,172 +11,194 @@ class DoctorProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final doctorState = ref.watch(doctorProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Mon profil'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: AppColors.primary,
-                    child: Text(
-                      doctorState.name.isNotEmpty 
-                          ? doctorState.name.substring(0, 2).toUpperCase() 
-                          : 'DR',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 48,
+                  backgroundColor: AppColors.primary,
+                  child: Text(
+                    _getInitials(doctorState.name),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
+                ),
+                if (doctorState.specialty.isNotEmpty) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    doctorState.specialty.isNotEmpty ? doctorState.specialty : 'Spécialité',
-                    style: const TextStyle(
+                    doctorState.specialty,
+                    style: TextStyle(
                       fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _StatItem(label: 'Patients', value: '${doctorState.totalPatients}'),
-                      _StatItem(label: 'Rendez-vous', value: '${doctorState.weekAppointments}'),
-                      _StatItem(label: 'Revenus', value: '${doctorState.earnings} MAD'),
-                    ],
-                  ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.lg),
-            IconButtonTile(
-              title: 'Modifier le profil',
-              icon: Icons.edit_outlined,
-              onTap: () {},
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Services et tarifs',
-              icon: Icons.attach_money,
-              onTap: () {},
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Horaires de travail',
-              icon: Icons.schedule,
-              onTap: () {},
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Abonnement',
-              icon: Icons.card_membership,
-              onTap: () => context.push(RouteNames.doctorSubscription),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            IconButtonTile(
-              title: 'Paramètres',
-              icon: Icons.settings_outlined,
-              onTap: () => context.push(RouteNames.doctorSettings),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            ElevatedButton.icon(
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _buildInfoCard(doctorState),
+          const SizedBox(height: AppSpacing.lg),
+          _buildMenuItem(
+            icon: Icons.edit_outlined,
+            title: 'Modifier le profil',
+            onTap: () {},
+          ),
+          _buildMenuItem(
+            icon: Icons.schedule_outlined,
+            title: 'Horaires de travail',
+            onTap: () {},
+          ),
+          _buildMenuItem(
+            icon: Icons.credit_card_outlined,
+            title: 'Abonnement',
+            onTap: () {},
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
               onPressed: () {},
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout, size: 18),
               label: const Text('Déconnexion'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-                foregroundColor: Colors.white,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
-            const SizedBox(height: 100),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(DoctorState state) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          if (state.city.isNotEmpty)
+            _buildInfoRow(Icons.location_on_outlined, 'Ville', state.city),
+          if (state.phone.isNotEmpty)
+            _buildInfoRow(Icons.phone_outlined, 'Téléphone', state.phone),
+          _buildInfoRow(
+            Icons.access_time_outlined,
+            'Horaires',
+            '${state.startTime} - ${state.endTime}',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.textSecondary),
+          const SizedBox(width: AppSpacing.md),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: AppColors.textSecondary),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 20, color: AppColors.textHint),
+            ],
+          ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(context),
     );
   }
 
-  Widget _buildBottomNav(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: 3,
-      onTap: (index) {
-        switch (index) {
-          case 0:
-            context.go(RouteNames.doctorDashboard);
-            break;
-          case 1:
-            context.push(RouteNames.doctorSchedule);
-            break;
-          case 2:
-            context.push(RouteNames.doctorAppointments);
-            break;
-          case 3:
-            break;
-        }
-      },
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: AppColors.primary,
-      unselectedItemColor: AppColors.textSecondary,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Tableau'),
-        BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Planning'),
-        BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Rendez-vous'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-      ],
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primary,
-          ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
+  String _getInitials(String name) {
+    if (name.isEmpty || name.length <= 2) return 'DR';
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   }
 }

@@ -241,17 +241,17 @@ class AppTheme {
       ),
       bodyLarge: GoogleFonts.inter(
         fontSize: 16,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w300,
         color: AppColors.textPrimary,
       ),
       bodyMedium: GoogleFonts.inter(
         fontSize: 14,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w300,
         color: AppColors.textPrimary,
       ),
       bodySmall: GoogleFonts.inter(
         fontSize: 12,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w300,
         color: AppColors.textSecondary,
       ),
       labelLarge: GoogleFonts.inter(
@@ -261,12 +261,12 @@ class AppTheme {
       ),
       labelMedium: GoogleFonts.inter(
         fontSize: 12,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w300,
         color: AppColors.textSecondary,
       ),
       labelSmall: GoogleFonts.inter(
         fontSize: 11,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w300,
         color: AppColors.textHint,
       ),
     );
