@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/constants/app_radius.dart';
 import '../providers/doctor_provider.dart';
 
 class DoctorDashboardPage extends ConsumerStatefulWidget {
@@ -29,7 +30,92 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         children: [
           if (isWideScreen) _buildSidebar(context, doctorState),
           Expanded(
-            child: _buildContent(doctorState),
+            child: Column(
+              children: [
+                _buildHeader(context, doctorState, isWideScreen),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1200),
+                      child: _buildContent(doctorState),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, DoctorState doctorState, bool isWideScreen) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border(
+          bottom: BorderSide(color: AppColors.border, width: 1),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      child: Row(
+        children: [
+          if (!isWideScreen)
+            Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+                color: AppColors.textSecondary,
+              ),
+            ),
+          if (!isWideScreen) const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Bonjour, ${doctorState.name.isNotEmpty ? doctorState.name.split(' ').first : 'Docteur'}',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Voici un aperçu de votre activité',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.calendar_today, size: 14, color: AppColors.primary),
+                const SizedBox(width: 6),
+                Text(
+                  '${doctorState.todayAppointments} aujourd\'hui',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -38,6 +124,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
 
   Widget _buildDrawer(BuildContext context, DoctorState doctorState) {
     return Drawer(
+      backgroundColor: AppColors.white,
       child: Column(
         children: [
           _buildDrawerHeader(doctorState),
@@ -62,7 +149,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildDrawerHeader(DoctorState doctorState) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.primary,
       ),
       child: Column(
@@ -71,15 +158,13 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
           Row(
             children: [
               CircleAvatar(
-                radius: 28,
+                radius: 24,
                 backgroundColor: Colors.white,
                 child: Text(
-                  doctorState.name.isNotEmpty && doctorState.name.length > 2
-                      ? doctorState.name.substring(0, 2).toUpperCase()
-                      : 'DR',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  _getInitials(doctorState.name),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.primary,
                   ),
                 ),
@@ -92,7 +177,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     Text(
                       doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
@@ -111,17 +196,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                       ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              const Icon(Icons.calendar_today, size: 16, color: Colors.white70),
-              const SizedBox(width: 8),
-              Text(
-                '${doctorState.todayAppointments} aujourd\'hui',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
             ],
           ),
@@ -141,27 +215,28 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         label,
         style: TextStyle(
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+          fontSize: 14,
           color: isSelected ? AppColors.primary : AppColors.textPrimary,
         ),
       ),
       selected: isSelected,
-      selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      selectedTileColor: AppColors.primary.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       onTap: () {
         setState(() => _selectedIndex = index);
         Navigator.pop(context);
-        _navigateToRoute(index);
       },
     );
   }
 
   Widget _buildSidebar(BuildContext context, DoctorState doctorState) {
     return Container(
-      width: 280,
+      width: 260,
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: AppColors.white,
         border: Border(
-          right: BorderSide(color: AppColors.divider),
+          right: BorderSide(color: AppColors.border, width: 1),
         ),
       ),
       child: Column(
@@ -171,12 +246,15 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
-                _buildSidebarItem(0, Icons.dashboard, 'Tableau de bord'),
-                _buildSidebarItem(1, Icons.calendar_today, 'Calendrier'),
-                _buildSidebarItem(2, Icons.list_alt, 'Rendez-vous'),
-                const Divider(height: 32),
-                _buildSidebarItem(3, Icons.person, 'Profil'),
-                _buildSidebarItem(4, Icons.settings, 'Paramètres'),
+                _buildSidebarItem(0, Icons.dashboard_outlined, 'Tableau de bord'),
+                _buildSidebarItem(1, Icons.calendar_today_outlined, 'Calendrier'),
+                _buildSidebarItem(2, Icons.list_alt_outlined, 'Rendez-vous'),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  child: Divider(height: 1),
+                ),
+                _buildSidebarItem(3, Icons.person_outline, 'Profil'),
+                _buildSidebarItem(4, Icons.settings_outlined, 'Paramètres'),
               ],
             ),
           ),
@@ -188,7 +266,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildSidebarHeader(DoctorState doctorState) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.primary,
       ),
       child: Column(
@@ -197,15 +275,13 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
           Row(
             children: [
               CircleAvatar(
-                radius: 28,
+                radius: 24,
                 backgroundColor: Colors.white,
                 child: Text(
-                  doctorState.name.isNotEmpty && doctorState.name.length > 2
-                      ? doctorState.name.substring(0, 2).toUpperCase()
-                      : 'DR',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  _getInitials(doctorState.name),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.primary,
                   ),
                 ),
@@ -218,7 +294,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     Text(
                       doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
@@ -240,28 +316,18 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.calendar_today, size: 16, color: Colors.white),
-                const SizedBox(width: 8),
-                Text(
-                  '${doctorState.todayAppointments} rendez-vous aujourd\'hui',
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty || name.length <= 2) return 'DR';
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   }
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
@@ -271,101 +337,45 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       child: ListTile(
         leading: Icon(
           icon,
+          size: 20,
           color: isSelected ? AppColors.primary : AppColors.textSecondary,
         ),
         title: Text(
           label,
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            fontSize: 14,
             color: isSelected ? AppColors.primary : AppColors.textPrimary,
           ),
         ),
         selected: isSelected,
-        selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        selectedTileColor: AppColors.primary.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         onTap: () {
           setState(() => _selectedIndex = index);
-          _navigateToRoute(index);
         },
       ),
     );
   }
 
-  void _navigateToRoute(int index) {
-    switch (index) {
-      case 0:
-        break;
-      case 1:
-        context.push(RouteNames.doctorSchedule);
-        break;
-      case 2:
-        context.push(RouteNames.doctorAppointments);
-        break;
-      case 3:
-        context.push(RouteNames.doctorProfile);
-        break;
-      case 4:
-        context.push(RouteNames.doctorSettings);
-        break;
-    }
-  }
-
   Widget _buildContent(DoctorState doctorState) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(doctorState),
+          _buildStatsSection(doctorState),
           const SizedBox(height: AppSpacing.xl),
-          _buildStats(doctorState),
+          _buildQuickActionsSection(),
           const SizedBox(height: AppSpacing.xl),
-          _buildQuickActions(),
-          const SizedBox(height: AppSpacing.xl),
-          _buildUpcomingAppointments(doctorState),
+          _buildUpcomingSection(doctorState),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(DoctorState doctorState) {
-    return Row(
-      children: [
-        if (MediaQuery.of(context).size.width < 900)
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                doctorState.name.isNotEmpty ? doctorState.name : 'Bienvenue',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Tableau de bord',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStats(DoctorState doctorState) {
+  Widget _buildStatsSection(DoctorState doctorState) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 600;
@@ -375,9 +385,17 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             children: [
               Row(
                 children: [
-                  Expanded(child: _buildStatCard('Aujourd\'hui', '${doctorState.todayAppointments}', Icons.today, AppColors.primary)),
+                  Expanded(child: _buildStatCard('Aujourd\'hui', '${doctorState.todayAppointments}', Icons.today_outlined, AppColors.primary)),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: _buildStatCard('Cette semaine', '${doctorState.weekAppointments}', Icons.date_range, AppColors.secondary)),
+                  Expanded(child: _buildStatCard('Cette semaine', '${doctorState.weekAppointments}', Icons.date_range_outlined, AppColors.secondary)),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(child: _buildStatCard('En attente', '${_getPendingCount(doctorState)}', Icons.pending_outlined, AppColors.warning)),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(child: _buildStatCard('Terminés', '${_getCompletedCount(doctorState)}', Icons.check_circle_outlined, AppColors.success)),
                 ],
               ),
             ],
@@ -386,13 +404,13 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         
         return Row(
           children: [
-            Expanded(child: _buildStatCard('Aujourd\'hui', '${doctorState.todayAppointments}', Icons.today, AppColors.primary)),
+            Expanded(child: _buildStatCard('Aujourd\'hui', '${doctorState.todayAppointments}', Icons.today_outlined, AppColors.primary)),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: _buildStatCard('Cette semaine', '${doctorState.weekAppointments}', Icons.date_range, AppColors.secondary)),
+            Expanded(child: _buildStatCard('Cette semaine', '${doctorState.weekAppointments}', Icons.date_range_outlined, AppColors.secondary)),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: _buildStatCard('En attente', '${_getPendingCount(doctorState)}', Icons.pending_actions, AppColors.warning)),
+            Expanded(child: _buildStatCard('En attente', '${_getPendingCount(doctorState)}', Icons.pending_outlined, AppColors.warning)),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: _buildStatCard('Terminés', '${_getCompletedCount(doctorState)}', Icons.check_circle, AppColors.success)),
+            Expanded(child: _buildStatCard('Terminés', '${_getCompletedCount(doctorState)}', Icons.check_circle_outlined, AppColors.success)),
           ],
         );
       },
@@ -412,40 +430,35 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
             ),
           ),
@@ -454,29 +467,42 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Actions rapides',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+  Widget _buildQuickActionsSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Text(
+              'Actions rapides',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            _buildActionCard('Nouveau rendez-vous', Icons.add_circle_outline, () => context.push(RouteNames.doctorSchedule)),
-            _buildActionCard('Voir le calendrier', Icons.calendar_month, () => context.push(RouteNames.doctorSchedule)),
-            _buildActionCard('Tous les rendez-vous', Icons.list_alt, () => context.push(RouteNames.doctorAppointments)),
-          ],
-        ),
-      ],
+          Divider(height: 1, color: AppColors.border),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.md,
+              children: [
+                _buildActionCard('Nouveau rendez-vous', Icons.add_circle_outline, () {}),
+                _buildActionCard('Voir le calendrier', Icons.calendar_month_outlined, () {}),
+                _buildActionCard('Tous les rendez-vous', Icons.list_alt_outlined, () {}),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -485,22 +511,29 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 160,
+        width: 180,
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: AppColors.background,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: AppColors.primary),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 24, color: AppColors.primary),
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
+              style: TextStyle(
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textPrimary,
               ),
@@ -511,64 +544,91 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
-  Widget _buildUpcomingAppointments(DoctorState doctorState) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Rendez-vous à venir',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.push(RouteNames.doctorAppointments),
-              child: const Text('Voir tout'),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        if (doctorState.upcomingAppointments.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Center(
-              child: Column(
-                children: [
-                  Icon(Icons.event_available, size: 48, color: AppColors.textHint),
-                  SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Aucun rendez-vous',
+  Widget _buildUpcomingSection(DoctorState doctorState) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Rendez-vous à venir',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: Text(
+                    'Voir tout',
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primary,
                     ),
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Profitez de votre temps libre !',
-                    style: TextStyle(fontSize: 14, color: AppColors.textHint),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          )
-        else
-          Column(
-            children: doctorState.upcomingAppointments.take(5).map((appointment) {
-              return _buildAppointmentCard(appointment);
-            }).toList(),
           ),
-      ],
+          Divider(height: 1, color: AppColors.border),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: doctorState.upcomingAppointments.isEmpty
+                ? _buildEmptyState()
+                : Column(
+                    children: doctorState.upcomingAppointments.take(5).map((appointment) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: _buildAppointmentCard(appointment),
+                      );
+                    }).toList(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Icon(Icons.event_available, size: 32, color: AppColors.textHint),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Aucun rendez-vous',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Profitez de votre temps libre !',
+            style: TextStyle(fontSize: 13, color: AppColors.textHint),
+          ),
+        ],
+      ),
     );
   }
 
@@ -578,10 +638,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     final statusLabel = appointment.status == 'confirmed' ? 'Confirmé' : 'En attente';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -592,10 +651,11 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               color: appointment.isConsultation
                   ? AppColors.consultationColor.withValues(alpha: 0.1)
                   : AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              appointment.isConsultation ? Icons.video_call : Icons.person,
+              appointment.isConsultation ? Icons.video_call_outlined : Icons.person_outline,
+              size: 20,
               color: appointment.isConsultation ? AppColors.consultationColor : AppColors.primary,
             ),
           ),
@@ -606,16 +666,20 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               children: [
                 Text(
                   appointment.patientName,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
+                    Icon(Icons.access_time, size: 14, color: AppColors.textHint),
                     const SizedBox(width: 4),
                     Text(timeStr, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                    const SizedBox(width: 12),
-                    Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
+                    const SizedBox(width: AppSpacing.md),
+                    Icon(Icons.calendar_today, size: 14, color: AppColors.textHint),
                     const SizedBox(width: 4),
                     Text(
                       '${appointment.startTime.day}/${appointment.startTime.month}',
@@ -630,11 +694,15 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(100),
             ),
             child: Text(
               statusLabel,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: statusColor,
+              ),
             ),
           ),
         ],
