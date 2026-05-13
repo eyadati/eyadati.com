@@ -7,11 +7,11 @@ import 'doctor_calendar_page.dart';
 import 'doctor_appointments_page.dart';
 import 'doctor_profile_page.dart';
 import 'doctor_settings_page.dart';
-import 'doctor_schedule_page.dart';
+import 'doctor_patients_page.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
 
-enum DoctorPage { dashboard, calendar, appointments, profile, settings, schedule }
+enum DoctorPage { dashboard, calendar, appointments, profile, settings, patients }
 
 class DoctorDashboardPage extends ConsumerStatefulWidget {
   const DoctorDashboardPage({super.key});
@@ -127,8 +127,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         return 'Profil';
       case DoctorPage.settings:
         return 'Paramètres';
-      case DoctorPage.schedule:
-        return 'Planning';
+      case DoctorPage.patients:
+        return 'Mes patients';
     }
   }
 
@@ -144,8 +144,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         return const DoctorProfilePage();
       case DoctorPage.settings:
         return const DoctorSettingsPage();
-      case DoctorPage.schedule:
-        return const DoctorSchedulePage();
+      case DoctorPage.patients:
+        return const DoctorPatientsPage();
     }
   }
 
@@ -671,9 +671,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   'Rendez-vous',
                 ),
                 _buildDrawerItem(
-                  DoctorPage.schedule,
-                  Icons.schedule_outlined,
-                  'Planning',
+                  DoctorPage.patients,
+                  Icons.people_outline,
+                  'Patients',
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(
@@ -788,9 +788,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   'Rendez-vous',
                 ),
                 _buildSidebarItem(
-                  DoctorPage.schedule,
-                  Icons.schedule_outlined,
-                  'Planning',
+                  DoctorPage.patients,
+                  Icons.people_outline,
+                  'Patients',
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(
@@ -895,7 +895,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: isSelected
-              ? Border.all(color: AppColors.black, width: 2)
+              ? Border(
+                  left: BorderSide(color: AppColors.primary, width: 3),
+                )
               : null,
         ),
         child: ListTile(
@@ -935,7 +937,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: isSelected
-              ? Border.all(color: AppColors.black, width: 2)
+              ? Border(
+                  left: BorderSide(color: AppColors.primary, width: 3),
+                )
               : null,
         ),
         child: ListTile(

@@ -7,7 +7,6 @@ import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import 'package:eyadati/core/widgets/inputs/app_dropdown.dart';
 import '../providers/doctor_provider.dart';
 import '../../../../core/utils/supabase_client.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DoctorEditProfilePage extends ConsumerStatefulWidget {
   const DoctorEditProfilePage({super.key});

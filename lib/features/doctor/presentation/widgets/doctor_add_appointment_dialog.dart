@@ -5,17 +5,16 @@ import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import '../providers/doctor_provider.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
 
 class DoctorAddAppointmentDialog extends ConsumerStatefulWidget {
   final DateTime initialDate;
   final int initialHour;
-  final int? initialMinute;
 
   const DoctorAddAppointmentDialog({
     super.key,
     required this.initialDate,
     required this.initialHour,
-    this.initialMinute,
   });
 
   @override
@@ -24,54 +23,55 @@ class DoctorAddAppointmentDialog extends ConsumerStatefulWidget {
 
 class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmentDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _searchController = TextEditingController();
-  final _notesController = TextEditingController();
-  Map<String, dynamic>? _selectedPatient;
-  List<Map<String, dynamic>> _searchResults = [];
-  bool _isSearching = false;
-  bool _isLoading = false;
-  String _appointmentType = 'regular';
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   late DateTime _selectedDate;
-  late int _selectedHour;
-  late int _selectedMinute;
-  late int _duration;
+  TimeOfDay? _selectedSlot;
 
   @override
   void initState() {
     super.initState();
-    final doctorState = ref.read(doctorProvider);
     _selectedDate = DateTime(widget.initialDate.year, widget.initialDate.month, widget.initialDate.day);
-    _selectedHour = widget.initialHour;
-    final rounded = _roundToSlot(widget.initialMinute ?? 0);
-    _selectedMinute = rounded;
-    _duration = doctorState.appointmentDuration;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSlotsForCurrentDay());
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _notesController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  int _roundToSlot(int minute) {
-    const interval = 15;
-    return (minute ~/ interval) * interval;
+  Future<void> _loadSlotsForCurrentDay() async {
+    final dayOfWeek = _selectedDate.weekday % 7;
+    await ref.read(doctorProvider.notifier).loadScheduleForDay(dayOfWeek);
   }
 
-  Future<void> _searchPatients(String query) async {
-    if (query.length < 2) {
-      setState(() => _searchResults = []);
-      return;
+  List<TimeOfDay> _computeAvailableSlots(List<ScheduleSlot> slots, int interval) {
+    final dayOfWeek = _selectedDate.weekday % 7;
+    final daySlots = slots.where((s) => s.dayOfWeek == dayOfWeek).toList();
+
+    if (daySlots.isEmpty) return [];
+
+    final List<TimeOfDay> available = [];
+    for (final slot in daySlots) {
+      final startParts = slot.startTime.split(':');
+      final endParts = slot.endTime.split(':');
+      final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+      final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+
+      for (int m = startMinutes; m + interval <= endMinutes; m += interval) {
+        available.add(TimeOfDay(hour: m ~/ 60, minute: m % 60));
+      }
     }
-    setState(() => _isSearching = true);
-    final results = await ref.read(doctorProvider.notifier).searchPatients(query);
-    if (mounted) {
-      setState(() {
-        _searchResults = results;
-        _isSearching = false;
-      });
-    }
+
+    available.sort((a, b) {
+      final aMins = a.hour * 60 + a.minute;
+      final bMins = b.hour * 60 + b.minute;
+      return aMins.compareTo(bMins);
+    });
+
+    return available;
   }
 
   Future<void> _pickDate() async {
@@ -82,24 +82,13 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
       lastDate: DateTime.now().add(const Duration(days: 90)),
     );
     if (picked != null) {
-      setState(() => _selectedDate = DateTime(picked.year, picked.month, picked.day));
-    }
-  }
-
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: _selectedHour, minute: 0),
-    );
-    if (picked != null) {
       setState(() {
-        _selectedHour = picked.hour;
+        _selectedDate = DateTime(picked.year, picked.month, picked.day);
+        _selectedSlot = null;
       });
+      final dayOfWeek = picked.weekday % 7;
+      await ref.read(doctorProvider.notifier).loadScheduleForDay(dayOfWeek);
     }
-  }
-
-  String _formatTime(int hour) {
-    return '${hour.toString().padLeft(2, '0')}:00';
   }
 
   String _formatDate(DateTime date) {
@@ -108,29 +97,32 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   }
 
   Future<void> _save() async {
-    if (_selectedPatient == null) {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Veuillez sélectionner un patient', style: TextStyle(color: AppColors.white)),
+          content: Text('Veuillez sélectionner un créneau', style: TextStyle(color: AppColors.white)),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
 
-    final scheduledAt = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day, _selectedHour, 0);
+    final scheduledAt = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedSlot!.hour,
+      _selectedSlot!.minute,
+    );
+
     final success = await ref.read(doctorProvider.notifier).createAppointment(
-      patientId: _selectedPatient!['id'] as String,
       scheduledAt: scheduledAt,
-      duration: _duration,
-      appointmentType: _appointmentType,
-      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      patientName: _nameController.text.trim(),
+      patientPhone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
     );
 
     if (mounted) {
-      setState(() => _isLoading = false);
       if (success) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,7 +145,7 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-    _duration = doctorState.appointmentDuration;
+    final slots = _computeAvailableSlots(doctorState.scheduleSlots, doctorState.appointmentDuration);
 
     return Dialog(
       backgroundColor: AppColors.white,
@@ -187,8 +179,29 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
+              AppTextField(
+                controller: _nameController,
+                label: 'Nom du patient',
+                hint: 'Entrez le nom',
+                prefixIcon: Icons.person_outline,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Le nom est requis';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _phoneController,
+                label: 'Téléphone',
+                hint: 'Entrez le numéro',
+                prefixIcon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: AppSpacing.lg),
               Text(
-                'Patient',
+                'Date',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -196,8 +209,10 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                 ),
               ),
               const SizedBox(height: 6),
-              if (_selectedPatient != null) ...[
-                Container(
+              InkWell(
+                onTap: _pickDate,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
                     color: AppColors.background,
@@ -206,345 +221,128 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                   ),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                        child: Text(
-                          (_selectedPatient!['full_name'] as String? ?? 'P')[0].toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
+                      Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDate(_selectedDate),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w300,
+                          color: AppColors.textPrimary,
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _selectedPatient!['full_name'] as String? ?? '',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            if (_selectedPatient!['phone'] != null)
-                              Text(
-                                _selectedPatient!['phone'] as String,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w300,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close, size: 16, color: AppColors.textHint),
-                        onPressed: () => setState(() {
-                          _selectedPatient = null;
-                          _searchController.clear();
-                          _searchResults = [];
-                        }),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
                 ),
-              ] else ...[
-                AppTextField(
-                  controller: _searchController,
-                  hint: 'Rechercher un patient...',
-                  prefixIcon: Icons.search,
-                  onChanged: _searchPatients,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Créneau horaire',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
                 ),
-                if (_isSearching)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Recherche en cours...',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.textHint,
-                      ),
-                    ),
+              ),
+              const SizedBox(height: 6),
+              if (doctorState.isLoading)
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                if (_searchResults.isNotEmpty)
-                  Container(
-                    constraints: const BoxConstraints(maxHeight: 160),
-                    margin: const EdgeInsets.only(top: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Chargement des créneaux...',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w300,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else if (slots.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: AppColors.textHint),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Aucun créneau disponible pour ce jour',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 160),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      childAspectRatio: 2,
+                      crossAxisSpacing: 6,
+                      mainAxisSpacing: 6,
                     ),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _searchResults.length,
-                      itemBuilder: (context, index) {
-                        final patient = _searchResults[index];
-                        return ListTile(
-                          dense: true,
-                          leading: CircleAvatar(
-                            radius: 14,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                    itemCount: slots.length,
+                    itemBuilder: (context, index) {
+                      final slot = slots[index];
+                      final isSelected = _selectedSlot?.hour == slot.hour && _selectedSlot?.minute == slot.minute;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedSlot = slot),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.primary : AppColors.background,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected ? AppColors.primary : AppColors.border,
+                            ),
+                          ),
+                          child: Center(
                             child: Text(
-                              (patient['full_name'] as String? ?? 'P')[0].toUpperCase(),
+                              '${slot.hour.toString().padLeft(2, '0')}:${slot.minute.toString().padLeft(2, '0')}',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
+                                color: isSelected ? Colors.white : AppColors.textPrimary,
                               ),
                             ),
                           ),
-                          title: Text(
-                            patient['full_name'] as String? ?? '',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w300,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          subtitle: patient['phone'] != null
-                              ? Text(
-                                  patient['phone'] as String,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w300,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                )
-                              : null,
-                          onTap: () => setState(() {
-                            _selectedPatient = patient;
-                            _searchController.text = patient['full_name'] as String? ?? '';
-                            _searchResults = [];
-                          }),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
-              ],
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Date',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: _pickDate,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(AppSpacing.md),
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _formatDate(_selectedDate),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w300,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Heure',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: _pickTime,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(AppSpacing.md),
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.access_time, size: 16, color: AppColors.textSecondary),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _formatTime(_selectedHour),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w300,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Durée',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
                 ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  _buildDurationChip(15),
-                  const SizedBox(width: AppSpacing.sm),
-                  _buildDurationChip(20),
-                  const SizedBox(width: AppSpacing.sm),
-                  _buildDurationChip(30),
-                  const SizedBox(width: AppSpacing.sm),
-                  _buildDurationChip(45),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Type',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTypeChip(
-                      'standard',
-                      'Standard',
-                      Icons.person_outline,
-                      AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _buildTypeChip(
-                      'consultation',
-                      'Consultation',
-                      Icons.video_call_outlined,
-                      AppColors.consultationColor,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AppTextField(
-                controller: _notesController,
-                label: 'Notes',
-                hint: 'Notes optionnelles...',
-                prefixIcon: Icons.notes_outlined,
-                maxLines: 2,
-              ),
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(
-                onPressed: _isLoading ? null : _save,
+                onPressed: doctorState.isLoading ? null : _save,
                 label: 'Créer le rendez-vous',
-                isLoading: _isLoading,
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDurationChip(int minutes) {
-    final isSelected = _duration == minutes;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _duration = minutes),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.background,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
-          ),
-          child: Text(
-            '$minutes min',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTypeChip(String value, String label, IconData icon, Color color) {
-    final isSelected = _appointmentType == value;
-    return GestureDetector(
-      onTap: () => setState(() => _appointmentType = value),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.1) : AppColors.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? color : AppColors.border),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: isSelected ? color : AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? color : AppColors.textSecondary,
-              ),
-            ),
-          ],
         ),
       ),
     );

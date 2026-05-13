@@ -225,10 +225,6 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
   }
 
-  int _roundToSlotInterval(int minute, int interval) {
-    return (minute ~/ interval) * interval;
-  }
-
   void _onSlotTapped(DateTime day, int hour, int minute) {
     final doctorState = ref.read(doctorProvider);
     final openingParts = doctorState.startTime.split(':');
@@ -251,14 +247,8 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       builder: (context) => DoctorAddAppointmentDialog(
         initialDate: day,
         initialHour: hour,
-        initialMinute: minute,
       ),
     );
-  }
-
-  int _parseHour(String timeStr) {
-    final parts = timeStr.split(':');
-    return int.tryParse(parts[0]) ?? 9;
   }
 
   Widget _buildDayColumns(List<DateTime> weekDays, DoctorState doctorState) {
@@ -339,7 +329,6 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                             !aptEnd.isBefore(slotTime);
                       }).toList();
 
-                      final hasAppt = slotAppointments.isNotEmpty;
                       final isFirstSlotOfHour = minute == 0;
 
                       return GestureDetector(
@@ -382,8 +371,9 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                                                   slotsPerHour +
                                               (apt.startTime.minute ~/
                                                   interval);
-                                      if (!isTopAligned)
+                                      if (!isTopAligned) {
                                         return const SizedBox();
+                                      }
                                       return GestureDetector(
                                         onTap: () {
                                           showModalBottomSheet(
@@ -712,16 +702,6 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  List<AppointmentData> _getAppointmentsForHour(
-    DoctorState state,
-    DateTime day,
-    int hour,
-  ) {
-    return state.upcomingAppointments.where((apt) {
-      return _isSameDay(apt.startTime, day) && apt.startTime.hour == hour;
-    }).toList();
   }
 
   List<AppointmentData> _getAppointmentsForDay(

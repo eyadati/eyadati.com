@@ -22,6 +22,7 @@ class DoctorState {
   final List<AppointmentData> allAppointments;
   final List<AppointmentData> upcomingAppointments;
   final List<ScheduleSlot> scheduleSlots;
+  final List<PatientVisitData> patients;
   final bool isLoading;
   final bool setupCompleted;
   final String? errorMessage;
@@ -45,6 +46,7 @@ class DoctorState {
     this.allAppointments = const [],
     this.upcomingAppointments = const [],
     this.scheduleSlots = const [],
+    this.patients = const [],
     this.isLoading = false,
     this.setupCompleted = false,
     this.errorMessage,
@@ -69,6 +71,7 @@ class DoctorState {
     List<AppointmentData>? allAppointments,
     List<AppointmentData>? upcomingAppointments,
     List<ScheduleSlot>? scheduleSlots,
+    List<PatientVisitData>? patients,
     bool? isLoading,
     bool? setupCompleted,
     String? errorMessage,
@@ -92,6 +95,7 @@ class DoctorState {
       allAppointments: allAppointments ?? this.allAppointments,
       upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
       scheduleSlots: scheduleSlots ?? this.scheduleSlots,
+      patients: patients ?? this.patients,
       isLoading: isLoading ?? this.isLoading,
       setupCompleted: setupCompleted ?? this.setupCompleted,
       errorMessage: errorMessage,
@@ -105,11 +109,13 @@ class AppointmentData {
   final DateTime endTime;
   final String patientName;
   final String? patientAvatar;
+  final String? patientPhone;
   final String status;
   final bool isConsultation;
   final String? notes;
   final int duration;
   final String? patientId;
+  final String bookingType;
 
   AppointmentData({
     required this.id,
@@ -117,11 +123,29 @@ class AppointmentData {
     required this.endTime,
     required this.patientName,
     this.patientAvatar,
+    this.patientPhone,
     required this.status,
     this.isConsultation = false,
     this.notes,
     this.duration = 30,
     this.patientId,
+    this.bookingType = 'online',
+  });
+}
+
+class PatientVisitData {
+  final String? patientId;
+  final String patientName;
+  final String? patientPhone;
+  final int totalVisits;
+  final DateTime? lastVisit;
+
+  PatientVisitData({
+    this.patientId,
+    required this.patientName,
+    this.patientPhone,
+    required this.totalVisits,
+    this.lastVisit,
   });
 }
 
@@ -132,9 +156,92 @@ final doctorProvider = StateNotifierProvider<DoctorNotifier, DoctorState>((ref) 
 class DoctorNotifier extends StateNotifier<DoctorState> {
   final Ref _ref;
   SupabaseClient get _client => _ref.read(supabaseClientProvider);
+  RealtimeChannel? _appointmentsChannel;
 
   DoctorNotifier(this._ref) : super(const DoctorState()) {
+    _subscribeToAppointments();
     loadDoctorData();
+  }
+
+  void _subscribeToAppointments() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _appointmentsChannel = _client
+        .channel('doctor_appointments_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          callback: (payload) {
+            final newRecord = payload.newRecord;
+            final oldRecord = payload.oldRecord;
+            if (newRecord['doctor_id'] == user.id ||
+                oldRecord['doctor_id'] == user.id) {
+              _refreshAppointments();
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  Future<void> _refreshAppointments() async {
+    if (state.userId == null) return;
+    try {
+      final result = await _client
+          .from('appointments')
+          .select('''
+            id,
+            scheduled_at,
+            duration,
+            status,
+            appointment_type,
+            booking_type,
+            notes,
+            patient_name_snapshot,
+            patient_phone_snapshot,
+            patient:profiles!patient_id (
+              id,
+              full_name,
+              avatar_url
+            )
+          ''')
+          .eq('doctor_id', state.userId!)
+          .order('scheduled_at', ascending: false);
+
+      final now = DateTime.now();
+      final allAppointments = result.map((a) {
+        final start = DateTime.parse(a['scheduled_at'] as String);
+        final duration = a['duration'] as int? ?? 30;
+        return AppointmentData(
+          id: a['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: duration)),
+          patientName: (a['patient_name_snapshot'] as String?) ??
+                       ((a['patient'] as Map<String, dynamic>?)?['full_name'] as String?) ??
+                       'Patient',
+          patientAvatar: (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
+          patientPhone: a['patient_phone_snapshot'] as String?,
+          status: a['status'] as String,
+          isConsultation: a['appointment_type'] == 'consultation',
+          notes: a['notes'] as String?,
+          duration: duration,
+          patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
+          bookingType: a['booking_type'] as String? ?? 'online',
+        );
+      }).toList();
+
+      final upcoming = allAppointments.where((a) => a.startTime.isAfter(now)).toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      state = state.copyWith(allAppointments: allAppointments, upcomingAppointments: upcoming);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> loadDoctorData() async {
@@ -217,13 +324,17 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           id: a['id'] as String,
           startTime: start,
           endTime: start.add(Duration(minutes: duration)),
-          patientName: (a['patient'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'Patient',
+          patientName: (a['patient_name_snapshot'] as String?) ??
+                       ((a['patient'] as Map<String, dynamic>?)?['full_name'] as String?) ??
+                       'Patient',
           patientAvatar: (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
+          patientPhone: a['patient_phone_snapshot'] as String?,
           status: a['status'] as String,
           isConsultation: a['appointment_type'] == 'consultation',
           notes: a['notes'] as String?,
           duration: duration,
           patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
+          bookingType: a['booking_type'] as String? ?? 'online',
         );
       }).toList();
 
@@ -277,6 +388,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         upcomingAppointments: upcomingAppointments,
         scheduleSlots: schedule,
       );
+      await loadPatients();
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -485,6 +597,56 @@ Future<void> saveSetup({
     }
   }
 
+  Future<void> loadPatients() async {
+    if (state.userId == null) return;
+    try {
+      final result = await _client
+          .from('appointments')
+          .select('patient_id, patient_name_snapshot, patient_phone_snapshot, scheduled_at, status')
+          .eq('doctor_id', state.userId!)
+          .order('scheduled_at', ascending: false);
+
+      final Map<String, PatientVisitData> patientMap = {};
+
+      for (final row in result as List) {
+        final pid = row['patient_id'] as String?;
+        final key = pid ?? row['patient_name_snapshot'] as String? ?? 'unknown';
+        final name = row['patient_name_snapshot'] as String? ?? 'Patient';
+        final phone = row['patient_phone_snapshot'] as String?;
+        final scheduledAt = DateTime.parse(row['scheduled_at'] as String);
+
+        if (patientMap.containsKey(key)) {
+          final existing = patientMap[key]!;
+          patientMap[key] = PatientVisitData(
+            patientId: existing.patientId ?? pid,
+            patientName: existing.patientName,
+            patientPhone: existing.patientPhone ?? phone,
+            totalVisits: existing.totalVisits + 1,
+            lastVisit: scheduledAt.isAfter(existing.lastVisit!) ? scheduledAt : existing.lastVisit,
+          );
+        } else {
+          patientMap[key] = PatientVisitData(
+            patientId: pid,
+            patientName: name,
+            patientPhone: phone,
+            totalVisits: 1,
+            lastVisit: scheduledAt,
+          );
+        }
+      }
+
+      final sortedPatients = patientMap.values.toList()
+        ..sort((a, b) => (b.lastVisit ?? DateTime(2000)).compareTo(a.lastVisit ?? DateTime(2000)));
+
+      state = state.copyWith(
+        patients: sortedPatients,
+        totalPatients: sortedPatients.length,
+      );
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
   Future<List<Map<String, dynamic>>> searchPatients(String query) async {
     if (query.length < 2) return [];
     try {
@@ -501,51 +663,57 @@ Future<void> saveSetup({
   }
 
   Future<bool> createAppointment({
-    required String patientId,
     required DateTime scheduledAt,
-    required int duration,
-    required String appointmentType,
+    String? patientId,
+    String? patientName,
+    String? patientPhone,
     String? notes,
   }) async {
     try {
-      final result = await _client.from('appointments').insert({
+      final insertData = <String, dynamic>{
         'doctor_id': state.userId,
-        'patient_id': patientId,
         'scheduled_at': scheduledAt.toIso8601String(),
-        'duration': duration,
-        'appointment_type': appointmentType,
-        'notes': notes,
-        'status': 'pending',
-      }).select('''
-        id,
-        scheduled_at,
-        duration,
-        status,
-        appointment_type,
-        notes,
-        patient:profiles!patient_id (
-          full_name,
-          avatar_url
-        )
-      ''').maybeSingle();
+        'duration': state.appointmentDuration,
+        'status': 'upcoming',
+        'booking_type': patientId != null ? 'online' : 'manual',
+      };
+
+      if (patientId != null) {
+        insertData['patient_id'] = patientId;
+        insertData['appointment_type'] = 'standard';
+      }
+
+      if (patientName != null) {
+        insertData['patient_name_snapshot'] = patientName;
+        insertData['patient_phone_snapshot'] = patientPhone ?? '';
+      }
+
+      if (notes != null && notes.isNotEmpty) {
+        insertData['notes'] = notes;
+      }
+
+      final result = await _client.from('appointments').insert(insertData).select(
+        'id, scheduled_at, duration, status, patient_name_snapshot, patient_phone_snapshot'
+      ).maybeSingle();
 
       if (result != null) {
         final start = DateTime.parse(result['scheduled_at'] as String);
-        final dur = result['duration'] as int? ?? 30;
+        final dur = result['duration'] as int? ?? state.appointmentDuration;
         final newAppt = AppointmentData(
           id: result['id'] as String,
           startTime: start,
           endTime: start.add(Duration(minutes: dur)),
-          patientName: (result['patient'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'Patient',
-          patientAvatar: (result['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
-          status: result['status'] as String,
-          isConsultation: result['appointment_type'] == 'consultation',
-          notes: result['notes'] as String?,
+          patientName: patientName ?? result['patient_name_snapshot'] as String? ?? 'Patient',
+          patientPhone: patientPhone ?? result['patient_phone_snapshot'] as String?,
+          status: 'upcoming',
           duration: dur,
           patientId: patientId,
+          bookingType: patientId != null ? 'online' : 'manual',
         );
         state = state.copyWith(
-          upcomingAppointments: [...state.upcomingAppointments, newAppt]..sort((a, b) => a.startTime.compareTo(b.startTime)),
+          upcomingAppointments: [...state.upcomingAppointments, newAppt]
+            ..sort((a, b) => a.startTime.compareTo(b.startTime)),
+          allAppointments: [newAppt, ...state.allAppointments],
         );
         return true;
       }
@@ -598,6 +766,7 @@ Future<void> saveSetup({
 
   Future<void> refresh() async {
     await loadDoctorData();
+    await loadPatients();
   }
 
   void clearError() {

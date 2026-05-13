@@ -13,49 +13,52 @@ class DoctorAppointmentsPage extends ConsumerWidget {
     final doctorState = ref.watch(doctorProvider);
     final all = doctorState.allAppointments;
 
-    return Column(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            border: Border(
-              bottom: BorderSide(color: AppColors.border, width: 1),
+    return DefaultTabController(
+      length: 4,
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              border: Border(
+                bottom: BorderSide(color: AppColors.border, width: 1),
+              ),
             ),
-          ),
-          child: TabBar(
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textSecondary,
-            indicatorColor: AppColors.primary,
-            labelStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w300,
-            ),
-            tabs: [
-              Tab(text: 'Tous (${all.length})'),
-              Tab(text: 'Confirmés (${all.where((a) => a.status == 'confirmed').length})'),
-              Tab(text: 'En attente (${all.where((a) => a.status == 'pending').length})'),
-              Tab(text: 'Annulés (${all.where((a) => a.status == 'cancelled').length})'),
-            ],
-          ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => ref.read(doctorProvider.notifier).refresh(),
-            child: TabBarView(
-              children: [
-                _buildList(context, all),
-                _buildList(context, all.where((a) => a.status == 'confirmed').toList()),
-                _buildList(context, all.where((a) => a.status == 'pending').toList()),
-                _buildList(context, all.where((a) => a.status == 'cancelled').toList()),
+            child: TabBar(
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.primary,
+              labelStyle: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w300,
+              ),
+              tabs: [
+                Tab(text: 'Tous (${all.length})'),
+                Tab(text: 'Confirmés (${all.where((a) => a.status == 'confirmed').length})'),
+                Tab(text: 'En attente (${all.where((a) => a.status == 'pending').length})'),
+                Tab(text: 'Annulés (${all.where((a) => a.status == 'cancelled').length})'),
               ],
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => ref.read(doctorProvider.notifier).refresh(),
+              child: TabBarView(
+                children: [
+                  _buildList(context, all),
+                  _buildList(context, all.where((a) => a.status == 'confirmed').toList()),
+                  _buildList(context, all.where((a) => a.status == 'pending').toList()),
+                  _buildList(context, all.where((a) => a.status == 'cancelled').toList()),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
