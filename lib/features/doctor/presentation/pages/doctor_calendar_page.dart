@@ -4,6 +4,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import '../providers/doctor_provider.dart';
+import '../widgets/doctor_add_appointment_dialog.dart';
+import '../widgets/appointment_details_sheet.dart';
 
 class DoctorCalendarPage extends ConsumerStatefulWidget {
   const DoctorCalendarPage({super.key});
@@ -36,7 +38,10 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
   Widget _buildCompactControls() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
@@ -75,7 +80,10 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
           GestureDetector(
             onTap: goToToday,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 4,
+              ),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
@@ -103,11 +111,16 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 4,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary : AppColors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+          ),
         ),
         child: Text(
           label,
@@ -126,7 +139,6 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
     return Column(
       children: [
-        _buildWeekHeader(weekDays),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -137,137 +149,203 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
   }
 
-  Widget _buildWeekHeader(List<DateTime> weekDays) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(
-          bottom: BorderSide(color: AppColors.border, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            decoration: BoxDecoration(
-              border: Border(
-                right: BorderSide(color: AppColors.border, width: 1),
-              ),
-            ),
-          ),
-          ...weekDays.map((day) {
-            final isToday = _isSameDay(day, DateTime.now());
-            final isWeekend = day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+  int _roundToSlotInterval(int minute, int interval) {
+    return (minute ~/ interval) * interval;
+  }
 
-            return Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: isToday ? AppColors.primary.withValues(alpha: 0.08) : null,
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      _getDayName(day.weekday),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isWeekend ? AppColors.textHint : AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: isToday ? AppColors.primary : null,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: Text(
-                          '${day.day}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isToday ? AppColors.white : AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
+void _onSlotTapped(DateTime day, int hour, int minute) {
+    final rounded = _roundToSlotInterval(minute, 15);
+    showDialog(
+      context: context,
+      builder: (context) => DoctorAddAppointmentDialog(
+        initialDate: day,
+        initialHour: hour,
       ),
     );
   }
 
   Widget _buildDayColumns(List<DateTime> weekDays, DoctorState doctorState) {
+    final interval = 15;
+    final slotsPerHour = 60 ~/ interval;
     final hours = List.generate(14, (i) => i + 7);
+    final slotsPerDay = hours.length * slotsPerHour;
 
     return Column(
-      children: hours.map((hour) {
-        return Row(
+      children: [
+        Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 56,
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Text(
-                '${hour.toString().padLeft(2, '0')}:00',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.textHint,
-                ),
-                textAlign: TextAlign.center,
+              child: Column(
+                children: [
+                  const SizedBox(height: 28),
+                  ...hours.map((hour) {
+                    return SizedBox(
+                      height: slotsPerHour * 36.0,
+                      child: Center(
+                        child: Text(
+                          '${hour.toString().padLeft(2, '0')}:00',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
               ),
             ),
             ...weekDays.map((day) {
-              final appointments = _getAppointmentsForHour(doctorState, day, hour);
+              final isToday = _isSameDay(day, DateTime.now());
+              final appointments = doctorState.upcomingAppointments
+                  .where((apt) => _isSameDay(apt.startTime, day))
+                  .toList();
 
               return Expanded(
                 child: Container(
-                  height: 56,
                   decoration: BoxDecoration(
-                    color: AppColors.white,
+                    color: isToday
+                        ? AppColors.primary.withValues(alpha: 0.04)
+                        : null,
                     border: Border(
                       right: BorderSide(color: AppColors.border, width: 0.5),
-                      bottom: BorderSide(color: AppColors.border, width: 0.5),
                     ),
                   ),
-                  child: appointments.isEmpty
-                      ? null
-                      : Column(
-                          children: appointments.map((apt) {
-                            return Container(
-                              margin: const EdgeInsets.all(2),
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
+                  child: Column(
+                    children: List.generate(slotsPerDay, (idx) {
+                      final hour = hours[idx ~/ slotsPerHour];
+                      final minute = (idx % slotsPerHour) * interval;
+                      final slotTime = DateTime(
+                        day.year,
+                        day.month,
+                        day.day,
+                        hour,
+                        minute,
+                      );
+
+                      final slotAppointments = appointments.where((apt) {
+                        final aptStart = apt.startTime;
+                        final aptEnd = apt.endTime;
+                        final slotEnd = slotTime.add(
+                          Duration(minutes: interval),
+                        );
+                        return !aptStart.isAfter(slotEnd) &&
+                            !aptEnd.isBefore(slotTime);
+                      }).toList();
+
+                      final hasAppt = slotAppointments.isNotEmpty;
+                      final isFirstSlotOfHour = minute == 0;
+
+                      return GestureDetector(
+                        onTap: () => _onSlotTapped(day, hour, minute),
+                        child: Container(
+                          height: 36,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: AppColors.border.withValues(alpha: 0.3),
+                                width: 0.5,
                               ),
-                              child: Text(
-                                apt.patientName,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w300,
-                                  color: AppColors.primary,
+                            ),
+                          ),
+                          child: slotAppointments.isEmpty
+                              ? Stack(
+                                  children: [
+                                    if (isFirstSlotOfHour)
+                                      Positioned(
+                                        top: 2,
+                                        left: 4,
+                                        child: Text(
+                                          '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w300,
+                                            color: AppColors.textHint
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                )
+                              : Stack(
+                                  children: [
+                                    ...slotAppointments.take(1).map((apt) {
+                                      final isTopAligned =
+                                          minute ==
+                                          (apt.startTime.hour - 7) *
+                                                  slotsPerHour +
+                                              (apt.startTime.minute ~/
+                                                  interval);
+                                      if (!isTopAligned)
+                                        return const SizedBox();
+                                      return GestureDetector(
+                                        onTap: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (ctx) =>
+                                                AppointmentDetailsSheet(
+                                                  appointment: apt,
+                                                ),
+                                          );
+                                        },
+                                        child: Container(
+                                          margin: const EdgeInsets.symmetric(
+                                            horizontal: 1,
+                                            vertical: 2,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: apt.isConsultation
+                                                ? AppColors.consultationColor
+                                                      .withValues(alpha: 0.15)
+                                                : AppColors.primary.withValues(
+                                                    alpha: 0.15,
+                                                  ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            border: Border.all(
+                                              color: apt.isConsultation
+                                                  ? AppColors.consultationColor
+                                                        .withValues(alpha: 0.3)
+                                                  : AppColors.primary
+                                                        .withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            apt.patientName,
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w300,
+                                              color: apt.isConsultation
+                                                  ? AppColors.consultationColor
+                                                  : AppColors.primary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ],
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
                         ),
+                      );
+                    }),
+                  ),
                 ),
               );
             }),
           ],
-        );
-      }).toList(),
+        ),
+      ],
     );
   }
 
@@ -353,62 +431,94 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${day.day} ${_getMonthName(day.month)}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${day.day} ${_getMonthName(day.month)}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              if (appointments.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-                    child: Column(
+                    Row(
                       children: [
-                        Icon(Icons.event_available, size: 32, color: AppColors.textHint),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Aucun rendez-vous',
-                          style: TextStyle(color: AppColors.textSecondary),
+                        IconButton(
+                          icon: Icon(Icons.add, color: AppColors.primary),
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _onSlotTapped(day, day.hour == 0 ? 9 : day.hour, 0);
+                          },
+                          tooltip: 'Ajouter un rendez-vous',
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.close,
+                            color: AppColors.textSecondary,
+                          ),
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+              if (appointments.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.event_available,
+                        size: 32,
+                        color: AppColors.textHint,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Aucun rendez-vous',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 )
               else
-                ...appointments.map((apt) {
-                  final timeStr = '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
-                  return ListTile(
+                ...appointments.map(
+                  (apt) => ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.person, color: AppColors.primary, size: 18),
+                      child: Icon(
+                        apt.isConsultation
+                            ? Icons.video_call_outlined
+                            : Icons.person_outline,
+                        color: AppColors.primary,
+                        size: 18,
+                      ),
                     ),
                     title: Text(
                       apt.patientName,
@@ -417,9 +527,19 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    subtitle: Text(timeStr),
+                    subtitle: Text(
+                      '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                     trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: apt.status == 'confirmed'
                             ? AppColors.success.withValues(alpha: 0.1)
@@ -431,12 +551,24 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: apt.status == 'confirmed' ? AppColors.success : AppColors.warning,
+                          color: apt.status == 'confirmed'
+                              ? AppColors.success
+                              : AppColors.warning,
                         ),
                       ),
                     ),
-                  );
-                }),
+                    onTap: () {
+                      Navigator.pop(context);
+                      showModalBottomSheet(
+                        context: this.context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (ctx) =>
+                            AppointmentDetailsSheet(appointment: apt),
+                      );
+                    },
+                  ),
+                ),
               const SizedBox(height: AppSpacing.md),
             ],
           ),
@@ -452,7 +584,21 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   String _getMonthName(int month) {
-    const months = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    const months = [
+      '',
+      'Janvier',
+      'Février',
+      'Mars',
+      'Avril',
+      'Mai',
+      'Juin',
+      'Juillet',
+      'Août',
+      'Septembre',
+      'Octobre',
+      'Novembre',
+      'Décembre',
+    ];
     return months[month];
   }
 
@@ -465,14 +611,23 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  List<AppointmentData> _getAppointmentsForHour(DoctorState state, DateTime day, int hour) {
+  List<AppointmentData> _getAppointmentsForHour(
+    DoctorState state,
+    DateTime day,
+    int hour,
+  ) {
     return state.upcomingAppointments.where((apt) {
       return _isSameDay(apt.startTime, day) && apt.startTime.hour == hour;
     }).toList();
   }
 
-  List<AppointmentData> _getAppointmentsForDay(DoctorState state, DateTime day) {
-    return state.upcomingAppointments.where((apt) => _isSameDay(apt.startTime, day)).toList()
+  List<AppointmentData> _getAppointmentsForDay(
+    DoctorState state,
+    DateTime day,
+  ) {
+    return state.upcomingAppointments
+        .where((apt) => _isSameDay(apt.startTime, day))
+        .toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
   }
 
@@ -481,7 +636,11 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       if (_isWeekView) {
         _currentDate = _currentDate.add(Duration(days: 7 * direction));
       } else {
-        _focusedDay = DateTime(_focusedDay.year, _focusedDay.month + direction, 1);
+        _focusedDay = DateTime(
+          _focusedDay.year,
+          _focusedDay.month + direction,
+          1,
+        );
       }
     });
   }

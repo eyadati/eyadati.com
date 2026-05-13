@@ -108,6 +108,8 @@ class AppointmentData {
   final String status;
   final bool isConsultation;
   final String? notes;
+  final int duration;
+  final String? patientId;
 
   AppointmentData({
     required this.id,
@@ -118,6 +120,8 @@ class AppointmentData {
     required this.status,
     this.isConsultation = false,
     this.notes,
+    this.duration = 30,
+    this.patientId,
   });
 }
 
@@ -233,6 +237,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           status: a['status'] as String,
           isConsultation: a['appointment_type'] == 'consultation',
           notes: a['notes'] as String?,
+          duration: duration,
+          patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
         );
       }).toList();
 
@@ -472,6 +478,117 @@ Future<void> saveSetup({
       state = state.copyWith(scheduleSlots: updatedSlots);
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchPatients(String query) async {
+    if (query.length < 2) return [];
+    try {
+      final results = await _client
+          .from('profiles')
+          .select('id, full_name, phone')
+          .eq('role', 'patient')
+          .ilike('full_name', '%$query%')
+          .limit(10);
+      return (results as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> createAppointment({
+    required String patientId,
+    required DateTime scheduledAt,
+    required int duration,
+    required String appointmentType,
+    String? notes,
+  }) async {
+    try {
+      final result = await _client.from('appointments').insert({
+        'doctor_id': state.userId,
+        'patient_id': patientId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': duration,
+        'appointment_type': appointmentType,
+        'notes': notes,
+        'status': 'pending',
+      }).select('''
+        id,
+        scheduled_at,
+        duration,
+        status,
+        appointment_type,
+        notes,
+        patient:profiles!patient_id (
+          full_name,
+          avatar_url
+        )
+      ''').maybeSingle();
+
+      if (result != null) {
+        final start = DateTime.parse(result['scheduled_at'] as String);
+        final dur = result['duration'] as int? ?? 30;
+        final newAppt = AppointmentData(
+          id: result['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: dur)),
+          patientName: (result['patient'] as Map<String, dynamic>?)?['full_name'] as String? ?? 'Patient',
+          patientAvatar: (result['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
+          status: result['status'] as String,
+          isConsultation: result['appointment_type'] == 'consultation',
+          notes: result['notes'] as String?,
+          duration: dur,
+          patientId: patientId,
+        );
+        state = state.copyWith(
+          upcomingAppointments: [...state.upcomingAppointments, newAppt]..sort((a, b) => a.startTime.compareTo(b.startTime)),
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> updateAppointmentStatus(String appointmentId, String status) async {
+    try {
+      await _client.from('appointments').update({'status': status}).eq('id', appointmentId);
+      final updated = state.upcomingAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            status: status,
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+          );
+        }
+        return a;
+      }).toList();
+      state = state.copyWith(upcomingAppointments: updated);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> deleteAppointment(String appointmentId) async {
+    try {
+      await _client.from('appointments').delete().eq('id', appointmentId);
+      final updated = state.upcomingAppointments.where((a) => a.id != appointmentId).toList();
+      state = state.copyWith(upcomingAppointments: updated);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
     }
   }
 

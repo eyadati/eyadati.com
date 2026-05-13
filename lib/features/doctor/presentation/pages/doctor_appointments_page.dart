@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import '../providers/doctor_provider.dart';
+import '../widgets/appointment_details_sheet.dart';
 
 class DoctorAppointmentsPage extends ConsumerWidget {
   const DoctorAppointmentsPage({super.key});
@@ -83,7 +84,16 @@ class DoctorAppointmentsPage extends ConsumerWidget {
         final appointment = appointments[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: Container(
+          child: InkWell(
+            onTap: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (ctx) => AppointmentDetailsSheet(appointment: appointment),
+              );
+            },
+            child: Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: AppColors.card,
@@ -148,6 +158,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
           ),
         );
       },

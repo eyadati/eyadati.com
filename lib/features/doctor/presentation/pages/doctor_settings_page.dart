@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class DoctorSettingsPage extends ConsumerWidget {
   const DoctorSettingsPage({super.key});
@@ -16,11 +17,15 @@ class DoctorSettingsPage extends ConsumerWidget {
           _buildSectionTitle('Compte'),
           const SizedBox(height: AppSpacing.sm),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.person_outlined,
             title: 'Modifier le profil',
             onTap: () {},
           ),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.lock_outlined,
             title: 'Changer le mot de passe',
             onTap: () {},
@@ -44,6 +49,8 @@ class DoctorSettingsPage extends ConsumerWidget {
           _buildSectionTitle('Langue'),
           const SizedBox(height: AppSpacing.sm),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.language,
             title: 'Langue',
             trailing: 'Français',
@@ -53,11 +60,15 @@ class DoctorSettingsPage extends ConsumerWidget {
           _buildSectionTitle('À propos'),
           const SizedBox(height: AppSpacing.sm),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.description_outlined,
             title: "Conditions d'utilisation",
             onTap: () {},
           ),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.privacy_tip_outlined,
             title: 'Politique de confidentialité',
             onTap: () {},
@@ -100,6 +111,7 @@ class DoctorSettingsPage extends ConsumerWidget {
                       'Version 1.0.0',
                       style: TextStyle(
                         fontSize: 12,
+                        fontWeight: FontWeight.w300,
                         color: AppColors.textSecondary,
                       ),
                     ),
@@ -107,6 +119,46 @@ class DoctorSettingsPage extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _confirmLogout(context, ref),
+              icon: const Icon(Icons.logout, size: 18),
+              label: const Text('Déconnexion'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.error,
+                side: BorderSide(color: AppColors.error),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmLogout(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authProvider.notifier).logout();
+            },
+            child: Text('Déconnexion', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -125,6 +177,8 @@ class DoctorSettingsPage extends ConsumerWidget {
   }
 
   Widget _buildMenuItem({
+    required BuildContext context,
+    required WidgetRef ref,
     required IconData icon,
     required String title,
     String? trailing,
@@ -151,7 +205,7 @@ class DoctorSettingsPage extends ConsumerWidget {
                   title,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w300,
                     color: AppColors.textPrimary,
                   ),
                 ),
@@ -161,6 +215,7 @@ class DoctorSettingsPage extends ConsumerWidget {
                   trailing,
                   style: TextStyle(
                     fontSize: 13,
+                    fontWeight: FontWeight.w300,
                     color: AppColors.textSecondary,
                   ),
                 )
@@ -197,7 +252,7 @@ class DoctorSettingsPage extends ConsumerWidget {
                 title,
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w300,
                   color: AppColors.textPrimary,
                 ),
               ),

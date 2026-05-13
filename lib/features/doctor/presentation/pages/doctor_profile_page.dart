@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import '../providers/doctor_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import 'doctor_edit_profile_page.dart';
 
 class DoctorProfilePage extends ConsumerWidget {
   const DoctorProfilePage({super.key});
@@ -52,6 +54,7 @@ class DoctorProfilePage extends ConsumerWidget {
                     doctorState.specialty,
                     style: TextStyle(
                       fontSize: 14,
+                      fontWeight: FontWeight.w300,
                       color: AppColors.textSecondary,
                     ),
                   ),
@@ -63,16 +66,22 @@ class DoctorProfilePage extends ConsumerWidget {
           _buildInfoCard(doctorState),
           const SizedBox(height: AppSpacing.lg),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.edit_outlined,
             title: 'Modifier le profil',
-            onTap: () {},
+            onTap: () => _showEditProfile(context, ref),
           ),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.schedule_outlined,
             title: 'Horaires de travail',
             onTap: () {},
           ),
           _buildMenuItem(
+            context: context,
+            ref: ref,
             icon: Icons.credit_card_outlined,
             title: 'Abonnement',
             onTap: () {},
@@ -81,7 +90,7 @@ class DoctorProfilePage extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: () => _confirmLogout(context, ref),
               icon: const Icon(Icons.logout, size: 18),
               label: const Text('Déconnexion'),
               style: OutlinedButton.styleFrom(
@@ -93,6 +102,35 @@ class DoctorProfilePage extends ConsumerWidget {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditProfile(BuildContext context, WidgetRef ref) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const DoctorEditProfilePage()),
+    );
+  }
+
+  void _confirmLogout(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Voulez-vous vraiment vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authProvider.notifier).logout();
+            },
+            child: Text('Déconnexion', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -137,6 +175,7 @@ class DoctorProfilePage extends ConsumerWidget {
             label,
             style: TextStyle(
               fontSize: 13,
+              fontWeight: FontWeight.w300,
               color: AppColors.textSecondary,
             ),
           ),
@@ -155,6 +194,8 @@ class DoctorProfilePage extends ConsumerWidget {
   }
 
   Widget _buildMenuItem({
+    required BuildContext context,
+    required WidgetRef ref,
     required IconData icon,
     required String title,
     required VoidCallback onTap,

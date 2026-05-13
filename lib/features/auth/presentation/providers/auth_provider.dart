@@ -102,6 +102,10 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     state = const AppAuthState(isInitialized: true);
   }
 
+  void resetState() {
+    state = const AppAuthState(isInitialized: true);
+  }
+
   Future<bool> _checkDoctorSetup(String userId) async {
     try {
       final doctor = await SupabaseInitializer.client

@@ -7,6 +7,8 @@ import 'doctor_calendar_page.dart';
 import 'doctor_appointments_page.dart';
 import 'doctor_profile_page.dart';
 import 'doctor_settings_page.dart';
+import '../widgets/doctor_add_appointment_dialog.dart';
+import '../widgets/appointment_details_sheet.dart';
 
 enum DoctorPage { dashboard, calendar, appointments, profile, settings }
 
@@ -14,7 +16,8 @@ class DoctorDashboardPage extends ConsumerStatefulWidget {
   const DoctorDashboardPage({super.key});
 
   @override
-  ConsumerState<DoctorDashboardPage> createState() => _DoctorDashboardPageState();
+  ConsumerState<DoctorDashboardPage> createState() =>
+      _DoctorDashboardPageState();
 }
 
 class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
@@ -57,9 +60,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
-        border: Border(
-          bottom: BorderSide(color: AppColors.border, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
       ),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -165,38 +166,94 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 600;
-        
+
         if (isNarrow) {
           return Column(
             children: [
               Row(
                 children: [
-                  Expanded(child: _buildStatCard("Aujourd'hui", '${doctorState.todayAppointments}', Icons.today_outlined, AppColors.primary)),
+                  Expanded(
+                    child: _buildStatCard(
+                      "Aujourd'hui",
+                      '${doctorState.todayAppointments}',
+                      Icons.today_outlined,
+                      AppColors.primary,
+                    ),
+                  ),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: _buildStatCard("Cette semaine", '${doctorState.weekAppointments}', Icons.date_range_outlined, AppColors.secondary)),
+                  Expanded(
+                    child: _buildStatCard(
+                      "Cette semaine",
+                      '${doctorState.weekAppointments}',
+                      Icons.date_range_outlined,
+                      AppColors.secondary,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
-                  Expanded(child: _buildStatCard('En attente', '${_getPendingCount(doctorState)}', Icons.pending_outlined, AppColors.warning)),
+                  Expanded(
+                    child: _buildStatCard(
+                      'En attente',
+                      '${_getPendingCount(doctorState)}',
+                      Icons.pending_outlined,
+                      AppColors.warning,
+                    ),
+                  ),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded(child: _buildStatCard('Terminés', '${_getCompletedCount(doctorState)}', Icons.check_circle_outlined, AppColors.success)),
+                  Expanded(
+                    child: _buildStatCard(
+                      'Terminés',
+                      '${_getCompletedCount(doctorState)}',
+                      Icons.check_circle_outlined,
+                      AppColors.success,
+                    ),
+                  ),
                 ],
               ),
             ],
           );
         }
-        
+
         return Row(
           children: [
-            Expanded(child: _buildStatCard("Aujourd'hui", '${doctorState.todayAppointments}', Icons.today_outlined, AppColors.primary)),
+            Expanded(
+              child: _buildStatCard(
+                "Aujourd'hui",
+                '${doctorState.todayAppointments}',
+                Icons.today_outlined,
+                AppColors.primary,
+              ),
+            ),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: _buildStatCard("Cette semaine", '${doctorState.weekAppointments}', Icons.date_range_outlined, AppColors.secondary)),
+            Expanded(
+              child: _buildStatCard(
+                "Cette semaine",
+                '${doctorState.weekAppointments}',
+                Icons.date_range_outlined,
+                AppColors.secondary,
+              ),
+            ),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: _buildStatCard('En attente', '${_getPendingCount(doctorState)}', Icons.pending_outlined, AppColors.warning)),
+            Expanded(
+              child: _buildStatCard(
+                'En attente',
+                '${_getPendingCount(doctorState)}',
+                Icons.pending_outlined,
+                AppColors.warning,
+              ),
+            ),
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: _buildStatCard('Terminés', '${_getCompletedCount(doctorState)}', Icons.check_circle_outlined, AppColors.success)),
+            Expanded(
+              child: _buildStatCard(
+                'Terminés',
+                '${_getCompletedCount(doctorState)}',
+                Icons.check_circle_outlined,
+                AppColors.success,
+              ),
+            ),
           ],
         );
       },
@@ -204,14 +261,21 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   }
 
   int _getPendingCount(DoctorState state) {
-    return state.upcomingAppointments.where((a) => a.status == 'pending' || a.status == 'confirmed').length;
+    return state.upcomingAppointments
+        .where((a) => a.status == 'pending' || a.status == 'confirmed')
+        .length;
   }
 
   int _getCompletedCount(DoctorState state) {
     return 0;
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -281,9 +345,30 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               spacing: AppSpacing.md,
               runSpacing: AppSpacing.md,
               children: [
-                _buildActionCard('Nouveau rendez-vous', Icons.add_circle_outline, () => _navigateTo(DoctorPage.appointments)),
-                _buildActionCard('Calendrier', Icons.calendar_month_outlined, () => _navigateTo(DoctorPage.calendar)),
-                _buildActionCard('Tous les rendez-vous', Icons.list_alt_outlined, () => _navigateTo(DoctorPage.appointments)),
+                _buildActionCard(
+                  'Nouveau rendez-vous',
+                  Icons.add_circle_outline,
+                  () {
+                    final now = DateTime.now();
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => DoctorAddAppointmentDialog(
+                        initialDate: now,
+                        initialHour: 9,
+                      ),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  'Calendrier',
+                  Icons.calendar_month_outlined,
+                  () => _navigateTo(DoctorPage.calendar),
+                ),
+                _buildActionCard(
+                  'Tous les rendez-vous',
+                  Icons.list_alt_outlined,
+                  () => _navigateTo(DoctorPage.appointments),
+                ),
               ],
             ),
           ),
@@ -373,7 +458,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             child: doctorState.upcomingAppointments.isEmpty
                 ? _buildEmptyState()
                 : Column(
-                    children: doctorState.upcomingAppointments.take(5).map((appointment) {
+                    children: doctorState.upcomingAppointments.take(5).map((
+                      appointment,
+                    ) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                         child: _buildAppointmentCard(appointment),
@@ -407,72 +494,92 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   }
 
   Widget _buildAppointmentCard(AppointmentData appointment) {
-    final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
-    final statusColor = appointment.status == 'confirmed' ? AppColors.secondary : AppColors.warning;
-    final statusLabel = appointment.status == 'confirmed' ? 'Confirmé' : 'En attente';
+    final timeStr =
+        '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
+    final statusColor = appointment.status == 'confirmed'
+        ? AppColors.secondary
+        : AppColors.warning;
+    final statusLabel = appointment.status == 'confirmed'
+        ? 'Confirmé'
+        : 'En attente';
 
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: appointment.isConsultation
-                  ? AppColors.consultationColor.withValues(alpha: 0.1)
-                  : AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              appointment.isConsultation ? Icons.video_call_outlined : Icons.person_outline,
-              size: 18,
-              color: appointment.isConsultation ? AppColors.consultationColor : AppColors.primary,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  appointment.patientName,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$timeStr • ${appointment.startTime.day}/${appointment.startTime.month}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              statusLabel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: statusColor,
+    return InkWell(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) => AppointmentDetailsSheet(appointment: appointment),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: appointment.isConsultation
+                    ? AppColors.consultationColor.withValues(alpha: 0.1)
+                    : AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                appointment.isConsultation
+                    ? Icons.video_call_outlined
+                    : Icons.person_outline,
+                size: 18,
+                color: appointment.isConsultation
+                    ? AppColors.consultationColor
+                    : AppColors.primary,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    appointment.patientName,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$timeStr • ${appointment.startTime.day}/${appointment.startTime.month}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                statusLabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: statusColor,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -487,15 +594,38 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
-                _buildDrawerItem(DoctorPage.dashboard, Icons.dashboard_outlined, 'Tableau de bord'),
-                _buildDrawerItem(DoctorPage.calendar, Icons.calendar_today_outlined, 'Calendrier'),
-                _buildDrawerItem(DoctorPage.appointments, Icons.list_alt_outlined, 'Rendez-vous'),
+                _buildDrawerItem(
+                  DoctorPage.dashboard,
+                  Icons.dashboard_outlined,
+                  'Tableau de bord',
+                ),
+                _buildDrawerItem(
+                  DoctorPage.calendar,
+                  Icons.calendar_today_outlined,
+                  'Calendrier',
+                ),
+                _buildDrawerItem(
+                  DoctorPage.appointments,
+                  Icons.list_alt_outlined,
+                  'Rendez-vous',
+                ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
                   child: Divider(height: 1),
                 ),
-                _buildDrawerItem(DoctorPage.profile, Icons.person_outline, 'Profil'),
-                _buildDrawerItem(DoctorPage.settings, Icons.settings_outlined, 'Paramètres'),
+                _buildDrawerItem(
+                  DoctorPage.profile,
+                  Icons.person_outline,
+                  'Profil',
+                ),
+                _buildDrawerItem(
+                  DoctorPage.settings,
+                  Icons.settings_outlined,
+                  'Paramètres',
+                ),
               ],
             ),
           ),
@@ -507,9 +637,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildDrawerHeader(DoctorState doctorState) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-      ),
+      decoration: BoxDecoration(color: AppColors.primary),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -533,7 +661,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
+                      doctorState.name.isNotEmpty
+                          ? doctorState.name
+                          : 'Docteur',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -567,9 +697,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       width: 240,
       decoration: BoxDecoration(
         color: AppColors.white,
-        border: Border(
-          right: BorderSide(color: AppColors.border, width: 1),
-        ),
+        border: Border(right: BorderSide(color: AppColors.border, width: 1)),
       ),
       child: Column(
         children: [
@@ -578,15 +706,38 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
-                _buildSidebarItem(DoctorPage.dashboard, Icons.dashboard_outlined, 'Tableau de bord'),
-                _buildSidebarItem(DoctorPage.calendar, Icons.calendar_today_outlined, 'Calendrier'),
-                _buildSidebarItem(DoctorPage.appointments, Icons.list_alt_outlined, 'Rendez-vous'),
+                _buildSidebarItem(
+                  DoctorPage.dashboard,
+                  Icons.dashboard_outlined,
+                  'Tableau de bord',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.calendar,
+                  Icons.calendar_today_outlined,
+                  'Calendrier',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.appointments,
+                  Icons.list_alt_outlined,
+                  'Rendez-vous',
+                ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
                   child: Divider(height: 1),
                 ),
-                _buildSidebarItem(DoctorPage.profile, Icons.person_outline, 'Profil'),
-                _buildSidebarItem(DoctorPage.settings, Icons.settings_outlined, 'Paramètres'),
+                _buildSidebarItem(
+                  DoctorPage.profile,
+                  Icons.person_outline,
+                  'Profil',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.settings,
+                  Icons.settings_outlined,
+                  'Paramètres',
+                ),
               ],
             ),
           ),
@@ -598,9 +749,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildSidebarHeader(DoctorState doctorState) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-      ),
+      decoration: BoxDecoration(color: AppColors.primary),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -624,7 +773,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
+                      doctorState.name.isNotEmpty
+                          ? doctorState.name
+                          : 'Docteur',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -665,11 +816,16 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildDrawerItem(DoctorPage page, IconData icon, String label) {
     final isSelected = _currentPage == page;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 2,
+      ),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: isSelected ? Border.all(color: AppColors.black, width: 2) : null,
+          border: isSelected
+              ? Border.all(color: AppColors.black, width: 2)
+              : null,
         ),
         child: ListTile(
           leading: Icon(
@@ -684,7 +840,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               color: isSelected ? AppColors.primary : AppColors.textPrimary,
             ),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           onTap: () {
             setState(() => _currentPage = page);
@@ -698,11 +856,16 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildSidebarItem(DoctorPage page, IconData icon, String label) {
     final isSelected = _currentPage == page;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 2,
+      ),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: isSelected ? Border.all(color: AppColors.black, width: 2) : null,
+          border: isSelected
+              ? Border.all(color: AppColors.black, width: 2)
+              : null,
         ),
         child: ListTile(
           leading: Icon(
@@ -718,7 +881,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               color: isSelected ? AppColors.primary : AppColors.textPrimary,
             ),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           onTap: () => _navigateTo(page),
         ),
