@@ -7,18 +7,31 @@ import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/cards/info_card.dart';
 import '../providers/providers.dart';
 
-class DoctorDetailsPage extends ConsumerWidget {
+class DoctorDetailsPage extends ConsumerStatefulWidget {
   final String doctorId;
 
   const DoctorDetailsPage({super.key, required this.doctorId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DoctorDetailsPage> createState() => _DoctorDetailsPageState();
+}
+
+class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(favoritesProvider.notifier).loadFavorites());
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final doctorsState = ref.watch(doctorsProvider);
+    final favoritesState = ref.watch(favoritesProvider);
     final doctor = doctorsState.doctors.firstWhere(
-      (d) => d.id == doctorId,
-      orElse: () => Doctor(id: doctorId, name: 'Docteur', specialty: 'Spécialité'),
+      (d) => d.id == widget.doctorId,
+      orElse: () => Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité'),
     );
+    final isFavorite = favoritesState.favoriteDoctorIds.contains(widget.doctorId);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -39,7 +52,7 @@ class DoctorDetailsPage extends ConsumerWidget {
                       radius: 50,
                       backgroundColor: AppColors.white,
                       child: Text(
-                        doctor.name.substring(4, 6),
+                        doctor.name.length > 4 ? doctor.name.substring(4, 6) : 'DR',
                         style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w600,
@@ -67,6 +80,15 @@ class DoctorDetailsPage extends ConsumerWidget {
                 ),
               ),
             ),
+            actions: [
+              IconButton(
+                onPressed: () => ref.read(favoritesProvider.notifier).toggleFavorite(widget.doctorId),
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? AppColors.error : Colors.white,
+                ),
+              ),
+            ],
           ),
           SliverToBoxAdapter(
             child: Padding(
@@ -194,7 +216,7 @@ class DoctorDetailsPage extends ConsumerWidget {
               Expanded(
                 child: PrimaryButton(
                   label: 'Prendre rendez-vous',
-                  onPressed: () => context.push('/patient/doctors/$doctorId/book'),
+                  onPressed: () => context.push('/patient/doctors/${widget.doctorId}/book'),
                 ),
               ),
             ],

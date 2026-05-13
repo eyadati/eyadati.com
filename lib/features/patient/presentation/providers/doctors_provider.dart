@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
 
 class DoctorsState {
   final List<Doctor> doctors;
@@ -46,6 +47,7 @@ class Doctor {
   final List<String> availableDays;
   final String? startTime;
   final String? endTime;
+  final int? appointmentDuration;
 
   Doctor({
     required this.id,
@@ -61,7 +63,29 @@ class Doctor {
     this.availableDays = const [],
     this.startTime,
     this.endTime,
+    this.appointmentDuration,
   });
+
+  factory Doctor.fromMap(Map<String, dynamic> map) {
+    final profile = map['profiles'] as Map<String, dynamic>?;
+    final days = (map['available_days'] as String?)?.split(',').where((d) => d.isNotEmpty).toList() ?? [];
+    return Doctor(
+      id: map['id'] as String,
+      name: profile?['full_name'] as String? ?? 'Docteur',
+      specialty: map['specialty'] as String? ?? 'Médecine générale',
+      avatarUrl: profile?['avatar_url'] as String?,
+      rating: (map['rating'] as num?)?.toDouble() ?? 4.5,
+      reviewCount: map['review_count'] as int? ?? 0,
+      experienceYears: map['experience_years'] as int? ?? 0,
+      location: profile?['city'] as String?,
+      bio: map['bio'] as String?,
+      consultationFee: (map['consultation_fee'] as num?)?.toDouble() ?? 0,
+      availableDays: days,
+      startTime: map['opening_at'] as String?,
+      endTime: map['closing_at'] as String?,
+      appointmentDuration: map['appointment_duration'] as int?,
+    );
+  }
 }
 
 final doctorsProvider = StateNotifierProvider<DoctorsNotifier, DoctorsState>((ref) {
@@ -76,66 +100,17 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
   Future<void> loadDoctors() async {
     state = state.copyWith(isLoading: true);
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      final result = await SupabaseInitializer.client
+          .from('doctors')
+          .select('id, specialty, consultation_fee, experience_years, bio, opening_at, closing_at, rating, review_count, profiles(full_name, avatar_url, city)')
+          .order('rating', ascending: false)
+          .limit(50);
+
+      final doctors = (result as List).map((row) => Doctor.fromMap(row as Map<String, dynamic>)).toList();
+
       state = state.copyWith(
         isLoading: false,
-        doctors: [
-          Doctor(
-            id: 'd1',
-            name: 'Dr. Fatima Zahra',
-            specialty: 'Cardiologie',
-            rating: 4.8,
-            reviewCount: 124,
-            experienceYears: 12,
-            location: 'Casablanca',
-            consultationFee: 350,
-            availableDays: ['Lun', 'Mer', 'Ven'],
-          ),
-          Doctor(
-            id: 'd2',
-            name: 'Dr. Youssef Amrani',
-            specialty: 'Médecine générale',
-            rating: 4.6,
-            reviewCount: 89,
-            experienceYears: 8,
-            location: 'Rabat',
-            consultationFee: 250,
-            availableDays: ['Mar', 'Jeu', 'Sam'],
-          ),
-          Doctor(
-            id: 'd3',
-            name: 'Dr. Aicha Benjelloun',
-            specialty: 'Dermatologie',
-            rating: 4.9,
-            reviewCount: 156,
-            experienceYears: 15,
-            location: 'Marrakech',
-            consultationFee: 400,
-            availableDays: ['Lun', 'Mar', 'Mer'],
-          ),
-          Doctor(
-            id: 'd4',
-            name: 'Dr. Hassan Tazi',
-            specialty: 'Orthopédie',
-            rating: 4.7,
-            reviewCount: 78,
-            experienceYears: 10,
-            location: 'Casablanca',
-            consultationFee: 450,
-            availableDays: ['Dim', 'Mer', 'Ven'],
-          ),
-          Doctor(
-            id: 'd5',
-            name: 'Dr. Sara Idrissi',
-            specialty: 'Pédiatrie',
-            rating: 4.9,
-            reviewCount: 201,
-            experienceYears: 14,
-            location: 'Fès',
-            consultationFee: 300,
-            availableDays: ['Lun', 'Mer', 'Jeu', 'Sam'],
-          ),
-        ],
+        doctors: doctors,
       );
     } catch (e) {
       state = state.copyWith(
@@ -147,14 +122,43 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
 
   void searchDoctors(String query) {
     state = state.copyWith(searchQuery: query);
+    _filterDoctors();
   }
 
   void filterBySpecialty(String specialty) {
     state = state.copyWith(selectedSpecialty: specialty);
+    _filterDoctors();
+  }
+
+  Future<void> _filterDoctors() async {
+    await loadDoctors();
+    final query = state.searchQuery.toLowerCase();
+    final specialty = state.selectedSpecialty;
+    final allDoctors = state.doctors;
+
+    final filtered = allDoctors.where((d) {
+      final matchesQuery = query.isEmpty ||
+          d.name.toLowerCase().contains(query) ||
+          d.specialty.toLowerCase().contains(query) ||
+          (d.location?.toLowerCase().contains(query) ?? false);
+      final matchesSpecialty = specialty.isEmpty || d.specialty == specialty;
+      return matchesQuery && matchesSpecialty;
+    }).toList();
+
+    state = state.copyWith(doctors: filtered);
   }
 
   Future<void> refresh() async {
+    state = state.copyWith(searchQuery: '', selectedSpecialty: '');
     await loadDoctors();
+  }
+
+  Doctor? getDoctorById(String id) {
+    try {
+      return state.doctors.firstWhere((d) => d.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   void clearError() {

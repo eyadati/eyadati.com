@@ -6,14 +6,29 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/widgets/cards/empty_state_card.dart';
 import '../providers/providers.dart';
-import '../widgets/doctor_card.dart';
 
-class FavoritesPage extends ConsumerWidget {
+class FavoritesPage extends ConsumerStatefulWidget {
   const FavoritesPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends ConsumerState<FavoritesPage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(favoritesProvider.notifier).loadFavorites());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final favoritesState = ref.watch(favoritesProvider);
     final doctorsState = ref.watch(doctorsProvider);
+
+    final favoriteDoctors = doctorsState.doctors
+        .where((d) => favoritesState.favoriteDoctorIds.contains(d.id))
+        .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -22,30 +37,33 @@ class FavoritesPage extends ConsumerWidget {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: doctorsState.doctors.isEmpty
-          ? Center(
-              child: EmptyStateCard(
-                icon: Icons.favorite_border,
-                title: 'Aucun favori',
-                message: 'Ajoutez des médecins à vos favoris',
-                actionLabel: 'Parcourir les médecins',
-                onAction: () => context.push(RouteNames.patientDoctors),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              itemCount: doctorsState.doctors.length,
-              itemBuilder: (context, index) {
-                final doctor = doctorsState.doctors[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: DoctorCard(
-                    doctor: doctor,
-                    onTap: () => context.push('/patient/doctors/${doctor.id}'),
+      body: favoritesState.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : favoriteDoctors.isEmpty
+              ? Center(
+                  child: EmptyStateCard(
+                    icon: Icons.favorite_border,
+                    title: 'Aucun favori',
+                    message: 'Ajoutez des médecins à vos favoris',
+                    actionLabel: 'Parcourir les médecins',
+                    onAction: () => context.push(RouteNames.patientDoctors),
                   ),
-                );
-              },
-            ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: favoriteDoctors.length,
+                  itemBuilder: (context, index) {
+                    final doctor = favoriteDoctors[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: _FavoriteDoctorCard(
+                        doctor: doctor,
+                        onTap: () => context.push('/patient/doctors/${doctor.id}'),
+                        onRemove: () => ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id),
+                      ),
+                    );
+                  },
+                ),
       bottomNavigationBar: _buildBottomNav(context),
     );
   }
@@ -81,6 +99,95 @@ class FavoritesPage extends ConsumerWidget {
         BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favoris'),
         BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
       ],
+    );
+  }
+}
+
+class _FavoriteDoctorCard extends StatelessWidget {
+  final Doctor doctor;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  const _FavoriteDoctorCard({
+    required this.doctor,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+              child: Text(
+                doctor.name.length > 4 ? doctor.name.substring(4, 6) : 'DR',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    doctor.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    doctor.specialty,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
+                      const SizedBox(width: 4),
+                      Text(
+                        doctor.rating.toStringAsFixed(1),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 8),
+                      if (doctor.location != null) ...[
+                        const Icon(Icons.location_on, size: 14, color: AppColors.textHint),
+                        const SizedBox(width: 4),
+                        Text(
+                          doctor.location!,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.favorite, color: AppColors.error),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

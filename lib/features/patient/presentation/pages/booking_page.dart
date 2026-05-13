@@ -5,7 +5,10 @@ import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
-import '../providers/providers.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
+import 'package:eyadati/features/patient/presentation/providers/doctors_provider.dart';
+import 'package:eyadati/features/patient/presentation/providers/patient_provider.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
   final String doctorId;
@@ -21,6 +24,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   TimeOfDay? _selectedTime;
   String _appointmentType = 'regular';
   final _notesController = TextEditingController();
+  bool _isLoading = false;
 
   final List<TimeOfDay> _availableTimes = [
     const TimeOfDay(hour: 9, minute: 0),
@@ -63,51 +67,90 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       return;
     }
 
-    await Future.delayed(const Duration(seconds: 1));
+    setState(() => _isLoading = true);
 
-    if (!mounted) return;
+    try {
+      final authState = ref.read(authProvider);
+      final userId = authState.userId;
+      if (userId == null) {
+        setState(() => _isLoading = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur: utilisateur non connecté')),
+        );
+        return;
+      }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8F5E9),
-                shape: BoxShape.circle,
+      final scheduledAt = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
+      await SupabaseInitializer.client.from('appointments').insert({
+        'doctor_id': widget.doctorId,
+        'patient_id': userId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': 30,
+        'status': 'pending',
+        'appointment_type': _appointmentType,
+        'notes': _notesController.text.isEmpty ? null : _notesController.text,
+      });
+
+      ref.invalidate(patientProvider);
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, size: 48, color: AppColors.secondary),
               ),
-              child: const Icon(Icons.check, size: 48, color: AppColors.secondary),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Rendez-vous confirmé !',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Votre rendez-vous a été enregistré avec succès.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.go(RouteNames.patientAppointments);
-                },
-                child: const Text('Voir mes rendez-vous'),
+              const SizedBox(height: 16),
+              const Text(
+                'Rendez-vous confirmé !',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              const Text(
+                'Votre rendez-vous a été enregistré avec succès.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.go(RouteNames.patientAppointments);
+                  },
+                  child: const Text('Voir mes rendez-vous'),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: ${e.toString()}')),
+      );
+    }
   }
 
   @override
@@ -142,7 +185,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     radius: 25,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                     child: Text(
-                      doctor.name.substring(4, 6),
+                      doctor.name.length > 4 ? doctor.name.substring(4, 6) : 'DR',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -318,8 +361,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         ),
         child: SafeArea(
           child: PrimaryButton(
-            label: 'Confirmer le rendez-vous',
-            onPressed: _confirmBooking,
+            label: _isLoading ? 'En cours...' : 'Confirmer le rendez-vous',
+            onPressed: _isLoading ? null : _confirmBooking,
           ),
         ),
       ),

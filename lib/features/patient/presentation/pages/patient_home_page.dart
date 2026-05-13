@@ -11,159 +11,183 @@ import '../../../../core/widgets/misc/section_title.dart';
 import '../providers/providers.dart';
 import '../widgets/upcoming_appointment_card.dart';
 
-class PatientHomePage extends ConsumerWidget {
+class PatientHomePage extends ConsumerStatefulWidget {
   const PatientHomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PatientHomePage> createState() => _PatientHomePageState();
+}
+
+class _PatientHomePageState extends ConsumerState<PatientHomePage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(patientProvider.notifier).loadPatientData();
+      ref.read(doctorsProvider.notifier).loadDoctors();
+    });
+  }
+
+  Future<void> _refresh() async {
+    await ref.read(patientProvider.notifier).loadPatientData();
+    await ref.read(doctorsProvider.notifier).refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final patientState = ref.watch(patientProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Bonjour,',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppColors.textSecondary,
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Bonjour,',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
-                            ),
-                            Text(
-                              patientState.name.isNotEmpty 
-                                  ? patientState.name 
-                                  : 'Patient',
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
+                              Text(
+                                patientState.name.isNotEmpty
+                                    ? patientState.name
+                                    : 'Patient',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                onPressed: () {},
+                                icon: const Icon(Icons.notifications_outlined),
                                 color: AppColors.textPrimary,
                               ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () {},
-                              icon: const Icon(Icons.notifications_outlined),
-                              color: AppColors.textPrimary,
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => context.push(RouteNames.patientProfile),
-                              child: CircleAvatar(
-                                radius: 20,
-                                backgroundColor: AppColors.primary,
-                                child: const Text(
-                                  'P',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () => context.push(RouteNames.patientProfile),
+                                child: CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: AppColors.primary,
+                                  child: Text(
+                                    patientState.name.isNotEmpty
+                                        ? patientState.name[0].toUpperCase()
+                                        : 'P',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const SectionTitle(
-                      title: 'Rechercher un médecin',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    GestureDetector(
-                      onTap: () => context.push(RouteNames.patientDoctors),
-                      child: AbsorbPointer(
-                        child: AppSearchField(
-                          hint: 'Spécialité, nom du médecin...',
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      const SectionTitle(
+                        title: 'Rechercher un médecin',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      GestureDetector(
+                        onTap: () => context.push(RouteNames.patientDoctors),
+                        child: AbsorbPointer(
+                          child: AppSearchField(
+                            hint: 'Spécialité, nom du médecin...',
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: StatCard(
-                            title: 'Rendez-vous',
-                            value: '${patientState.upcomingCount}',
-                            icon: Icons.calendar_today,
-                            iconColor: AppColors.primary,
+                      const SizedBox(height: AppSpacing.lg),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: StatCard(
+                              title: 'Rendez-vous',
+                              value: '${patientState.upcomingCount}',
+                              icon: Icons.calendar_today,
+                              iconColor: AppColors.primary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: StatCard(
-                            title: 'Favoris',
-                            value: '${patientState.favoritesCount}',
-                            icon: Icons.favorite,
-                            iconColor: AppColors.error,
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: StatCard(
+                              title: 'Favoris',
+                              value: '${patientState.favoritesCount}',
+                              icon: Icons.favorite,
+                              iconColor: AppColors.error,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    const SectionTitle(
-                      title: 'Rendez-vous à venir',
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                  ],
-                ),
-              ),
-            ),
-            if (patientState.isLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (patientState.upcomingAppointments.isEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: EmptyStateCard(
-                    icon: Icons.calendar_today_outlined,
-                    title: 'Aucun rendez-vous',
-                    message: 'Vous n\'avez pas de rendez-vous à venir',
-                    actionLabel: 'Trouver un médecin',
-                    onAction: () => context.push(RouteNames.patientDoctors),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      const SectionTitle(
+                        title: 'Rendez-vous à venir',
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
                   ),
                 ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final appointment = patientState.upcomingAppointments[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.xs,
-                      ),
-                      child: UpcomingAppointmentCard(
-                        appointment: appointment,
-                        onTap: () {},
-                      ),
-                    );
-                  },
-                  childCount: patientState.upcomingAppointments.length,
-                ),
               ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 100),
-            ),
-          ],
+              if (patientState.isLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (patientState.upcomingAppointments.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    child: EmptyStateCard(
+                      icon: Icons.calendar_today_outlined,
+                      title: 'Aucun rendez-vous',
+                      message: 'Vous n\'avez pas de rendez-vous à venir',
+                      actionLabel: 'Trouver un médecin',
+                      onAction: () => context.push(RouteNames.patientDoctors),
+                    ),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final appointment = patientState.upcomingAppointments[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.xs,
+                        ),
+                        child: UpcomingAppointmentCard(
+                          appointment: appointment,
+                          onTap: () => context.push(RouteNames.patientAppointments),
+                        ),
+                      );
+                    },
+                    childCount: patientState.upcomingAppointments.length,
+                  ),
+                ),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 100),
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: _buildBottomNav(context),
