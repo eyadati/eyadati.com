@@ -277,9 +277,9 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
         child: Column(
           children: [
             Container(
-              width: 32,
-              height: 32,
-              margin: const EdgeInsets.symmetric(vertical: 4),
+              width: 28,
+              height: 28,
+              margin: const EdgeInsets.only(top: 4, bottom: 2),
               decoration: BoxDecoration(
                 color: isToday ? AppColors.primary : Colors.transparent,
                 shape: BoxShape.circle,
@@ -288,7 +288,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                 child: Text(
                   '${day.day}',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: isToday ? Colors.white : AppColors.textPrimary,
                   ),
@@ -296,15 +296,16 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               ),
             ),
             if (appointments.isNotEmpty)
-              Expanded(
+              SizedBox(
+                height: 26,
                 child: _buildAppointmentIndicators(appointments),
               )
             else
               Expanded(
                 child: Center(
                   child: Container(
-                    width: 6,
-                    height: 6,
+                    width: 5,
+                    height: 5,
                     decoration: BoxDecoration(
                       color: isScheduled
                           ? AppColors.primary.withValues(alpha: 0.3)
@@ -321,27 +322,28 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   Widget _buildAppointmentIndicators(List<AppointmentData> appointments) {
-    final displayAppts = appointments.take(3).toList();
-    final remaining = appointments.length - 3;
+    final displayAppts = appointments.take(2).toList();
+    final remaining = appointments.length - 2;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           ...displayAppts.map((apt) => Container(
-            margin: const EdgeInsets.only(bottom: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            margin: const EdgeInsets.only(bottom: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
             decoration: BoxDecoration(
               color: apt.isConsultation
                   ? AppColors.consultationColor.withValues(alpha: 0.15)
                   : AppColors.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
               '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')} ${apt.patientName.split(' ').first}',
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 fontWeight: FontWeight.w500,
                 color: apt.isConsultation
                     ? AppColors.consultationColor
@@ -355,7 +357,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
             Text(
               '+$remaining',
               style: const TextStyle(
-                fontSize: 8,
+                fontSize: 7,
                 color: AppColors.textHint,
               ),
             ),

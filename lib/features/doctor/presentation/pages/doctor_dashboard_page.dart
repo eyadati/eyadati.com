@@ -12,7 +12,14 @@ import 'doctor_patients_page.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
 
-enum DoctorPage { dashboard, calendar, appointments, profile, settings, patients }
+enum DoctorPage {
+  dashboard,
+  calendar,
+  appointments,
+  profile,
+  settings,
+  patients,
+}
 
 class DoctorDashboardPage extends ConsumerStatefulWidget {
   const DoctorDashboardPage({super.key});
@@ -329,7 +336,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
 
   int _getCompletedCount(DoctorState state) {
     final now = DateTime.now();
-    return state.upcomingAppointments.where((a) => a.startTime.isBefore(now)).length;
+    return state.upcomingAppointments
+        .where((a) => a.startTime.isBefore(now))
+        .length;
   }
 
   Widget _buildStatCard(
@@ -414,9 +423,11 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     final now = DateTime.now();
                     showDialog(
                       context: context,
-                      builder: (ctx) => DoctorAddAppointmentDialog(
-                        initialDate: now,
-                        initialHour: 9,
+                      builder: (ctx) => SingleChildScrollView(
+                        child: DoctorAddAppointmentDialog(
+                          initialDate: now,
+                          initialHour: 9,
+                        ),
                       ),
                     );
                   },
@@ -701,7 +712,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
-Widget _buildDrawerHeader(DoctorState doctorState) {
+  Widget _buildDrawerHeader(DoctorState doctorState) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(color: AppColors.primary),
@@ -838,9 +849,7 @@ Widget _buildDrawerHeader(DoctorState doctorState) {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: isSelected
-              ? Border(
-                  left: BorderSide(color: AppColors.primary, width: 3),
-                )
+              ? Border(left: BorderSide(color: AppColors.primary, width: 3))
               : null,
         ),
         child: ListTile(
@@ -932,9 +941,7 @@ Widget _buildDrawerHeader(DoctorState doctorState) {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: isSelected
-              ? Border(
-                  left: BorderSide(color: AppColors.primary, width: 3),
-                )
+              ? Border(left: BorderSide(color: AppColors.primary, width: 3))
               : null,
         ),
         child: ListTile(

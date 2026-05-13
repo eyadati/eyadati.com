@@ -17,10 +17,12 @@ class DoctorAddAppointmentDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<DoctorAddAppointmentDialog> createState() => _DoctorAddAppointmentDialogState();
+  ConsumerState<DoctorAddAppointmentDialog> createState() =>
+      _DoctorAddAppointmentDialogState();
 }
 
-class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmentDialog> {
+class _DoctorAddAppointmentDialogState
+    extends ConsumerState<DoctorAddAppointmentDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -30,7 +32,11 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime(widget.initialDate.year, widget.initialDate.month, widget.initialDate.day);
+    _selectedDate = DateTime(
+      widget.initialDate.year,
+      widget.initialDate.month,
+      widget.initialDate.day,
+    );
   }
 
   @override
@@ -56,7 +62,21 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   }
 
   String _formatDate(DateTime date) {
-    const months = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    const months = [
+      '',
+      'Janvier',
+      'Février',
+      'Mars',
+      'Avril',
+      'Mai',
+      'Juin',
+      'Juillet',
+      'Août',
+      'Septembre',
+      'Octobre',
+      'Novembre',
+      'Décembre',
+    ];
     return '${date.day} ${months[date.month]} ${date.year}';
   }
 
@@ -65,7 +85,10 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
     if (_selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Veuillez sélectionner un créneau', style: TextStyle(color: AppColors.white)),
+          content: Text(
+            'Veuillez sélectionner un créneau',
+            style: TextStyle(color: AppColors.white),
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -80,25 +103,35 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
       _selectedSlot!.minute,
     );
 
-    final success = await ref.read(doctorProvider.notifier).createAppointment(
-      scheduledAt: scheduledAt,
-      patientName: _nameController.text.trim(),
-      patientPhone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-    );
+    final success = await ref
+        .read(doctorProvider.notifier)
+        .createAppointment(
+          scheduledAt: scheduledAt,
+          patientName: _nameController.text.trim(),
+          patientPhone: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+        );
 
     if (mounted) {
       if (success) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Rendez-vous créé', style: TextStyle(color: AppColors.white)),
+            content: Text(
+              'Rendez-vous créé',
+              style: TextStyle(color: AppColors.white),
+            ),
             backgroundColor: AppColors.success,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la création', style: TextStyle(color: AppColors.white)),
+            content: Text(
+              'Erreur lors de la création',
+              style: TextStyle(color: AppColors.white),
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -116,201 +149,220 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
     return Dialog(
       backgroundColor: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        width: 400,
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Nouveau rendez-vous',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close, color: AppColors.textSecondary),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AppTextField(
-                controller: _nameController,
-                label: 'Nom du patient',
-                hint: 'Entrez le nom',
-                prefixIcon: Icons.person_outline,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Le nom est requis';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _phoneController,
-                label: 'Téléphone',
-                hint: 'Entrez le numéro',
-                prefixIcon: Icons.phone_outlined,
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Date',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: _pickDate,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 16, color: AppColors.textSecondary),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatDate(_selectedDate),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                          color: AppColors.textPrimary,
-                        ),
+      child: SingleChildScrollView(
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Nouveau rendez-vous',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
                       ),
-                    ],
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: AppColors.textSecondary),
+                      onPressed: () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  controller: _nameController,
+                  label: 'Nom du patient',
+                  hint: 'Entrez le nom',
+                  prefixIcon: Icons.person_outline,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Le nom est requis';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppTextField(
+                  controller: _phoneController,
+                  label: 'Téléphone',
+                  hint: 'Entrez le numéro',
+                  prefixIcon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Date',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Créneau horaire',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              if (!hasSchedule)
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.event_busy, size: 16, color: AppColors.textHint),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Pas de planning pour ce jour',
+                const SizedBox(height: 4),
+                InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: 16,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _formatDate(_selectedDate),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w300,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textPrimary,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              else if (slots.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 16, color: AppColors.textHint),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Aucun créneau disponible pour ce jour',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w300,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  constraints: const BoxConstraints(maxHeight: 160),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      childAspectRatio: 2,
-                      crossAxisSpacing: 6,
-                      mainAxisSpacing: 6,
+                      ],
                     ),
-                    itemCount: slots.length,
-                    itemBuilder: (context, index) {
-                      final slot = slots[index];
-                      final isSelected = _selectedSlot?.hour == slot.startTime.hour &&
-                          _selectedSlot?.minute == slot.startTime.minute;
-                      return GestureDetector(
-                        onTap: () => setState(() {
-                          _selectedSlot = TimeOfDay(
-                            hour: slot.startTime.hour,
-                            minute: slot.startTime.minute,
-                          );
-                        }),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppColors.primary : AppColors.background,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isSelected ? AppColors.primary : AppColors.border,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Créneau horaire',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (!hasSchedule)
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.event_busy,
+                          size: 16,
+                          color: AppColors.textHint,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Pas de planning pour ce jour',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w300,
+                              color: AppColors.textSecondary,
                             ),
                           ),
-                          child: Center(
-                            child: Text(
-                              '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ],
+                    ),
+                  )
+                else if (slots.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: AppColors.textHint,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Aucun créneau disponible pour ce jour',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w300,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 110),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 5,
+                            childAspectRatio: 2.2,
+                            crossAxisSpacing: 5,
+                            mainAxisSpacing: 5,
+                          ),
+                      itemCount: slots.length,
+                      itemBuilder: (context, index) {
+                        final slot = slots[index];
+                        final isSelected =
+                            _selectedSlot?.hour == slot.startTime.hour &&
+                            _selectedSlot?.minute == slot.startTime.minute;
+                        return GestureDetector(
+                          onTap: () => setState(() {
+                            _selectedSlot = TimeOfDay(
+                              hour: slot.startTime.hour,
+                              minute: slot.startTime.minute,
+                            );
+                          }),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.background,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppColors.textPrimary,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-              const SizedBox(height: AppSpacing.xl),
-              PrimaryButton(
-                onPressed: _save,
-                label: 'Créer le rendez-vous',
-              ),
-            ],
+                const SizedBox(height: AppSpacing.md),
+                PrimaryButton(onPressed: _save, label: 'Créer le rendez-vous'),
+              ],
+            ),
           ),
         ),
       ),
