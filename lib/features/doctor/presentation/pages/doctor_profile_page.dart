@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/utils/time_utils.dart';
 import '../providers/doctor_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import 'doctor_edit_profile_page.dart';
@@ -300,8 +301,8 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
         .toList();
     if (workingDays.isEmpty) return 'Non configuré';
     final firstSlot = state.scheduleSlots.first;
-    final start = firstSlot.startTime.split(':').take(2).join(':');
-    final end = firstSlot.endTime.split(':').take(2).join(':');
+    final start = TimeUtils.minutesToString(firstSlot.startTime);
+    final end = TimeUtils.minutesToString(firstSlot.endTime);
     return workingDays.join(', ') + ' ($start-$end)';
   }
 }

@@ -47,7 +47,8 @@ class Doctor {
   final List<String> availableDays;
   final String? startTime;
   final String? endTime;
-  final int? appointmentDuration;
+  final int appointmentDuration;
+  final int consultationDuration;
 
   Doctor({
     required this.id,
@@ -63,7 +64,8 @@ class Doctor {
     this.availableDays = const [],
     this.startTime,
     this.endTime,
-    this.appointmentDuration,
+    this.appointmentDuration = 20,
+    this.consultationDuration = 30,
   });
 
   factory Doctor.fromMap(Map<String, dynamic> map) {
@@ -83,7 +85,8 @@ class Doctor {
       availableDays: days,
       startTime: map['opening_at'] as String?,
       endTime: map['closing_at'] as String?,
-      appointmentDuration: map['appointment_duration'] as int?,
+      appointmentDuration: map['appointment_duration'] as int? ?? 20,
+      consultationDuration: map['consultation_duration'] as int? ?? 30,
     );
   }
 }

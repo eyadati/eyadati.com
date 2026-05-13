@@ -113,14 +113,10 @@ class SlotEngine {
   }) {
     final List<PotentialSlot> slots = [];
 
-    final startMinutes = _timeToMinutes(scheduleSlot.startTime);
-    final endMinutes = _timeToMinutes(scheduleSlot.endTime);
-    final breakStartMinutes = scheduleSlot.breakStart != null
-        ? _timeToMinutes(scheduleSlot.breakStart!)
-        : null;
-    final breakEndMinutes = scheduleSlot.breakEnd != null
-        ? _timeToMinutes(scheduleSlot.breakEnd!)
-        : null;
+    final startMinutes = scheduleSlot.startTime;
+    final endMinutes = scheduleSlot.endTime;
+    final breakStartMinutes = scheduleSlot.breakStart;
+    final breakEndMinutes = scheduleSlot.breakEnd;
 
     for (int m = startMinutes; m + duration <= endMinutes; m += duration) {
       final slotStart = date.add(Duration(minutes: m));
@@ -129,7 +125,7 @@ class SlotEngine {
       if (isToday && slotStart.isBefore(now)) continue;
 
       if (breakStartMinutes != null && breakEndMinutes != null) {
-        if (m < breakEndMinutes && (m + duration) > breakStartMinutes) continue;
+        if (m < breakEndMinutes! && (m + duration) > breakStartMinutes!) continue;
       }
 
       slots.add(PotentialSlot(
@@ -188,21 +184,15 @@ class SlotEngine {
 
     int totalMinutes = 0;
     for (final slot in daySlots) {
-      final startMins = _timeToMinutes(slot.startTime);
-      final endMins = _timeToMinutes(slot.endTime);
+      final startMins = slot.startTime;
+      final endMins = slot.endTime;
       totalMinutes += endMins - startMins;
 
       if (slot.breakStart != null && slot.breakEnd != null) {
-        totalMinutes -= _timeToMinutes(slot.breakEnd!) - _timeToMinutes(slot.breakStart!);
+        totalMinutes -= slot.breakEnd! - slot.breakStart!;
       }
     }
     return totalMinutes ~/ 60;
-  }
-
-  static int _timeToMinutes(String timeStr) {
-    final clean = timeStr.split('.').first;
-    final parts = clean.split(':');
-    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
   }
 
   static String minutesToTime(int minutes) {

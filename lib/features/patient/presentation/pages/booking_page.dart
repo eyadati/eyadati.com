@@ -89,11 +89,20 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         _selectedTime!.minute,
       );
 
+      final doctorsState = ref.read(doctorsProvider);
+      final doctor = doctorsState.doctors.firstWhere(
+        (d) => d.id == widget.doctorId,
+        orElse: () => Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité'),
+      );
+      final duration = _appointmentType == 'consultation'
+          ? doctor.consultationDuration
+          : doctor.appointmentDuration;
+
       await SupabaseInitializer.client.from('appointments').insert({
         'doctor_id': widget.doctorId,
         'patient_id': userId,
         'scheduled_at': scheduledAt.toIso8601String(),
-        'duration': 30,
+        'duration': duration,
         'status': 'pending',
         'appointment_type': _appointmentType,
         'notes': _notesController.text.isEmpty ? null : _notesController.text,

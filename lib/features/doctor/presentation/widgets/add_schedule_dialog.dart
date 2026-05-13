@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/utils/time_utils.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 
 class AddScheduleDialog extends StatefulWidget {
   final String doctorId;
   final int initialDay;
-  final String? initialStartTime;
-  final String? initialEndTime;
+  final int? initialStartTime;
+  final int? initialEndTime;
   final ScheduleSlot? existingSlot;
-  final Future<void> Function(int day, String start, String end)? onSave;
+  final Future<void> Function(int day, int start, int end, {int? breakStart, int? breakEnd})? onSave;
 
   const AddScheduleDialog({
     super.key,
@@ -29,24 +30,32 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
   late int _selectedDay;
   late TimeOfDay _startTime;
   late TimeOfDay _endTime;
+  TimeOfDay? _breakStart;
+  TimeOfDay? _breakEnd;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = widget.initialDay;
-    _startTime = widget.initialStartTime != null
-        ? TimeOfDay(
-            hour: int.parse(widget.initialStartTime!.split(':')[0]),
-            minute: int.parse(widget.initialStartTime!.split(':')[1]),
-          )
-        : const TimeOfDay(hour: 9, minute: 0);
-    _endTime = widget.initialEndTime != null
-        ? TimeOfDay(
-            hour: int.parse(widget.initialEndTime!.split(':')[0]),
-            minute: int.parse(widget.initialEndTime!.split(':')[1]),
-          )
-        : const TimeOfDay(hour: 17, minute: 0);
+    if (widget.existingSlot != null) {
+      _selectedDay = widget.existingSlot!.dayOfWeek;
+      _startTime = TimeUtils.minutesToTimeOfDay(widget.existingSlot!.startTime);
+      _endTime = TimeUtils.minutesToTimeOfDay(widget.existingSlot!.endTime);
+      if (widget.existingSlot!.breakStart != null) {
+        _breakStart = TimeUtils.minutesToTimeOfDay(widget.existingSlot!.breakStart!);
+      }
+      if (widget.existingSlot!.breakEnd != null) {
+        _breakEnd = TimeUtils.minutesToTimeOfDay(widget.existingSlot!.breakEnd!);
+      }
+    } else {
+      _selectedDay = widget.initialDay;
+      _startTime = widget.initialStartTime != null
+          ? TimeUtils.minutesToTimeOfDay(widget.initialStartTime!)
+          : const TimeOfDay(hour: 9, minute: 0);
+      _endTime = widget.initialEndTime != null
+          ? TimeUtils.minutesToTimeOfDay(widget.initialEndTime!)
+          : const TimeOfDay(hour: 17, minute: 0);
+    }
   }
 
   String _formatTime(TimeOfDay time) {
@@ -69,17 +78,39 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
     }
   }
 
+  Future<void> _selectBreakTime(bool isStart) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: isStart
+          ? (_breakStart ?? const TimeOfDay(hour: 12, minute: 0))
+          : (_breakEnd ?? const TimeOfDay(hour: 14, minute: 0)),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _breakStart = picked;
+        } else {
+          _breakEnd = picked;
+        }
+      });
+    }
+  }
+
   Future<void> _save() async {
-    if (_endTime.hour * 60 + _endTime.minute <= _startTime.hour * 60 + _startTime.minute) {
+    final startMins = TimeUtils.timeOfDayToMinutes(_startTime);
+    final endMins = TimeUtils.timeOfDayToMinutes(_endTime);
+    if (endMins <= startMins) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('L\'heure de fin doit être après l\'heure de début')),
+        const SnackBar(content: Text("L'heure de fin doit être après l'heure de début")),
       );
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      await widget.onSave?.call(_selectedDay, _formatTime(_startTime), _formatTime(_endTime));
+      final breakStartMins = _breakStart != null ? TimeUtils.timeOfDayToMinutes(_breakStart!) : null;
+      final breakEndMins = _breakEnd != null ? TimeUtils.timeOfDayToMinutes(_breakEnd!) : null;
+      await widget.onSave?.call(_selectedDay, startMins, endMins, breakStart: breakStartMins, breakEnd: breakEndMins);
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
@@ -227,6 +258,77 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const Text(
+            'Pause (optionnel)',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _selectBreakTime(true),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Text('Début pause', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.free_breakfast, size: 14, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text(_breakStart != null ? _formatTime(_breakStart!) : '--:--',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _selectBreakTime(false),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Text('Fin pause', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.free_breakfast, size: 14, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text(_breakEnd != null ? _formatTime(_breakEnd!) : '--:--',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

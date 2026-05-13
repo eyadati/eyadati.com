@@ -4,6 +4,7 @@ import 'package:eyadati/models/appointment_data.dart';
 import 'package:eyadati/services/providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eyadati/core/engine/slot_engine.dart';
+import 'package:eyadati/core/utils/time_utils.dart';
 
 class DoctorState {
   final String? userId;
@@ -347,16 +348,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .eq('is_active', true)
           .order('day_of_week');
 
-      final schedule = scheduleSlots.map((s) => ScheduleSlot(
-        id: s['id'] as String,
-        doctorId: s['doctor_id'] as String,
-        dayOfWeek: s['day_of_week'] as int,
-        startTime: s['start_time'] as String,
-        endTime: s['end_time'] as String,
-        breakStart: s['break_start'] as String?,
-        breakEnd: s['break_end'] as String?,
-        isActive: s['is_active'] as bool? ?? true,
-      )).toList();
+      final schedule = scheduleSlots.map((s) => ScheduleSlot.fromDbMap(s)).toList();
 
       state = state.copyWith(
         isLoading: false,
@@ -485,16 +477,7 @@ Future<void> saveSetup({
           .eq('day_of_week', dayOfWeek)
           .eq('is_active', true);
 
-      return slots.map((s) => ScheduleSlot(
-        id: s['id'] as String,
-        doctorId: s['doctor_id'] as String,
-        dayOfWeek: s['day_of_week'] as int,
-        startTime: s['start_time'] as String,
-        endTime: s['end_time'] as String,
-        breakStart: s['break_start'] as String?,
-        breakEnd: s['break_end'] as String?,
-        isActive: s['is_active'] as bool? ?? true,
-      )).toList();
+      return slots.map((s) => ScheduleSlot.fromDbMap(s)).toList();
     } catch (e) {
       return [];
     }
@@ -502,33 +485,24 @@ Future<void> saveSetup({
 
   Future<void> addScheduleSlot({
     required int dayOfWeek,
-    required String startTime,
-    required String endTime,
-    String? breakStart,
-    String? breakEnd,
+    required int startTime,
+    required int endTime,
+    int? breakStart,
+    int? breakEnd,
   }) async {
     try {
       final result = await _client.from('doctor_schedule').insert({
         'doctor_id': state.userId,
         'day_of_week': dayOfWeek,
-        'start_time': startTime,
-        'end_time': endTime,
-        if (breakStart != null) 'break_start': breakStart,
-        if (breakEnd != null) 'break_end': breakEnd,
+        'start_time': TimeUtils.minutesToString(startTime),
+        'end_time': TimeUtils.minutesToString(endTime),
+        if (breakStart != null) 'break_start': TimeUtils.minutesToString(breakStart),
+        if (breakEnd != null) 'break_end': TimeUtils.minutesToString(breakEnd),
         'is_active': true,
       }).select().maybeSingle();
 
       if (result != null) {
-        final newSlot = ScheduleSlot(
-          id: result['id'] as String,
-          doctorId: result['doctor_id'] as String,
-          dayOfWeek: result['day_of_week'] as int,
-          startTime: result['start_time'] as String,
-          endTime: result['end_time'] as String,
-          breakStart: result['break_start'] as String?,
-          breakEnd: result['break_end'] as String?,
-          isActive: result['is_active'] as bool? ?? true,
-        );
+        final newSlot = ScheduleSlot.fromDbMap(result);
         state = state.copyWith(
           scheduleSlots: [...state.scheduleSlots, newSlot],
         );
@@ -540,18 +514,18 @@ Future<void> saveSetup({
 
   Future<void> updateScheduleSlot({
     required String slotId,
-    String? startTime,
-    String? endTime,
-    String? breakStart,
-    String? breakEnd,
+    int? startTime,
+    int? endTime,
+    int? breakStart,
+    int? breakEnd,
     bool? isActive,
   }) async {
     try {
       final updates = <String, dynamic>{};
-      if (startTime != null) updates['start_time'] = startTime;
-      if (endTime != null) updates['end_time'] = endTime;
-      if (breakStart != null) updates['break_start'] = breakStart;
-      if (breakEnd != null) updates['break_end'] = breakEnd;
+      if (startTime != null) updates['start_time'] = TimeUtils.minutesToString(startTime);
+      if (endTime != null) updates['end_time'] = TimeUtils.minutesToString(endTime);
+      if (breakStart != null) updates['break_start'] = TimeUtils.minutesToString(breakStart);
+      if (breakEnd != null) updates['break_end'] = TimeUtils.minutesToString(breakEnd);
       if (isActive != null) updates['is_active'] = isActive;
 
       await _client.from('doctor_schedule').update(updates).eq('id', slotId);

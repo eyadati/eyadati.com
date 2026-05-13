@@ -39,11 +39,13 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
       builder: (context) => AddScheduleDialog(
         doctorId: ref.read(doctorProvider).userId ?? '',
         initialDay: _selectedDay,
-        onSave: (day, start, end) async {
+        onSave: (day, start, end, {int? breakStart, int? breakEnd}) async {
           await ref.read(doctorProvider.notifier).addScheduleSlot(
             dayOfWeek: day,
             startTime: start,
             endTime: end,
+            breakStart: breakStart,
+            breakEnd: breakEnd,
           );
           await _loadSchedule();
         },
@@ -218,11 +220,13 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
                           initialStartTime: slot.startTime,
                           initialEndTime: slot.endTime,
                           existingSlot: slot,
-                          onSave: (day, start, end) async {
+                          onSave: (day, start, end, {int? breakStart, int? breakEnd}) async {
                             await ref.read(doctorProvider.notifier).updateScheduleSlot(
                               slotId: slot.id,
                               startTime: start,
                               endTime: end,
+                              breakStart: breakStart,
+                              breakEnd: breakEnd,
                             );
                             await _loadSchedule();
                           },

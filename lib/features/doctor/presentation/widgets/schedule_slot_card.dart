@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/utils/time_utils.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 
 class ScheduleSlotCard extends StatelessWidget {
@@ -17,6 +18,12 @@ class ScheduleSlotCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final startDisplay = TimeUtils.minutesToString(slot.startTime);
+    final endDisplay = TimeUtils.minutesToString(slot.endTime);
+    final breakDisplay = slot.hasBreak
+        ? ' ${TimeUtils.minutesToString(slot.breakStart!)} - ${TimeUtils.minutesToString(slot.breakEnd!)}'
+        : '';
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -42,7 +49,7 @@ class ScheduleSlotCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${slot.startTime.substring(0, 5)} - ${slot.endTime.substring(0, 5)}',
+                  '$startDisplay - $endDisplay$breakDisplay',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
