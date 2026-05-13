@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/providers.dart';
 
 class PatientAppointmentsPage extends ConsumerStatefulWidget {
@@ -14,10 +17,41 @@ class PatientAppointmentsPage extends ConsumerStatefulWidget {
 }
 
 class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPage> {
+  RealtimeChannel? _appointmentsChannel;
+
   @override
   void initState() {
     super.initState();
     Future.microtask(() => ref.read(patientProvider.notifier).loadPatientData());
+    _subscribeToAppointments();
+  }
+
+  void _subscribeToAppointments() {
+    final authState = ref.read(authProvider);
+    final userId = authState.userId;
+    if (userId == null) return;
+
+    _appointmentsChannel = SupabaseInitializer.client
+        .channel('patient_appointments_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          callback: (payload) {
+            final newRecord = payload.newRecord;
+            final oldRecord = payload.oldRecord;
+            if (newRecord['patient_id'] == userId || (oldRecord != null && oldRecord['patient_id'] == userId)) {
+              ref.read(patientProvider.notifier).loadPatientData();
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    super.dispose();
   }
 
   @override

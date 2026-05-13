@@ -103,6 +103,33 @@ class _DoctorAddAppointmentDialogState
       _selectedSlot!.minute,
     );
 
+    final selectedSlotMinutes = _selectedSlot!.hour * 60 + _selectedSlot!.minute;
+    final doctorState = ref.read(doctorProvider);
+    final endMinutes = selectedSlotMinutes + doctorState.appointmentDuration;
+    final conflicts = doctorState.allAppointments.where((apt) {
+      if (apt.startTime.year != _selectedDate.year ||
+          apt.startTime.month != _selectedDate.month ||
+          apt.startTime.day != _selectedDate.day) return false;
+      final aptStart = apt.startTime.hour * 60 + apt.startTime.minute;
+      final aptEnd = apt.startTime.hour * 60 + apt.startTime.minute + apt.duration;
+      return selectedSlotMinutes < aptEnd && endMinutes > aptStart;
+    }).toList();
+
+    if (conflicts.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Ce créneau est déjà occupé par ${conflicts.first.patientName}',
+              style: TextStyle(color: AppColors.white),
+            ),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
+      return;
+    }
+
     final success = await ref
         .read(doctorProvider.notifier)
         .createAppointment(

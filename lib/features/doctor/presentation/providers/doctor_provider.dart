@@ -635,7 +635,7 @@ Future<void> saveSetup({
         'doctor_id': state.userId,
         'scheduled_at': scheduledAt.toIso8601String(),
         'duration': state.appointmentDuration,
-        'status': 'upcoming',
+        'status': 'confirmed',
         'booking_type': patientId != null ? 'online' : 'manual',
       };
 
