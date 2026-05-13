@@ -139,8 +139,6 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
         specialty: _specialty!,
         city: _city!,
         address: _addressController.text.trim(),
-        breakStart: _breakStart?.hour,
-        breakEnd: _breakEnd?.hour,
         mapsLink: _mapsLinkController.text.trim().isEmpty ? null : _mapsLinkController.text.trim(),
         photoUrl: _photoUrl,
       );

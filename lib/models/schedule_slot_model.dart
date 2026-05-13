@@ -4,6 +4,8 @@ class ScheduleSlot {
   final int dayOfWeek;
   final String startTime;
   final String endTime;
+  final String? breakStart;
+  final String? breakEnd;
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -14,6 +16,8 @@ class ScheduleSlot {
     required this.dayOfWeek,
     required this.startTime,
     required this.endTime,
+    this.breakStart,
+    this.breakEnd,
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
@@ -26,12 +30,14 @@ class ScheduleSlot {
       dayOfWeek: json['day_of_week'] as int,
       startTime: json['start_time'] as String,
       endTime: json['end_time'] as String,
+      breakStart: json['break_start'] as String?,
+      breakEnd: json['break_end'] as String?,
       isActive: json['is_active'] as bool? ?? true,
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
           : null,
-      updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at'] as String) 
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
           : null,
     );
   }
@@ -43,6 +49,8 @@ class ScheduleSlot {
       'day_of_week': dayOfWeek,
       'start_time': startTime,
       'end_time': endTime,
+      if (breakStart != null) 'break_start': breakStart,
+      if (breakEnd != null) 'break_end': breakEnd,
       'is_active': isActive,
     };
   }
@@ -53,6 +61,8 @@ class ScheduleSlot {
     int? dayOfWeek,
     String? startTime,
     String? endTime,
+    String? breakStart,
+    String? breakEnd,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -63,11 +73,15 @@ class ScheduleSlot {
       dayOfWeek: dayOfWeek ?? this.dayOfWeek,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
+      breakStart: breakStart ?? this.breakStart,
+      breakEnd: breakEnd ?? this.breakEnd,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  bool get hasBreak => breakStart != null && breakEnd != null;
 
   static String dayName(int dayOfWeek) {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

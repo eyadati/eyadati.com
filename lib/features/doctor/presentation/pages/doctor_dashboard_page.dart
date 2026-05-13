@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 import 'doctor_calendar_page.dart';
 import 'doctor_appointments_page.dart';

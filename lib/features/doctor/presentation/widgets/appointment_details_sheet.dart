@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 
 class AppointmentDetailsSheet extends ConsumerWidget {

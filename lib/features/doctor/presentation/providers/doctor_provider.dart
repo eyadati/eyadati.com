@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/models/appointment_data.dart';
 import 'package:eyadati/services/providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:eyadati/core/engine/slot_engine.dart';
 
 class DoctorState {
   final String? userId;
@@ -11,11 +13,6 @@ class DoctorState {
   final String city;
   final String phone;
   final String address;
-  final List<String> workingDays;
-  final String startTime;
-  final String endTime;
-  final int? breakStart;
-  final int? breakEnd;
   final int consultationDuration;
   final int appointmentDuration;
   final String avatarUrl;
@@ -39,11 +36,6 @@ class DoctorState {
     this.city = '',
     this.phone = '',
     this.address = '',
-    this.workingDays = const [],
-    this.startTime = '09:00:00',
-    this.endTime = '17:00:00',
-    this.breakStart,
-    this.breakEnd,
     this.consultationDuration = 30,
     this.appointmentDuration = 20,
     this.avatarUrl = '',
@@ -60,6 +52,35 @@ class DoctorState {
     this.errorMessage,
   });
 
+  SlotEngine get slotEngine => SlotEngine(
+    scheduleSlots: scheduleSlots,
+    appointmentDuration: appointmentDuration,
+    consultationDuration: consultationDuration,
+  );
+
+  List<PotentialSlot> getAvailableSlotsForDay(DateTime date, {bool isConsultation = false}) {
+    return slotEngine.getAvailableSlots(
+      date,
+      isConsultation: isConsultation,
+      existingAppointments: allAppointments,
+    );
+  }
+
+  bool hasScheduleForDay(DateTime date) => slotEngine.hasScheduleForDay(date);
+
+  List<ScheduleSlot> getScheduleForDay(DateTime date) => slotEngine.getScheduleForDay(date);
+
+  int getWorkingHoursForDay(DateTime date) => slotEngine.getWorkingHoursForDay(date);
+
+  List<AppointmentData> getAppointmentsForDay(DateTime date) {
+    return allAppointments.where((apt) {
+      return apt.startTime.year == date.year &&
+          apt.startTime.month == date.month &&
+          apt.startTime.day == date.day;
+    }).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+  }
+
   DoctorState copyWith({
     String? userId,
     String? name,
@@ -68,11 +89,6 @@ class DoctorState {
     String? city,
     String? phone,
     String? address,
-    List<String>? workingDays,
-    String? startTime,
-    String? endTime,
-    int? breakStart,
-    int? breakEnd,
     int? consultationDuration,
     int? appointmentDuration,
     String? avatarUrl,
@@ -96,11 +112,6 @@ class DoctorState {
       city: city ?? this.city,
       phone: phone ?? this.phone,
       address: address ?? this.address,
-      workingDays: workingDays ?? this.workingDays,
-      startTime: startTime ?? this.startTime,
-      endTime: endTime ?? this.endTime,
-      breakStart: breakStart ?? this.breakStart,
-      breakEnd: breakEnd ?? this.breakEnd,
       consultationDuration: consultationDuration ?? this.consultationDuration,
       appointmentDuration: appointmentDuration ?? this.appointmentDuration,
       avatarUrl: avatarUrl ?? this.avatarUrl,
@@ -117,36 +128,6 @@ class DoctorState {
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
-}
-
-class AppointmentData {
-  final String id;
-  final DateTime startTime;
-  final DateTime endTime;
-  final String patientName;
-  final String? patientAvatar;
-  final String? patientPhone;
-  final String status;
-  final bool isConsultation;
-  final String? notes;
-  final int duration;
-  final String? patientId;
-  final String bookingType;
-
-  AppointmentData({
-    required this.id,
-    required this.startTime,
-    required this.endTime,
-    required this.patientName,
-    this.patientAvatar,
-    this.patientPhone,
-    required this.status,
-    this.isConsultation = false,
-    this.notes,
-    this.duration = 30,
-    this.patientId,
-    this.bookingType = 'online',
-  });
 }
 
 class PatientVisitData {
@@ -366,21 +347,14 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .eq('is_active', true)
           .order('day_of_week');
 
-      final workingDays = (doctorData['working_days'] as List<dynamic>?)
-              ?.map((d) => d.toString())
-              .toList() ??
-          [];
-      final startTimeStr = doctorData['opening_at']?.toString() ?? '09:00:00';
-      final endTimeStr = doctorData['closing_at']?.toString() ?? '17:00:00';
-      final breakStart = doctorData['break_start'] as int?;
-      final breakEnd = doctorData['break_end'] as int?;
-
       final schedule = scheduleSlots.map((s) => ScheduleSlot(
         id: s['id'] as String,
         doctorId: s['doctor_id'] as String,
         dayOfWeek: s['day_of_week'] as int,
         startTime: s['start_time'] as String,
         endTime: s['end_time'] as String,
+        breakStart: s['break_start'] as String?,
+        breakEnd: s['break_end'] as String?,
         isActive: s['is_active'] as bool? ?? true,
       )).toList();
 
@@ -394,11 +368,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         city: doctorData['city'] as String? ?? '',
         phone: profile?['phone'] as String? ?? '',
         address: doctorData['address'] as String? ?? '',
-        workingDays: workingDays,
-        startTime: startTimeStr,
-        endTime: endTimeStr,
-        breakStart: breakStart,
-        breakEnd: breakEnd,
         consultationDuration: doctorData['consultation_duration'] as int? ?? 30,
         appointmentDuration: doctorData['appointment_duration'] as int? ?? 20,
         avatarUrl: profile?['avatar_url'] as String? ?? doctorData['photo_url'] as String? ?? '',
@@ -429,8 +398,6 @@ Future<void> saveSetup({
     required String city,
     required String address,
     String? phone,
-    int? breakStart,
-    int? breakEnd,
     String? mapsLink,
     String? photoUrl,
   }) async {
@@ -438,8 +405,6 @@ Future<void> saveSetup({
     try {
       final user = _client.auth.currentUser;
       if (user == null) throw Exception('Not authenticated');
-
-      print('[DoctorNotifier] Saving doctor setup for user: ${user.id}');
 
       final role = user.userMetadata?['role'] as String? ?? 'doctor';
       final fullName = user.userMetadata?['full_name'] as String? ?? '';
@@ -463,26 +428,18 @@ Future<void> saveSetup({
         'specialty': specialty,
         'address': address,
         'city': city,
-        'opening_at': startTime,
-        'closing_at': endTime,
-        'break_start': breakStart,
-        'break_end': breakEnd,
         'maps_link': mapsLink,
         'photo_url': photoUrl,
-        'working_days': workingDays,
         'consultation_duration': consultationDuration,
         'appointment_duration': appointmentDuration,
       };
-      print('[DoctorNotifier] Upserting doctor data: $doctorData');
 
       await _client.from('doctors').upsert(doctorData, onConflict: 'id');
 
+      await _client.from('doctor_schedule').delete().eq('doctor_id', user.id);
+
       for (final day in workingDays) {
         final dayOfWeek = dayMapping[day] ?? 1;
-        print('[DoctorNotifier] Creating schedule slot for day: $dayOfWeek');
-        await _client.from('doctor_schedule').delete()
-            .eq('doctor_id', user.id)
-            .eq('day_of_week', dayOfWeek);
         await _client.from('doctor_schedule').insert({
           'doctor_id': user.id,
           'day_of_week': dayOfWeek,
@@ -501,18 +458,12 @@ Future<void> saveSetup({
         city: city,
         phone: phone,
         address: address,
-        workingDays: workingDays,
-        startTime: startTime,
-        endTime: endTime,
-        breakStart: breakStart,
-        breakEnd: breakEnd,
         consultationDuration: consultationDuration,
         appointmentDuration: appointmentDuration,
         mapsLink: mapsLink,
         avatarUrl: photoUrl ?? '',
       );
     } catch (e) {
-      print('[DoctorNotifier] Error in saveSetup: $e');
       state = state.copyWith(
         isLoading: false,
         setupCompleted: false,
@@ -522,14 +473,10 @@ Future<void> saveSetup({
     }
   }
 
-  Future<void> loadScheduleForDay(int dayOfWeek) async {
+  Future<List<ScheduleSlot>> loadScheduleForDay(int dayOfWeek) async {
     final userId = state.userId;
-    if (userId == null) {
-      state = state.copyWith(isLoading: false, scheduleSlots: []);
-      return;
-    }
+    if (userId == null) return [];
 
-    state = state.copyWith(isLoading: true);
     try {
       final slots = await _client
           .from('doctor_schedule')
@@ -537,23 +484,19 @@ Future<void> saveSetup({
           .eq('doctor_id', userId)
           .eq('day_of_week', dayOfWeek)
           .eq('is_active', true);
-      
-      state = state.copyWith(
-        isLoading: false,
-        scheduleSlots: slots.map((s) => ScheduleSlot(
-          id: s['id'] as String,
-          doctorId: s['doctor_id'] as String,
-          dayOfWeek: s['day_of_week'] as int,
-          startTime: s['start_time'] as String,
-          endTime: s['end_time'] as String,
-          isActive: s['is_active'] as bool? ?? true,
-        )).toList(),
-      );
+
+      return slots.map((s) => ScheduleSlot(
+        id: s['id'] as String,
+        doctorId: s['doctor_id'] as String,
+        dayOfWeek: s['day_of_week'] as int,
+        startTime: s['start_time'] as String,
+        endTime: s['end_time'] as String,
+        breakStart: s['break_start'] as String?,
+        breakEnd: s['break_end'] as String?,
+        isActive: s['is_active'] as bool? ?? true,
+      )).toList();
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      return [];
     }
   }
 
@@ -561,6 +504,8 @@ Future<void> saveSetup({
     required int dayOfWeek,
     required String startTime,
     required String endTime,
+    String? breakStart,
+    String? breakEnd,
   }) async {
     try {
       final result = await _client.from('doctor_schedule').insert({
@@ -568,6 +513,8 @@ Future<void> saveSetup({
         'day_of_week': dayOfWeek,
         'start_time': startTime,
         'end_time': endTime,
+        if (breakStart != null) 'break_start': breakStart,
+        if (breakEnd != null) 'break_end': breakEnd,
         'is_active': true,
       }).select().maybeSingle();
 
@@ -578,6 +525,8 @@ Future<void> saveSetup({
           dayOfWeek: result['day_of_week'] as int,
           startTime: result['start_time'] as String,
           endTime: result['end_time'] as String,
+          breakStart: result['break_start'] as String?,
+          breakEnd: result['break_end'] as String?,
           isActive: result['is_active'] as bool? ?? true,
         );
         state = state.copyWith(
@@ -593,12 +542,16 @@ Future<void> saveSetup({
     required String slotId,
     String? startTime,
     String? endTime,
+    String? breakStart,
+    String? breakEnd,
     bool? isActive,
   }) async {
     try {
       final updates = <String, dynamic>{};
       if (startTime != null) updates['start_time'] = startTime;
       if (endTime != null) updates['end_time'] = endTime;
+      if (breakStart != null) updates['break_start'] = breakStart;
+      if (breakEnd != null) updates['break_end'] = breakEnd;
       if (isActive != null) updates['is_active'] = isActive;
 
       await _client.from('doctor_schedule').update(updates).eq('id', slotId);
@@ -608,6 +561,8 @@ Future<void> saveSetup({
           return slot.copyWith(
             startTime: startTime,
             endTime: endTime,
+            breakStart: breakStart,
+            breakEnd: breakEnd,
             isActive: isActive,
           );
         }

@@ -7,11 +7,16 @@ import '../providers/doctor_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import 'doctor_edit_profile_page.dart';
 
-class DoctorProfilePage extends ConsumerWidget {
+class DoctorProfilePage extends ConsumerStatefulWidget {
   const DoctorProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DoctorProfilePage> createState() => _DoctorProfilePageState();
+}
+
+class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
+  @override
+  Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
 
     return SingleChildScrollView(
@@ -144,7 +149,7 @@ class DoctorProfilePage extends ConsumerWidget {
           _buildInfoRow(
             Icons.access_time_outlined,
             'Horaires',
-            '${state.startTime} - ${state.endTime}',
+            _buildScheduleSummary(state),
           ),
         ],
       ),
@@ -284,5 +289,19 @@ class DoctorProfilePage extends ConsumerWidget {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
+  }
+
+  String _buildScheduleSummary(DoctorState state) {
+    if (state.scheduleSlots.isEmpty) return 'Non configuré';
+    final dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    final workingDays = state.scheduleSlots
+        .where((s) => s.isActive)
+        .map((s) => dayNames[s.dayOfWeek])
+        .toList();
+    if (workingDays.isEmpty) return 'Non configuré';
+    final firstSlot = state.scheduleSlots.first;
+    final start = firstSlot.startTime.split(':').take(2).join(':');
+    final end = firstSlot.endTime.split(':').take(2).join(':');
+    return workingDays.join(', ') + ' ($start-$end)';
   }
 }

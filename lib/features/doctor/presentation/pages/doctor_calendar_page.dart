@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
-import 'package:eyadati/core/constants/app_spacing.dart';
-import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
@@ -61,7 +60,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   String _formatWeekRange() {
     final end = _startOfTwoWeeks.add(const Duration(days: 13));
     final months = ['', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-    
+
     if (_startOfTwoWeeks.month == end.month) {
       return '${_startOfTwoWeeks.day} - ${end.day} ${months[_startOfTwoWeeks.month]} ${_startOfTwoWeeks.year}';
     } else if (_startOfTwoWeeks.year == end.year) {
@@ -71,15 +70,10 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     }
   }
 
-  List<AppointmentData> _getAppointmentsForDay(DateTime day, List<AppointmentData> allAppointments) {
-    return allAppointments.where((apt) => _isSameDay(apt.startTime, day)).toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
-  }
-
   void _showDayAppointments(DateTime day) {
     final doctorState = ref.read(doctorProvider);
-    final dayAppointments = _getAppointmentsForDay(day, doctorState.allAppointments);
-    final isScheduled = _isDayScheduled(day, doctorState.scheduleSlots);
+    final dayAppointments = doctorState.getAppointmentsForDay(day);
+    final isScheduled = doctorState.hasScheduleForDay(day);
 
     showModalBottomSheet(
       context: context,
@@ -89,6 +83,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
         day: day,
         appointments: dayAppointments,
         isScheduled: isScheduled,
+        availableSlots: doctorState.getAvailableSlotsForDay(day).length,
         onAddAppointment: () {
           Navigator.pop(ctx);
           _showAddAppointmentDialog(day);
@@ -114,11 +109,6 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
         initialHour: 9,
       ),
     );
-  }
-
-  bool _isDayScheduled(DateTime day, List<ScheduleSlot> scheduleSlots) {
-    final dayOfWeek = day.weekday % 7;
-    return scheduleSlots.any((s) => s.dayOfWeek == dayOfWeek && s.isActive);
   }
 
   @override
@@ -244,12 +234,12 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: weekDays.map((day) {
-              final hours = _getWorkingHours(day, doctorState);
+              final hours = doctorState.getWorkingHoursForDay(day);
               return Expanded(
                 child: Center(
                   child: Text(
                     '${hours}h',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       color: AppColors.textHint,
                     ),
@@ -266,37 +256,19 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
   }
 
-  int _getWorkingHours(DateTime day, DoctorState doctorState) {
-    final dayOfWeek = day.weekday % 7;
-    final daySlots = doctorState.scheduleSlots.where((s) => s.dayOfWeek == dayOfWeek && s.isActive).toList();
-    if (daySlots.isEmpty) return 0;
-    
-    int totalMinutes = 0;
-    for (final slot in daySlots) {
-      try {
-        final startParts = slot.startTime.split('.').first.split(':');
-        final endParts = slot.endTime.split('.').first.split(':');
-        final startMins = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-        final endMins = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-        totalMinutes += endMins - startMins;
-      } catch (e) {}
-    }
-    return totalMinutes ~/ 60;
-  }
-
   Widget _buildDayCell(DateTime day, DoctorState doctorState) {
     final isToday = _isToday(day);
-    final isScheduled = _isDayScheduled(day, doctorState.scheduleSlots);
-    final appointments = _getAppointmentsForDay(day, doctorState.allAppointments);
+    final isScheduled = doctorState.hasScheduleForDay(day);
+    final appointments = doctorState.getAppointmentsForDay(day);
 
     return GestureDetector(
       onTap: () => _showDayAppointments(day),
       child: Container(
         decoration: BoxDecoration(
-          color: isToday 
+          color: isToday
               ? AppColors.primary.withValues(alpha: 0.08)
-              : isScheduled 
-                  ? AppColors.white 
+              : isScheduled
+                  ? AppColors.white
                   : AppColors.background,
           border: Border(
             left: BorderSide(color: AppColors.border.withValues(alpha: 0.3), width: 0.5),
@@ -334,8 +306,8 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                     width: 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: isScheduled 
-                          ? AppColors.primary.withValues(alpha: 0.3) 
+                      color: isScheduled
+                          ? AppColors.primary.withValues(alpha: 0.3)
                           : Colors.transparent,
                       shape: BoxShape.circle,
                     ),
@@ -361,7 +333,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
             margin: const EdgeInsets.only(bottom: 2),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              color: apt.isConsultation 
+              color: apt.isConsultation
                   ? AppColors.consultationColor.withValues(alpha: 0.15)
                   : AppColors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(3),
@@ -371,8 +343,8 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               style: TextStyle(
                 fontSize: 8,
                 fontWeight: FontWeight.w500,
-                color: apt.isConsultation 
-                    ? AppColors.consultationColor 
+                color: apt.isConsultation
+                    ? AppColors.consultationColor
                     : AppColors.primary,
               ),
               maxLines: 1,
@@ -382,7 +354,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
           if (remaining > 0)
             Text(
               '+$remaining',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 8,
                 color: AppColors.textHint,
               ),
@@ -397,6 +369,7 @@ class _DayAppointmentsSheet extends StatelessWidget {
   final DateTime day;
   final List<AppointmentData> appointments;
   final bool isScheduled;
+  final int availableSlots;
   final VoidCallback onAddAppointment;
   final Function(AppointmentData) onViewAppointment;
 
@@ -404,14 +377,15 @@ class _DayAppointmentsSheet extends StatelessWidget {
     required this.day,
     required this.appointments,
     required this.isScheduled,
+    required this.availableSlots,
     required this.onAddAppointment,
     required this.onViewAppointment,
   });
 
   @override
   Widget build(BuildContext context) {
-    final months = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-    final days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const months = ['', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+    const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
     return Container(
       constraints: BoxConstraints(
@@ -451,8 +425,8 @@ class _DayAppointmentsSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${appointments.length} rendez-vous',
-                        style: TextStyle(
+                        '${appointments.length} rendez-vous${isScheduled ? ' • $availableSlots créneaux dispo' : ''}',
+                        style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.textSecondary,
                         ),
@@ -467,11 +441,11 @@ class _DayAppointmentsSheet extends StatelessWidget {
                       color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.check_circle, size: 14, color: AppColors.primary),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Text(
                           'Planifié',
                           style: TextStyle(
@@ -486,14 +460,14 @@ class _DayAppointmentsSheet extends StatelessWidget {
               ],
             ),
           ),
-          Divider(height: 1, color: AppColors.border),
+          const Divider(height: 1),
           if (appointments.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(40),
+            const Padding(
+              padding: EdgeInsets.all(40),
               child: Column(
                 children: [
                   Icon(Icons.event_available, size: 48, color: AppColors.textHint),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(
                     'Aucun rendez-vous ce jour',
                     style: TextStyle(
@@ -510,7 +484,7 @@ class _DayAppointmentsSheet extends StatelessWidget {
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: appointments.length,
-                separatorBuilder: (_, __) => Divider(height: 1, color: AppColors.border),
+                separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final apt = appointments[index];
                   return ListTile(
@@ -519,7 +493,7 @@ class _DayAppointmentsSheet extends StatelessWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: apt.isConsultation 
+                        color: apt.isConsultation
                             ? AppColors.consultationColor.withValues(alpha: 0.15)
                             : AppColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
@@ -530,8 +504,8 @@ class _DayAppointmentsSheet extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: apt.isConsultation 
-                                ? AppColors.consultationColor 
+                            color: apt.isConsultation
+                                ? AppColors.consultationColor
                                 : AppColors.primary,
                           ),
                         ),
@@ -546,7 +520,7 @@ class _DayAppointmentsSheet extends StatelessWidget {
                     ),
                     subtitle: Text(
                       apt.isConsultation ? 'Consultation' : 'Rendez-vous',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
@@ -575,7 +549,7 @@ class _DayAppointmentsSheet extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: onAddAppointment,
+                onPressed: isScheduled ? onAddAppointment : null,
                 icon: const Icon(Icons.add),
                 label: const Text('Ajouter un rendez-vous'),
                 style: ElevatedButton.styleFrom(
@@ -596,17 +570,17 @@ class _DayAppointmentsSheet extends StatelessWidget {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'confirmé':
       case 'confirmed':
+      case 'confirmé':
         return AppColors.success;
-      case 'en attente':
       case 'pending':
+      case 'en attente':
         return AppColors.warning;
-      case 'annulé':
       case 'cancelled':
+      case 'annulé':
         return AppColors.error;
-      case 'terminé':
       case 'completed':
+      case 'terminé':
         return AppColors.textSecondary;
       default:
         return AppColors.primary;

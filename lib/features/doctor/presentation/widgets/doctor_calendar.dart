@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../models/appointment_data.dart';
 import '../providers/providers.dart';
 
 class DoctorCalendar extends StatefulWidget {

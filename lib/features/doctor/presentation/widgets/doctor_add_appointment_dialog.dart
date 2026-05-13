@@ -5,7 +5,6 @@ import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import '../providers/doctor_provider.dart';
-import 'package:eyadati/models/schedule_slot_model.dart';
 
 class DoctorAddAppointmentDialog extends ConsumerStatefulWidget {
   final DateTime initialDate;
@@ -34,46 +33,11 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
     _selectedDate = DateTime(widget.initialDate.year, widget.initialDate.month, widget.initialDate.day);
   }
 
-  int _getDayOfWeek(DateTime date) {
-    final day = date.weekday;
-    return day == 7 ? 0 : day;
-  }
-
-  List<TimeOfDay> _computeAvailableSlots(List<ScheduleSlot> slots, int interval) {
-    final dayOfWeek = _getDayOfWeek(_selectedDate);
-    final daySlots = slots.where((s) => s.dayOfWeek == dayOfWeek).toList();
-
-    if (daySlots.isEmpty) return [];
-
-    final List<TimeOfDay> available = [];
-    for (final slot in daySlots) {
-      final cleanStart = slot.startTime.split('.').first;
-      final cleanEnd = slot.endTime.split('.').first;
-      final startParts = cleanStart.split(':');
-      final endParts = cleanEnd.split(':');
-      
-      int startMinutes;
-      int endMinutes;
-      
-      try {
-        startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-        endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-      } catch (e) {
-        continue;
-      }
-
-      for (int m = startMinutes; m + interval <= endMinutes; m += interval) {
-        available.add(TimeOfDay(hour: m ~/ 60, minute: m % 60));
-      }
-    }
-
-    available.sort((a, b) {
-      final aMins = a.hour * 60 + a.minute;
-      final bMins = b.hour * 60 + b.minute;
-      return aMins.compareTo(bMins);
-    });
-
-    return available;
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickDate() async {
@@ -145,7 +109,9 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-    final slots = _computeAvailableSlots(doctorState.scheduleSlots, doctorState.appointmentDuration);
+
+    final slots = doctorState.getAvailableSlotsForDay(_selectedDate);
+    final hasSchedule = doctorState.hasScheduleForDay(_selectedDate);
 
     return Dialog(
       backgroundColor: AppColors.white,
@@ -245,7 +211,7 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                 ),
               ),
               const SizedBox(height: 6),
-              if (doctorState.isLoading)
+              if (!hasSchedule)
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
@@ -253,20 +219,17 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                      ),
+                      Icon(Icons.event_busy, size: 16, color: AppColors.textHint),
                       const SizedBox(width: 8),
-                      Text(
-                        'Chargement des créneaux...',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w300,
-                          color: AppColors.textSecondary,
+                      Expanded(
+                        child: Text(
+                          'Pas de planning pour ce jour',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w300,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ],
@@ -310,9 +273,15 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                     itemCount: slots.length,
                     itemBuilder: (context, index) {
                       final slot = slots[index];
-                      final isSelected = _selectedSlot?.hour == slot.hour && _selectedSlot?.minute == slot.minute;
+                      final isSelected = _selectedSlot?.hour == slot.startTime.hour &&
+                          _selectedSlot?.minute == slot.startTime.minute;
                       return GestureDetector(
-                        onTap: () => setState(() => _selectedSlot = slot),
+                        onTap: () => setState(() {
+                          _selectedSlot = TimeOfDay(
+                            hour: slot.startTime.hour,
+                            minute: slot.startTime.minute,
+                          );
+                        }),
                         child: Container(
                           decoration: BoxDecoration(
                             color: isSelected ? AppColors.primary : AppColors.background,
@@ -323,7 +292,7 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                           ),
                           child: Center(
                             child: Text(
-                              '${slot.hour.toString().padLeft(2, '0')}:${slot.minute.toString().padLeft(2, '0')}',
+                              '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -338,7 +307,7 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
                 ),
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(
-                onPressed: doctorState.isLoading ? null : _save,
+                onPressed: _save,
                 label: 'Créer le rendez-vous',
               ),
             ],
