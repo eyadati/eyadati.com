@@ -27,30 +27,11 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   final _phoneController = TextEditingController();
   late DateTime _selectedDate;
   TimeOfDay? _selectedSlot;
-  List<ScheduleSlot> _loadedSlots = [];
 
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime(widget.initialDate.year, widget.initialDate.month, widget.initialDate.day);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSlotsForCurrentDay());
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadSlotsForCurrentDay() async {
-    final dayOfWeek = _selectedDate.weekday % 7;
-    await ref.read(doctorProvider.notifier).loadScheduleForDay(dayOfWeek);
-    if (mounted) {
-      setState(() {
-        _loadedSlots = ref.read(doctorProvider).scheduleSlots;
-      });
-    }
   }
 
   int _getDayOfWeek(DateTime date) {
@@ -107,13 +88,6 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
         _selectedDate = DateTime(picked.year, picked.month, picked.day);
         _selectedSlot = null;
       });
-      final dayOfWeek = _getDayOfWeek(picked);
-      await ref.read(doctorProvider.notifier).loadScheduleForDay(dayOfWeek);
-      if (mounted) {
-        setState(() {
-          _loadedSlots = ref.read(doctorProvider).scheduleSlots;
-        });
-      }
     }
   }
 
@@ -171,7 +145,7 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-    final slots = _computeAvailableSlots(_loadedSlots, doctorState.appointmentDuration);
+    final slots = _computeAvailableSlots(doctorState.scheduleSlots, doctorState.appointmentDuration);
 
     return Dialog(
       backgroundColor: AppColors.white,
