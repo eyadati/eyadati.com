@@ -405,6 +405,9 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                                       if (!isTopAligned) {
                                         return const SizedBox();
                                       }
+                                      return GestureDetector(
+                                        onTap: () {
+                                          showModalBottomSheet(
                                             context: context,
                                             isScrollControlled: true,
                                             backgroundColor: Colors.transparent,
