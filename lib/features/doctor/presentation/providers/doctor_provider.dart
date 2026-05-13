@@ -10,12 +10,16 @@ class DoctorState {
   final String specialty;
   final String city;
   final String phone;
+  final String address;
   final List<String> workingDays;
   final String startTime;
   final String endTime;
+  final int? breakStart;
+  final int? breakEnd;
   final int consultationDuration;
   final int appointmentDuration;
   final String avatarUrl;
+  final String? mapsLink;
   final int todayAppointments;
   final int weekAppointments;
   final int totalPatients;
@@ -34,12 +38,16 @@ class DoctorState {
     this.specialty = '',
     this.city = '',
     this.phone = '',
+    this.address = '',
     this.workingDays = const [],
     this.startTime = '09:00:00',
     this.endTime = '17:00:00',
+    this.breakStart,
+    this.breakEnd,
     this.consultationDuration = 30,
     this.appointmentDuration = 20,
     this.avatarUrl = '',
+    this.mapsLink,
     this.todayAppointments = 0,
     this.weekAppointments = 0,
     this.totalPatients = 0,
@@ -59,12 +67,16 @@ class DoctorState {
     String? specialty,
     String? city,
     String? phone,
+    String? address,
     List<String>? workingDays,
     String? startTime,
     String? endTime,
+    int? breakStart,
+    int? breakEnd,
     int? consultationDuration,
     int? appointmentDuration,
     String? avatarUrl,
+    String? mapsLink,
     int? todayAppointments,
     int? weekAppointments,
     int? totalPatients,
@@ -83,12 +95,16 @@ class DoctorState {
       specialty: specialty ?? this.specialty,
       city: city ?? this.city,
       phone: phone ?? this.phone,
+      address: address ?? this.address,
       workingDays: workingDays ?? this.workingDays,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
+      breakStart: breakStart ?? this.breakStart,
+      breakEnd: breakEnd ?? this.breakEnd,
       consultationDuration: consultationDuration ?? this.consultationDuration,
       appointmentDuration: appointmentDuration ?? this.appointmentDuration,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      mapsLink: mapsLink ?? this.mapsLink,
       todayAppointments: todayAppointments ?? this.todayAppointments,
       weekAppointments: weekAppointments ?? this.weekAppointments,
       totalPatients: totalPatients ?? this.totalPatients,
@@ -98,7 +114,7 @@ class DoctorState {
       patients: patients ?? this.patients,
       isLoading: isLoading ?? this.isLoading,
       setupCompleted: setupCompleted ?? this.setupCompleted,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }
@@ -356,6 +372,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           [];
       final startTimeStr = doctorData['opening_at']?.toString() ?? '09:00:00';
       final endTimeStr = doctorData['closing_at']?.toString() ?? '17:00:00';
+      final breakStart = doctorData['break_start'] as int?;
+      final breakEnd = doctorData['break_end'] as int?;
 
       final schedule = scheduleSlots.map((s) => ScheduleSlot(
         id: s['id'] as String,
@@ -375,12 +393,16 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         specialty: doctorData['specialty'] as String? ?? '',
         city: doctorData['city'] as String? ?? '',
         phone: profile?['phone'] as String? ?? '',
+        address: doctorData['address'] as String? ?? '',
         workingDays: workingDays,
         startTime: startTimeStr,
         endTime: endTimeStr,
+        breakStart: breakStart,
+        breakEnd: breakEnd,
         consultationDuration: doctorData['consultation_duration'] as int? ?? 30,
         appointmentDuration: doctorData['appointment_duration'] as int? ?? 20,
-        avatarUrl: profile?['avatar_url'] as String? ?? '',
+        avatarUrl: profile?['avatar_url'] as String? ?? doctorData['photo_url'] as String? ?? '',
+        mapsLink: doctorData['maps_link'] as String?,
         todayAppointments: todayAppts.count,
         weekAppointments: weekAppts.count,
         totalPatients: 0,
@@ -407,6 +429,10 @@ Future<void> saveSetup({
     required String city,
     required String address,
     String? phone,
+    int? breakStart,
+    int? breakEnd,
+    String? mapsLink,
+    String? photoUrl,
   }) async {
     state = state.copyWith(isLoading: true);
     try {
@@ -415,20 +441,18 @@ Future<void> saveSetup({
 
       print('[DoctorNotifier] Saving doctor setup for user: ${user.id}');
 
-      // Get user data from auth metadata
       final role = user.userMetadata?['role'] as String? ?? 'doctor';
       final fullName = user.userMetadata?['full_name'] as String? ?? '';
 
-      // 1. Upsert profile with complete data
       await _client.from('profiles').upsert({
         'id': user.id,
         'role': role,
         'full_name': fullName,
         'phone': phone,
         'city': city,
+        'avatar_url': photoUrl,
       }, onConflict: 'id');
 
-      // 2. Upsert doctor record
       final dayMapping = {
         'lundi': 1, 'mardi': 2, 'mercredi': 3, 'jeudi': 4,
         'vendredi': 5, 'samedi': 6, 'dimanche': 0
@@ -441,6 +465,10 @@ Future<void> saveSetup({
         'city': city,
         'opening_at': startTime,
         'closing_at': endTime,
+        'break_start': breakStart,
+        'break_end': breakEnd,
+        'maps_link': mapsLink,
+        'photo_url': photoUrl,
         'working_days': workingDays,
         'consultation_duration': consultationDuration,
         'appointment_duration': appointmentDuration,
@@ -449,7 +477,6 @@ Future<void> saveSetup({
 
       await _client.from('doctors').upsert(doctorData, onConflict: 'id');
 
-      // 3. Create schedule entries for each working day
       for (final day in workingDays) {
         final dayOfWeek = dayMapping[day] ?? 1;
         print('[DoctorNotifier] Creating schedule slot for day: $dayOfWeek');
@@ -473,11 +500,16 @@ Future<void> saveSetup({
         specialty: specialty,
         city: city,
         phone: phone,
+        address: address,
         workingDays: workingDays,
         startTime: startTime,
         endTime: endTime,
+        breakStart: breakStart,
+        breakEnd: breakEnd,
         consultationDuration: consultationDuration,
         appointmentDuration: appointmentDuration,
+        mapsLink: mapsLink,
+        avatarUrl: photoUrl ?? '',
       );
     } catch (e) {
       print('[DoctorNotifier] Error in saveSetup: $e');

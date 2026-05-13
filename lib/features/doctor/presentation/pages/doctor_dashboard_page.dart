@@ -700,7 +700,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
-  Widget _buildDrawerHeader(DoctorState doctorState) {
+Widget _buildDrawerHeader(DoctorState doctorState) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(color: AppColors.primary),
@@ -709,18 +709,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.white,
-                child: Text(
-                  _getInitials(doctorState.name),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
+              _buildAvatarWidget(doctorState.avatarUrl, doctorState.name, 24),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
@@ -752,65 +741,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebar(DoctorState doctorState) {
-    return Container(
-      width: 240,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(right: BorderSide(color: AppColors.border, width: 1)),
-      ),
-      child: Column(
-        children: [
-          _buildSidebarHeader(doctorState),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              children: [
-                _buildSidebarItem(
-                  DoctorPage.dashboard,
-                  Icons.dashboard_outlined,
-                  'Tableau de bord',
-                ),
-                _buildSidebarItem(
-                  DoctorPage.calendar,
-                  Icons.calendar_today_outlined,
-                  'Calendrier',
-                ),
-                _buildSidebarItem(
-                  DoctorPage.appointments,
-                  Icons.list_alt_outlined,
-                  'Rendez-vous',
-                ),
-                _buildSidebarItem(
-                  DoctorPage.patients,
-                  Icons.people_outline,
-                  'Patients',
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
-                  child: Divider(height: 1),
-                ),
-                _buildSidebarItem(
-                  DoctorPage.profile,
-                  Icons.person_outline,
-                  'Profil',
-                ),
-                _buildSidebarItem(
-                  DoctorPage.settings,
-                  Icons.settings_outlined,
-                  'Paramètres',
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -826,18 +756,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.white,
-                child: Text(
-                  _getInitials(doctorState.name),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
+              _buildAvatarWidget(doctorState.avatarUrl, doctorState.name, 24),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(
@@ -871,6 +790,29 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarWidget(String? avatarUrl, String name, double radius) {
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.primary,
+        backgroundImage: NetworkImage(avatarUrl),
+      );
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.white,
+      child: Text(
+        _getInitials(name),
+        style: TextStyle(
+          fontSize: radius * 0.65,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
       ),
     );
   }
@@ -922,6 +864,58 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             Navigator.pop(context);
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildSidebar(DoctorState doctorState) {
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border(right: BorderSide(color: AppColors.border, width: 1)),
+      ),
+      child: Column(
+        children: [
+          _buildSidebarHeader(doctorState),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              children: [
+                _buildSidebarItem(
+                  DoctorPage.dashboard,
+                  Icons.dashboard_outlined,
+                  'Tableau de bord',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.calendar,
+                  Icons.calendar_today_outlined,
+                  'Calendrier',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.appointments,
+                  Icons.event_note_outlined,
+                  'Rendez-vous',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.patients,
+                  Icons.people_outline,
+                  'Patients',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.profile,
+                  Icons.person_outline,
+                  'Profil',
+                ),
+                _buildSidebarItem(
+                  DoctorPage.settings,
+                  Icons.settings_outlined,
+                  'Paramètres',
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

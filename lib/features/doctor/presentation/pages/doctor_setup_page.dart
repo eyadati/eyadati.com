@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
@@ -26,11 +29,16 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   final Set<String> _selectedDays = {};
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);
+  TimeOfDay? _breakStart;
+  TimeOfDay? _breakEnd;
   int _consultationDuration = 30;
   int _appointmentDuration = 20;
   String? _specialty;
   String? _city;
   final _addressController = TextEditingController();
+  final _mapsLinkController = TextEditingController();
+  String? _photoUrl;
+  bool _isUploadingPhoto = false;
 
   final List<String> _specialties = [
     'Médecin généraliste',
@@ -60,11 +68,53 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   @override
   void dispose() {
     _addressController.dispose();
+    _mapsLinkController.dispose();
     super.dispose();
   }
 
   String _formatTimeForDb(TimeOfDay time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:00';
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800, imageQuality: 80);
+    if (image == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final bytes = await image.readAsBytes();
+      final fileName = '${const Uuid().v4()}.jpg';
+      final path = 'avatars/$fileName';
+
+      await Supabase.instance.client.storage.from('avatars').uploadBinary(path, bytes);
+      final url = Supabase.instance.client.storage.from('avatars').getPublicUrl(path);
+
+      setState(() => _photoUrl = url);
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.showError(context, message: 'Erreur lors de l\'upload de la photo');
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  Future<void> _selectBreakTime(bool isStart) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? const TimeOfDay(hour: 12, minute: 0) : const TimeOfDay(hour: 14, minute: 0),
+      helpText: isStart ? 'Heure de début de pause' : 'Heure de fin de pause',
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _breakStart = picked;
+        } else {
+          _breakEnd = picked;
+        }
+      });
+    }
   }
 
   Future<void> _handleSubmit() async {
@@ -89,6 +139,10 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
         specialty: _specialty!,
         city: _city!,
         address: _addressController.text.trim(),
+        breakStart: _breakStart?.hour,
+        breakEnd: _breakEnd?.hour,
+        mapsLink: _mapsLinkController.text.trim().isEmpty ? null : _mapsLinkController.text.trim(),
+        photoUrl: _photoUrl,
       );
 
       print('[DoctorSetupPage] Setup saved, checking state...');
@@ -191,6 +245,10 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                               _buildSectionLabel('Heures'),
                               const SizedBox(height: AppSpacing.sm),
                               _buildTimeSelectors(),
+                              const SizedBox(height: AppSpacing.lg),
+                              _buildSectionLabel('Pause (optionnel)'),
+                              const SizedBox(height: AppSpacing.sm),
+                              _buildBreakTimeSelectors(),
                             ],
                           ),
                         ),
@@ -227,6 +285,8 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              _buildPhotoUpload(),
+                              const SizedBox(height: AppSpacing.lg),
                               AppDropdown(
                                 label: 'Spécialité',
                                 value: _specialty,
@@ -242,6 +302,14 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                                 keyboardType: TextInputType.streetAddress,
                                 prefixIcon: Icons.location_on_outlined,
                                 validator: (value) => value == null || value.isEmpty ? 'Adresse requise' : null,
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              AppTextField(
+                                label: 'Lien Google Maps (optionnel)',
+                                hint: 'https://maps.google.com/...',
+                                controller: _mapsLinkController,
+                                keyboardType: TextInputType.url,
+                                prefixIcon: Icons.map_outlined,
                               ),
                               const SizedBox(height: AppSpacing.md),
                               AppDropdown(
@@ -458,6 +526,93 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBreakTimeSelectors() {
+    return Row(
+      children: [
+        Expanded(
+          child: _TimeSelector(
+            label: 'Début pause',
+            time: _breakStart != null ? _formatTime(_breakStart!) : '--:--',
+            onTap: () => _selectBreakTime(true),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Icon(Icons.arrow_forward, color: AppColors.textHint, size: 16),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: _TimeSelector(
+            label: 'Fin pause',
+            time: _breakEnd != null ? _formatTime(_breakEnd!) : '--:--',
+            onTap: () => _selectBreakTime(false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhotoUpload() {
+    return GestureDetector(
+      onTap: _isUploadingPhoto ? null : _pickImage,
+      child: Center(
+        child: Stack(
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border, width: 2),
+                image: _photoUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(_photoUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: _photoUrl == null
+                  ? Icon(Icons.camera_alt_outlined, size: 32, color: AppColors.textHint)
+                  : null,
+            ),
+            if (_isUploadingPhoto)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            if (_photoUrl != null && !_isUploadingPhoto)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Icon(Icons.edit, size: 12, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

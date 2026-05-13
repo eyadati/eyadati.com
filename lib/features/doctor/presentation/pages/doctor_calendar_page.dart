@@ -227,6 +227,19 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
   void _onSlotTapped(DateTime day, int hour, int minute) {
     final doctorState = ref.read(doctorProvider);
+    
+    final dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    final dayName = dayNames[day.weekday % 7];
+    if (doctorState.workingDays.isNotEmpty && !doctorState.workingDays.contains(dayName)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vous ne travaillez pas le $dayName', style: TextStyle(color: AppColors.white)),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
     final openingParts = doctorState.startTime.split(':');
     final closingParts = doctorState.endTime.split(':');
     final openHour = int.tryParse(openingParts[0]) ?? 9;

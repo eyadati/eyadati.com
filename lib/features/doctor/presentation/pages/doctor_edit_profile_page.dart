@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
@@ -20,9 +23,12 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
+  late TextEditingController _mapsLinkController;
   String _selectedCity = '';
   String _selectedSpecialty = '';
   bool _isLoading = false;
+  bool _isUploadingPhoto = false;
+  String? _photoUrl;
 
   final List<String> _algerianCities = [
     'Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Djelfa',
@@ -52,9 +58,11 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     final state = ref.read(doctorProvider);
     _nameController = TextEditingController(text: state.name);
     _phoneController = TextEditingController(text: state.phone);
-    _addressController = TextEditingController(text: '');
+    _addressController = TextEditingController(text: state.address);
+    _mapsLinkController = TextEditingController(text: state.mapsLink ?? '');
     _selectedCity = state.city;
     _selectedSpecialty = state.specialty;
+    _photoUrl = state.avatarUrl.isNotEmpty ? state.avatarUrl : null;
   }
 
   @override
@@ -62,7 +70,37 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _mapsLinkController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800, imageQuality: 80);
+    if (image == null) return;
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final bytes = await image.readAsBytes();
+      final fileName = '${const Uuid().v4()}.jpg';
+      final path = 'avatars/$fileName';
+
+      await Supabase.instance.client.storage.from('avatars').uploadBinary(path, bytes);
+      final url = Supabase.instance.client.storage.from('avatars').getPublicUrl(path);
+
+      setState(() => _photoUrl = url);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'upload de la photo'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
   }
 
   Future<void> _save() async {
@@ -78,11 +116,15 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
       await client.from('profiles').update({
         'full_name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
+        'avatar_url': _photoUrl,
       }).eq('id', userId);
 
       await client.from('doctors').update({
         'specialty': _selectedSpecialty,
         'city': _selectedCity,
+        'address': _addressController.text.trim(),
+        'maps_link': _mapsLinkController.text.trim().isEmpty ? null : _mapsLinkController.text.trim(),
+        'photo_url': _photoUrl,
       }).eq('id', userId);
 
       await ref.read(doctorProvider.notifier).refresh();
@@ -135,6 +177,8 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildPhotoUpload(),
+              const SizedBox(height: AppSpacing.xl),
               _buildSectionTitle('Informations personnelles'),
               const SizedBox(height: AppSpacing.md),
               AppTextField(
@@ -154,6 +198,22 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
               ),
               const SizedBox(height: AppSpacing.xl),
               _buildSectionTitle('Informations professionnelles'),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _addressController,
+                label: 'Adresse du cabinet',
+                hint: '123 Rue Didouche Mourad, Alger Centre',
+                prefixIcon: Icons.location_on_outlined,
+                keyboardType: TextInputType.streetAddress,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppTextField(
+                controller: _mapsLinkController,
+                label: 'Lien Google Maps',
+                hint: 'https://maps.google.com/...',
+                prefixIcon: Icons.map_outlined,
+                keyboardType: TextInputType.url,
+              ),
               const SizedBox(height: AppSpacing.md),
               AppDropdown<String>(
                 label: 'Spécialité',
@@ -178,6 +238,66 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoUpload() {
+    return Center(
+      child: GestureDetector(
+        onTap: _isUploadingPhoto ? null : _pickImage,
+        child: Stack(
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border, width: 2),
+                image: _photoUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(_photoUrl!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: _photoUrl == null
+                  ? Icon(Icons.camera_alt_outlined, size: 32, color: AppColors.textHint)
+                  : null,
+            ),
+            if (_isUploadingPhoto)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            if (_photoUrl != null && !_isUploadingPhoto)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Icon(Icons.edit, size: 12, color: Colors.white),
+                ),
+              ),
+          ],
         ),
       ),
     );

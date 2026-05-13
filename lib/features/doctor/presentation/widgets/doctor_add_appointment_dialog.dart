@@ -27,6 +27,7 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   final _phoneController = TextEditingController();
   late DateTime _selectedDate;
   TimeOfDay? _selectedSlot;
+  List<ScheduleSlot> _loadedSlots = [];
 
   @override
   void initState() {
@@ -45,20 +46,40 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   Future<void> _loadSlotsForCurrentDay() async {
     final dayOfWeek = _selectedDate.weekday % 7;
     await ref.read(doctorProvider.notifier).loadScheduleForDay(dayOfWeek);
+    if (mounted) {
+      setState(() {
+        _loadedSlots = ref.read(doctorProvider).scheduleSlots;
+      });
+    }
+  }
+
+  int _getDayOfWeek(DateTime date) {
+    final day = date.weekday;
+    return day == 7 ? 0 : day;
   }
 
   List<TimeOfDay> _computeAvailableSlots(List<ScheduleSlot> slots, int interval) {
-    final dayOfWeek = _selectedDate.weekday % 7;
+    final dayOfWeek = _getDayOfWeek(_selectedDate);
     final daySlots = slots.where((s) => s.dayOfWeek == dayOfWeek).toList();
 
     if (daySlots.isEmpty) return [];
 
     final List<TimeOfDay> available = [];
     for (final slot in daySlots) {
-      final startParts = slot.startTime.split(':');
-      final endParts = slot.endTime.split(':');
-      final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-      final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+      final cleanStart = slot.startTime.split('.').first;
+      final cleanEnd = slot.endTime.split('.').first;
+      final startParts = cleanStart.split(':');
+      final endParts = cleanEnd.split(':');
+      
+      int startMinutes;
+      int endMinutes;
+      
+      try {
+        startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+        endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+      } catch (e) {
+        continue;
+      }
 
       for (int m = startMinutes; m + interval <= endMinutes; m += interval) {
         available.add(TimeOfDay(hour: m ~/ 60, minute: m % 60));
@@ -86,8 +107,13 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
         _selectedDate = DateTime(picked.year, picked.month, picked.day);
         _selectedSlot = null;
       });
-      final dayOfWeek = picked.weekday % 7;
+      final dayOfWeek = _getDayOfWeek(picked);
       await ref.read(doctorProvider.notifier).loadScheduleForDay(dayOfWeek);
+      if (mounted) {
+        setState(() {
+          _loadedSlots = ref.read(doctorProvider).scheduleSlots;
+        });
+      }
     }
   }
 
@@ -145,7 +171,7 @@ class _DoctorAddAppointmentDialogState extends ConsumerState<DoctorAddAppointmen
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-    final slots = _computeAvailableSlots(doctorState.scheduleSlots, doctorState.appointmentDuration);
+    final slots = _computeAvailableSlots(_loadedSlots, doctorState.appointmentDuration);
 
     return Dialog(
       backgroundColor: AppColors.white,

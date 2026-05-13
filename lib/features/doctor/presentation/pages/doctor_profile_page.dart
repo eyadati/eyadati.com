@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import '../providers/doctor_provider.dart';
@@ -27,18 +28,7 @@ class DoctorProfilePage extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 48,
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    _getInitials(doctorState.name),
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+                _buildAvatar(doctorState.avatarUrl, doctorState.name),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
@@ -229,6 +219,59 @@ class DoctorProfilePage extends ConsumerWidget {
               Icon(Icons.chevron_right, size: 20, color: AppColors.textHint),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String? avatarUrl, String name) {
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 48,
+        backgroundColor: AppColors.background,
+        child: ClipOval(
+          child: CachedNetworkImage(
+            imageUrl: avatarUrl,
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => CircleAvatar(
+              radius: 48,
+              backgroundColor: AppColors.primary,
+              child: Text(
+                _getInitials(name),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            errorWidget: (context, url, error) => CircleAvatar(
+              radius: 48,
+              backgroundColor: AppColors.primary,
+              child: Text(
+                _getInitials(name),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return CircleAvatar(
+      radius: 48,
+      backgroundColor: AppColors.primary,
+      child: Text(
+        _getInitials(name),
+        style: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
         ),
       ),
     );
