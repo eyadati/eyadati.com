@@ -6,8 +6,6 @@ import 'package:eyadati/models/appointment_data.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../providers/doctor_provider.dart';
 import 'doctor_calendar_page.dart';
-import 'doctor_appointments_page.dart';
-import 'doctor_profile_page.dart';
 import 'doctor_settings_page.dart';
 import 'doctor_patients_page.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
@@ -16,8 +14,6 @@ import '../widgets/appointment_details_sheet.dart';
 enum DoctorPage {
   dashboard,
   calendar,
-  appointments,
-  profile,
   settings,
   patients,
 }
@@ -128,10 +124,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         return 'Tableau de bord';
       case DoctorPage.calendar:
         return 'Calendrier';
-      case DoctorPage.appointments:
-        return 'Rendez-vous';
-      case DoctorPage.profile:
-        return 'Profil';
       case DoctorPage.settings:
         return 'Paramètres';
       case DoctorPage.patients:
@@ -145,10 +137,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         return _buildDashboardContent();
       case DoctorPage.calendar:
         return const DoctorCalendarPage();
-      case DoctorPage.appointments:
-        return const DoctorAppointmentsPage();
-      case DoctorPage.profile:
-        return const DoctorProfilePage();
       case DoctorPage.settings:
         return const DoctorSettingsPage();
       case DoctorPage.patients:
@@ -425,11 +413,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   Icons.calendar_month_outlined,
                   () => _navigateTo(DoctorPage.calendar),
                 ),
-                _buildActionCard(
-                  'Tous les rendez-vous',
-                  Icons.list_alt_outlined,
-                  () => _navigateTo(DoctorPage.appointments),
-                ),
               ],
             ),
           ),
@@ -500,7 +483,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _navigateTo(DoctorPage.appointments),
+                  onPressed: () => _navigateTo(DoctorPage.calendar),
                   child: Text(
                     'Voir tout',
                     style: TextStyle(
@@ -666,11 +649,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   'Calendrier',
                 ),
                 _buildDrawerItem(
-                  DoctorPage.appointments,
-                  Icons.list_alt_outlined,
-                  'Rendez-vous',
-                ),
-                _buildDrawerItem(
                   DoctorPage.patients,
                   Icons.people_outline,
                   'Patients',
@@ -681,11 +659,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     vertical: AppSpacing.sm,
                   ),
                   child: Divider(height: 1),
-                ),
-                _buildDrawerItem(
-                  DoctorPage.profile,
-                  Icons.person_outline,
-                  'Profil',
                 ),
                 _buildDrawerItem(
                   DoctorPage.settings,
@@ -891,19 +864,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   'Calendrier',
                 ),
                 _buildSidebarItem(
-                  DoctorPage.appointments,
-                  Icons.event_note_outlined,
-                  'Rendez-vous',
-                ),
-                _buildSidebarItem(
                   DoctorPage.patients,
                   Icons.people_outline,
                   'Patients',
-                ),
-                _buildSidebarItem(
-                  DoctorPage.profile,
-                  Icons.person_outline,
-                  'Profil',
                 ),
                 _buildSidebarItem(
                   DoctorPage.settings,
