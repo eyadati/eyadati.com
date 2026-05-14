@@ -13,12 +13,11 @@ import '../../features/patient/presentation/pages/doctor_details_page.dart';
 import '../../features/patient/presentation/pages/booking_page.dart';
 import '../../features/patient/presentation/pages/patient_appointments_page.dart';
 import '../../features/patient/presentation/pages/favorites_page.dart';
-import '../../features/patient/presentation/pages/patient_profile_page.dart';
+import '../../features/patient/presentation/pages/patient_settings_page.dart';
 import '../../features/doctor/presentation/pages/doctor_dashboard_page.dart';
 import '../../features/doctor/presentation/pages/doctor_setup_page.dart';
 import '../../features/doctor/presentation/pages/doctor_calendar_page.dart';
 import '../../features/doctor/presentation/pages/doctor_schedule_page.dart';
-import '../../features/doctor/presentation/pages/doctor_subscription_page.dart';
 import '../../features/doctor/presentation/pages/doctor_settings_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
@@ -165,7 +164,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RouteNames.patientProfile,
-        builder: (context, state) => const PatientProfilePage(),
+        builder: (context, state) => const PatientSettingsPage(),
       ),
       GoRoute(
         path: RouteNames.doctorDashboard,

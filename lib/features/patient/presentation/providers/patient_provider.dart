@@ -64,6 +64,8 @@ class Appointment {
   final String doctorName;
   final String doctorSpecialty;
   final String? doctorAvatar;
+  final String? doctorAddress;
+  final String? mapsLink;
   final DateTime dateTime;
   final int duration;
   final String status;
@@ -76,6 +78,8 @@ class Appointment {
     required this.doctorName,
     required this.doctorSpecialty,
     this.doctorAvatar,
+    this.doctorAddress,
+    this.mapsLink,
     required this.dateTime,
     required this.duration,
     required this.status,
@@ -83,13 +87,15 @@ class Appointment {
     this.notes,
   });
 
-  factory Appointment.fromMap(Map<String, dynamic> map, String doctorName, String doctorSpecialty, String? doctorAvatar) {
+  factory Appointment.fromMap(Map<String, dynamic> map, String doctorName, String doctorSpecialty, String? doctorAvatar, String? doctorAddress, String? mapsLink) {
     return Appointment(
       id: map['id'] as String,
       doctorId: map['doctor_id'] as String,
       doctorName: doctorName,
       doctorSpecialty: doctorSpecialty,
       doctorAvatar: doctorAvatar,
+      doctorAddress: doctorAddress,
+      mapsLink: mapsLink,
       dateTime: DateTime.parse(map['scheduled_at'] as String),
       duration: map['duration'] as int? ?? 30,
       status: map['status'] as String? ?? 'pending',
@@ -127,7 +133,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
       final now = DateTime.now();
       final appointmentsResult = await SupabaseInitializer.client
           .from('appointments')
-          .select('id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(full_name, specialty, avatar_url)')
+          .select('id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(full_name, specialty, avatar_url, address, maps_link)')
           .eq('patient_id', userId)
           .order('scheduled_at', ascending: false)
           .limit(50);
@@ -146,6 +152,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
         final doctorName = docMap?['full_name'] as String? ?? 'Docteur';
         final doctorSpecialty = docMap?['specialty'] as String? ?? '';
         final doctorAvatar = docMap?['avatar_url'] as String?;
+        final doctorAddress = docMap?['address'] as String?;
+        final mapsLink = docMap?['maps_link'] as String?;
 
         final apt = Appointment(
           id: row['id'] as String,
@@ -153,6 +161,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
           doctorName: doctorName,
           doctorSpecialty: doctorSpecialty,
           doctorAvatar: doctorAvatar,
+          doctorAddress: doctorAddress,
+          mapsLink: mapsLink,
           dateTime: DateTime.parse(row['scheduled_at'] as String),
           duration: row['duration'] as int? ?? 30,
           status: row['status'] as String? ?? 'pending',

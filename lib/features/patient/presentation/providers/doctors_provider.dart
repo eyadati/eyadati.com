@@ -3,30 +3,38 @@ import 'package:eyadati/core/utils/supabase_client.dart';
 
 class DoctorsState {
   final List<Doctor> doctors;
+  final List<Doctor> allDoctors;
   final String searchQuery;
   final String selectedSpecialty;
+  final String? selectedCity;
   final bool isLoading;
   final String? errorMessage;
 
   const DoctorsState({
     this.doctors = const [],
+    this.allDoctors = const [],
     this.searchQuery = '',
     this.selectedSpecialty = '',
+    this.selectedCity,
     this.isLoading = false,
     this.errorMessage,
   });
 
   DoctorsState copyWith({
     List<Doctor>? doctors,
+    List<Doctor>? allDoctors,
     String? searchQuery,
     String? selectedSpecialty,
+    String? selectedCity,
     bool? isLoading,
     String? errorMessage,
   }) {
     return DoctorsState(
       doctors: doctors ?? this.doctors,
+      allDoctors: allDoctors ?? this.allDoctors,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedSpecialty: selectedSpecialty ?? this.selectedSpecialty,
+      selectedCity: selectedCity ?? this.selectedCity,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );
@@ -114,6 +122,7 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
       state = state.copyWith(
         isLoading: false,
         doctors: doctors,
+        allDoctors: doctors,
       );
     } catch (e) {
       state = state.copyWith(
@@ -133,11 +142,26 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
     _filterDoctors();
   }
 
+  void filterDoctors({String? city, String? specialty}) {
+    final allDoctors = state.allDoctors.isEmpty ? state.doctors : state.allDoctors;
+    
+    final filtered = allDoctors.where((d) {
+      final matchesCity = city == null || city.isEmpty || d.location == city;
+      final matchesSpecialty = specialty == null || specialty.isEmpty || d.specialty == specialty;
+      return matchesCity && matchesSpecialty;
+    }).toList();
+
+    state = state.copyWith(
+      doctors: filtered,
+      selectedCity: city,
+      selectedSpecialty: specialty,
+    );
+  }
+
   Future<void> _filterDoctors() async {
-    await loadDoctors();
     final query = state.searchQuery.toLowerCase();
     final specialty = state.selectedSpecialty;
-    final allDoctors = state.doctors;
+    final allDoctors = state.allDoctors.isEmpty ? state.doctors : state.allDoctors;
 
     final filtered = allDoctors.where((d) {
       final matchesQuery = query.isEmpty ||
@@ -152,7 +176,11 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
   }
 
   Future<void> refresh() async {
-    state = state.copyWith(searchQuery: '', selectedSpecialty: '');
+    state = state.copyWith(
+      searchQuery: '',
+      selectedSpecialty: '',
+      selectedCity: null,
+    );
     await loadDoctors();
   }
 
@@ -167,8 +195,10 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
   void clearError() {
     state = DoctorsState(
       doctors: state.doctors,
+      allDoctors: state.allDoctors,
       searchQuery: state.searchQuery,
       selectedSpecialty: state.selectedSpecialty,
+      selectedCity: state.selectedCity,
       isLoading: state.isLoading,
     );
   }

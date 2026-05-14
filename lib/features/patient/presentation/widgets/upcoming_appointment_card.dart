@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/constants/app_radius.dart';
 import '../providers/providers.dart';
 
 class UpcomingAppointmentCard extends StatelessWidget {
@@ -14,27 +17,44 @@ class UpcomingAppointmentCard extends StatelessWidget {
     this.onTap,
   });
 
+  Future<void> _openMaps() async {
+    final String url;
+    if (appointment.mapsLink != null && appointment.mapsLink!.isNotEmpty) {
+      url = appointment.mapsLink!;
+    } else if (appointment.doctorAddress != null) {
+      final encodedAddress = Uri.encodeComponent(appointment.doctorAddress!);
+      url = 'https://www.google.com/maps/search/?api=1&query=$encodedAddress';
+    } else {
+      return;
+    }
+
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('HH:mm');
 
     return Material(
       color: AppColors.card,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadius.xl),
       elevation: 2,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -42,7 +62,7 @@ class UpcomingAppointmentCard extends StatelessWidget {
                     Text(
                       DateFormat('dd').format(appointment.dateTime),
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primary,
                       ),
@@ -50,8 +70,8 @@ class UpcomingAppointmentCard extends StatelessWidget {
                     Text(
                       DateFormat('MMM').format(appointment.dateTime).toUpperCase(),
                       style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.primary,
                       ),
                     ),
@@ -67,7 +87,7 @@ class UpcomingAppointmentCard extends StatelessWidget {
                       appointment.doctorName,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
                     ),
@@ -79,49 +99,82 @@ class UpcomingAppointmentCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(
-                          Icons.access_time,
-                          size: 14,
-                          color: AppColors.textHint,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          timeFormat.format(appointment.dateTime),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textHint,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        if (appointment.isConsultation) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.consultationColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'Consultation',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.consultationColor,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                LucideIcons.clock,
+                                size: 12,
+                                color: AppColors.primary,
                               ),
+                              const SizedBox(width: 4),
+                              Text(
+                                timeFormat.format(appointment.dateTime),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: Text(
+                            _getStatusLabel(appointment.status),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.secondary,
                             ),
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
-              _buildStatusBadge(appointment.status),
+              Column(
+                children: [
+                  if (appointment.mapsLink != null || appointment.doctorAddress != null)
+                    GestureDetector(
+                      onTap: _openMaps,
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                        child: const Icon(
+                          LucideIcons.mapPin,
+                          size: 18,
+                          color: AppColors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -129,47 +182,20 @@ class UpcomingAppointmentCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color bgColor;
-    Color textColor;
-    String label;
-
+  String _getStatusLabel(String status) {
     switch (status) {
+      case 'upcoming':
+        return 'À venir';
       case 'confirmed':
-        bgColor = const Color(0xFFE8F5E9);
-        textColor = AppColors.secondary;
-        label = 'Confirmé';
-        break;
+        return 'Confirmé';
       case 'pending':
-        bgColor = const Color(0xFFFFF3E0);
-        textColor = const Color(0xFFFF9800);
-        label = 'En attente';
-        break;
+        return 'En attente';
       case 'cancelled':
-        bgColor = const Color(0xFFFFEBEE);
-        textColor = AppColors.error;
-        label = 'Annulé';
-        break;
+        return 'Annulé';
+      case 'completed':
+        return 'Terminé';
       default:
-        bgColor = AppColors.primary.withValues(alpha: 0.1);
-        textColor = AppColors.primary;
-        label = status;
+        return status;
     }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
-      ),
-    );
   }
 }
