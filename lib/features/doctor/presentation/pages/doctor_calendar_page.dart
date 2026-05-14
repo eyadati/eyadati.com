@@ -55,8 +55,24 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   String _formatWeekRange() {
-    final months = ['', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-    final startOfWeek = _focusedDay.subtract(Duration(days: _focusedDay.weekday % 7));
+    final months = [
+      '',
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Juin',
+      'Juil',
+      'Août',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc',
+    ];
+    final startOfWeek = _focusedDay.subtract(
+      Duration(days: _focusedDay.weekday % 7),
+    );
     final endOfWeek = startOfWeek.add(const Duration(days: 6));
     if (startOfWeek.month == endOfWeek.month) {
       return '${startOfWeek.day} - ${endOfWeek.day} ${months[startOfWeek.month]} ${startOfWeek.year}';
@@ -67,7 +83,21 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   String _formatDayRange() {
-    final months = ['', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+    final months = [
+      '',
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Juin',
+      'Juil',
+      'Août',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc',
+    ];
     return '${_focusedDay.day} ${months[_focusedDay.month]} ${_focusedDay.year}';
   }
 
@@ -116,20 +146,22 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   void _updateDataSource(DoctorState doctorState) {
     _appointmentCount = doctorState.allAppointments.length;
     final appointments = doctorState.allAppointments
-        .map((apt) => _AppointmentWrapper(
-              id: apt.id,
-              startTime: apt.startTime,
-              endTime: apt.endTime,
-              patientName: apt.patientName,
-              status: apt.status,
-              isConsultation: apt.isConsultation,
-              duration: apt.duration,
-              notes: apt.notes,
-              patientPhone: apt.patientPhone,
-              patientAvatar: apt.patientAvatar,
-              patientId: apt.patientId,
-              bookingType: apt.bookingType,
-            ))
+        .map(
+          (apt) => _AppointmentWrapper(
+            id: apt.id,
+            startTime: apt.startTime,
+            endTime: apt.endTime,
+            patientName: apt.patientName,
+            status: apt.status,
+            isConsultation: apt.isConsultation,
+            duration: apt.duration,
+            notes: apt.notes,
+            patientPhone: apt.patientPhone,
+            patientAvatar: apt.patientAvatar,
+            patientId: apt.patientId,
+            bookingType: apt.bookingType,
+          ),
+        )
         .toList();
     _dataSource.updateAppointments(appointments);
   }
@@ -171,32 +203,54 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       case 'completed':
         return AppColors.success;
       default:
-        return apt.isConsultation ? AppColors.consultationColor : AppColors.primary;
+        return apt.isConsultation
+            ? AppColors.consultationColor
+            : AppColors.primary;
     }
   }
 
-  List<TimeRegion> _buildBreakRegions(List<ScheduleSlot> slots, DateTime focusedDay) {
+  List<TimeRegion> _buildBreakRegions(
+    List<ScheduleSlot> slots,
+    DateTime focusedDay,
+  ) {
     final regions = <TimeRegion>[];
-    final startOfWeek = focusedDay.subtract(Duration(days: focusedDay.weekday % 7));
+    final startOfWeek = focusedDay.subtract(
+      Duration(days: focusedDay.weekday % 7),
+    );
 
     for (final slot in slots) {
       if (!slot.hasBreak) continue;
       for (int i = 0; i < 7; i++) {
         final day = startOfWeek.add(Duration(days: i));
         if (day.weekday % 7 != slot.dayOfWeek) continue;
-        if (!day.isAfter(DateTime.now().subtract(const Duration(days: 1)))) continue;
+        if (!day.isAfter(DateTime.now().subtract(const Duration(days: 1))))
+          continue;
 
-        final breakStart = DateTime(day.year, day.month, day.day, slot.breakStart! ~/ 60, slot.breakStart! % 60);
-        final breakEnd = DateTime(day.year, day.month, day.day, slot.breakEnd! ~/ 60, slot.breakEnd! % 60);
+        final breakStart = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          slot.breakStart! ~/ 60,
+          slot.breakStart! % 60,
+        );
+        final breakEnd = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          slot.breakEnd! ~/ 60,
+          slot.breakEnd! % 60,
+        );
 
-        regions.add(TimeRegion(
-          startTime: breakStart,
-          endTime: breakEnd,
-          color: AppColors.textHint.withValues(alpha: 0.08),
-          enablePointerInteraction: false,
-          text: 'Pause',
-          textStyle: AppTextStyles.labelSmall,
-        ));
+        regions.add(
+          TimeRegion(
+            startTime: breakStart,
+            endTime: breakEnd,
+            color: AppColors.textHint.withValues(alpha: 0.08),
+            enablePointerInteraction: false,
+            text: 'Pause',
+            textStyle: AppTextStyles.labelSmall,
+          ),
+        );
       }
     }
     return regions;
@@ -210,14 +264,18 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     final intervalHeight = _getTimeIntervalHeight(screenWidth);
     final (startHour, endHour) = _getVisibleHours(doctorState);
 
-    if (_appointmentCount == -1 || doctorState.allAppointments.length != _appointmentCount) {
+    if (_appointmentCount == -1 ||
+        doctorState.allAppointments.length != _appointmentCount) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _updateDataSource(doctorState);
       });
     }
 
-    final breakRegions = _buildBreakRegions(doctorState.scheduleSlots, _focusedDay);
+    final breakRegions = _buildBreakRegions(
+      doctorState.scheduleSlots,
+      _focusedDay,
+    );
     final isScheduleView = _currentView == CalendarView.schedule;
     final isDayView = _currentView == CalendarView.day;
 
@@ -237,7 +295,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                     onPressed: isDayView ? _previousDay : _previousWeeks,
                     color: AppColors.textSecondary,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
                   ),
                   Expanded(
                     child: GestureDetector(
@@ -254,7 +315,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                     onPressed: isDayView ? _nextDay : _nextWeeks,
                     color: AppColors.textSecondary,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
                   ),
                 ],
               ),
@@ -307,19 +371,21 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                   endHour: endHour.toDouble(),
                   nonWorkingDays: const [],
                   timeInterval: const Duration(hours: 1),
-                  timeIntervalHeight: intervalHeight,
+                  timeIntervalHeight: intervalHeight * 1.3,
                   timeFormat: 'HH:mm',
                   dayFormat: 'EEE',
                   dateFormat: 'd',
                   timeRulerSize: 56,
                   timeTextStyle: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.textSecondary,
                   ),
                 ),
                 viewHeaderStyle: ViewHeaderStyle(
                   dayTextStyle: AppTextStyles.labelMedium,
-                  dateTextStyle: AppTextStyles.titleSmall.copyWith(fontWeight: FontWeight.w700),
+                  dateTextStyle: AppTextStyles.titleSmall.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                   backgroundColor: AppColors.white,
                 ),
                 appointmentBuilder: (context, details) {
@@ -327,14 +393,18 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                   final apt = details.appointments.first as _AppointmentWrapper;
                   final color = _getStatusColor(apt);
                   final bounds = details.bounds;
-                  final startTimeStr = '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
+                  final startTimeStr =
+                      '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
 
                   return Container(
                     width: bounds.width - 4,
                     height: bounds.height - 2,
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
+                      color: color.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(4),
                       border: Border(left: BorderSide(color: color, width: 3)),
                     ),
@@ -344,13 +414,19 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                       children: [
                         Text(
                           startTimeStr,
-                          style: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w700, color: color),
+                          style: AppTextStyles.labelSmall.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                          ),
                         ),
                         if (bounds.height > 28)
                           Expanded(
                             child: Text(
                               apt.patientName,
-                              style: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w600, color: color),
+                              style: AppTextStyles.labelSmall.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: color,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -364,28 +440,39 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
                       setState(() {
-                        _focusedDay = details.visibleDates[details.visibleDates.length ~/ 2];
+                        _focusedDay = details
+                            .visibleDates[details.visibleDates.length ~/ 2];
                       });
                     });
                   }
                 },
                 onTap: (CalendarTapDetails details) {
-                  if (details.appointments != null && details.appointments!.isNotEmpty) {
-                    final apt = details.appointments!.first as _AppointmentWrapper;
+                  if (details.appointments != null &&
+                      details.appointments!.isNotEmpty) {
+                    final apt =
+                        details.appointments!.first as _AppointmentWrapper;
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
-                      builder: (c) => AppointmentDetailsSheet(appointment: _toAppointmentData(apt)),
+                      builder: (c) => AppointmentDetailsSheet(
+                        appointment: _toAppointmentData(apt),
+                      ),
                     );
                   } else if (details.date != null) {
                     final doctorState = ref.read(doctorProvider);
-                    final slots = doctorState.getAvailableSlotsForDay(details.date!);
+                    final slots = doctorState.getAvailableSlotsForDay(
+                      details.date!,
+                    );
                     if (slots.isNotEmpty) {
                       _showAddAppointmentDialog(details.date!);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Aucun créneau disponible pour ce jour')),
+                        const SnackBar(
+                          content: Text(
+                            'Aucun créneau disponible pour ce jour',
+                          ),
+                        ),
                       );
                     }
                   }
@@ -421,9 +508,13 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       itemCount: upcoming.length,
       itemBuilder: (context, index) {
         final apt = upcoming[index];
-        final color = apt.isConsultation ? AppColors.consultationColor : AppColors.primary;
-        final dateStr = '${apt.startTime.day}/${apt.startTime.month}/${apt.startTime.year}';
-        final timeStr = '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
+        final color = apt.isConsultation
+            ? AppColors.consultationColor
+            : AppColors.primary;
+        final dateStr =
+            '${apt.startTime.day}/${apt.startTime.month}/${apt.startTime.year}';
+        final timeStr =
+            '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -432,9 +523,15 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
             border: Border(left: BorderSide(color: color, width: 4)),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
             title: Text(apt.patientName, style: AppTextStyles.titleSmall),
-            subtitle: Text('$dateStr à $timeStr • ${apt.duration} min', style: AppTextStyles.bodySmall),
+            subtitle: Text(
+              '$dateStr à $timeStr • ${apt.duration} min',
+              style: AppTextStyles.bodySmall,
+            ),
             trailing: IconButton(
               icon: const Icon(LucideIcons.chevronRight, size: 20),
               onPressed: () {
@@ -528,7 +625,11 @@ class _ToggleButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : AppColors.textSecondary),
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? Colors.white : AppColors.textSecondary,
+            ),
             const SizedBox(width: 4),
             Text(
               label,
@@ -572,13 +673,15 @@ class _AppointmentWrapper extends Appointment {
     this.patientId,
     this.bookingType = 'online',
   }) : super(
-          id: id,
-          startTime: startTime,
-          endTime: endTime,
-          subject: patientName,
-          notes: notes,
-          color: isConsultation ? AppColors.consultationColor : AppColors.primary,
-        );
+         id: id,
+         startTime: startTime,
+         endTime: endTime,
+         subject: patientName,
+         notes: notes,
+         color: isConsultation
+             ? AppColors.consultationColor
+             : AppColors.primary,
+       );
 
   @override
   Color get color {
