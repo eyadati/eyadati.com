@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/models/appointment_data.dart';
@@ -69,8 +70,8 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                   ],
                 ),
               ),
-              IconButton(
-                icon: Icon(Icons.close, color: AppColors.textSecondary),
+IconButton(
+                icon: Icon(LucideIcons.x, color: AppColors.textSecondary),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -84,11 +85,11 @@ class AppointmentDetailsSheet extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                _buildInfoItem(Icons.calendar_today, dateStr),
+                _buildInfoItem(LucideIcons.calendar, dateStr),
                 Container(width: 1, height: 32, color: AppColors.border, margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md)),
-                _buildInfoItem(Icons.access_time, timeStr),
+                _buildInfoItem(LucideIcons.clock, timeStr),
                 Container(width: 1, height: 32, color: AppColors.border, margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md)),
-                _buildInfoItem(Icons.timelapse, '${appointment.duration} min'),
+                _buildInfoItem(LucideIcons.timer, '${appointment.duration} min'),
               ],
             ),
           ),
@@ -107,7 +108,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      appointment.isConsultation ? Icons.video_call_outlined : Icons.person_outline,
+                      appointment.isConsultation ? LucideIcons.video : LucideIcons.user,
                       size: 14,
                       color: appointment.isConsultation ? AppColors.consultationColor : AppColors.primary,
                     ),
@@ -173,7 +174,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                   Expanded(
                     child: _ActionButton(
                       label: 'Confirmer',
-                      icon: Icons.check_circle_outline,
+                      icon: LucideIcons.circleCheck,
                       color: AppColors.success,
                       onTap: () async {
                         final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'confirmed');
@@ -193,7 +194,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                 Expanded(
                   child: _ActionButton(
                     label: 'Annuler',
-                    icon: Icons.cancel_outlined,
+                    icon: LucideIcons.circleX,
                     color: AppColors.error,
                     onTap: () async {
                       final confirm = await showDialog<bool>(
@@ -231,7 +232,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
               width: double.infinity,
               child: _ActionButton(
                 label: 'Supprimer',
-                icon: Icons.delete_outline,
+                icon: LucideIcons.trash2,
                 color: AppColors.error,
                 onTap: () async {
                   final confirm = await showDialog<bool>(

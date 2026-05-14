@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 import 'doctor_calendar_page.dart';
 import 'doctor_appointments_page.dart';
+import 'doctor_schedule_page.dart';
 import 'doctor_profile_page.dart';
-import 'doctor_settings_page.dart';
 import 'doctor_patients_page.dart';
+import 'doctor_settings_page.dart';
+import 'doctor_subscription_page.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
 
@@ -80,7 +83,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
           if (!isWideScreen)
             Builder(
               builder: (context) => IconButton(
-                icon: const Icon(Icons.menu),
+                icon: Icon(LucideIcons.menu),
                 onPressed: () => Scaffold.of(context).openDrawer(),
                 color: AppColors.textSecondary,
               ),
@@ -105,7 +108,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.calendar_today, size: 14, color: AppColors.primary),
+                Icon(LucideIcons.calendar, size: 14, color: AppColors.primary),
                 const SizedBox(width: 6),
                 Text(
                   '${doctorState.todayAppointments}',
@@ -244,7 +247,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     child: _buildStatCard(
                       "Aujourd'hui",
                       '${doctorState.todayAppointments}',
-                      Icons.today_outlined,
+                      LucideIcons.calendarCheck,
                       AppColors.primary,
                     ),
                   ),
@@ -253,7 +256,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     child: _buildStatCard(
                       "Cette semaine",
                       '${doctorState.weekAppointments}',
-                      Icons.date_range_outlined,
+                      LucideIcons.calendarRange,
                       AppColors.secondary,
                     ),
                   ),
@@ -266,7 +269,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     child: _buildStatCard(
                       'En attente',
                       '${_getPendingCount(doctorState)}',
-                      Icons.pending_outlined,
+                      LucideIcons.clock,
                       AppColors.warning,
                     ),
                   ),
@@ -275,7 +278,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     child: _buildStatCard(
                       'Terminés',
                       '${_getCompletedCount(doctorState)}',
-                      Icons.check_circle_outlined,
+                      LucideIcons.circleCheck,
                       AppColors.success,
                     ),
                   ),
@@ -291,7 +294,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               child: _buildStatCard(
                 "Aujourd'hui",
                 '${doctorState.todayAppointments}',
-                Icons.today_outlined,
+                LucideIcons.calendarCheck,
                 AppColors.primary,
               ),
             ),
@@ -300,7 +303,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               child: _buildStatCard(
                 "Cette semaine",
                 '${doctorState.weekAppointments}',
-                Icons.date_range_outlined,
+                LucideIcons.calendarRange,
                 AppColors.secondary,
               ),
             ),
@@ -309,7 +312,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               child: _buildStatCard(
                 'En attente',
                 '${_getPendingCount(doctorState)}',
-                Icons.pending_outlined,
+                LucideIcons.clock,
                 AppColors.warning,
               ),
             ),
@@ -318,7 +321,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               child: _buildStatCard(
                 'Terminés',
                 '${_getCompletedCount(doctorState)}',
-                Icons.check_circle_outlined,
+                LucideIcons.circleCheck,
                 AppColors.success,
               ),
             ),
@@ -418,28 +421,26 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               children: [
                 _buildActionCard(
                   'Nouveau rendez-vous',
-                  Icons.add_circle_outline,
+                  LucideIcons.circlePlus,
                   () {
                     final now = DateTime.now();
                     showDialog(
                       context: context,
-                      builder: (ctx) => SingleChildScrollView(
-                        child: DoctorAddAppointmentDialog(
-                          initialDate: now,
-                          initialHour: 9,
-                        ),
+                      builder: (ctx) => DoctorAddAppointmentDialog(
+                        initialDate: now,
+                        initialHour: 9,
                       ),
                     );
                   },
                 ),
                 _buildActionCard(
                   'Calendrier',
-                  Icons.calendar_month_outlined,
+                  LucideIcons.calendar,
                   () => _navigateTo(DoctorPage.calendar),
                 ),
                 _buildActionCard(
                   'Tous les rendez-vous',
-                  Icons.list_alt_outlined,
+                  LucideIcons.list,
                   () => _navigateTo(DoctorPage.appointments),
                 ),
               ],
@@ -551,7 +552,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       child: Column(
         children: [
-          Icon(Icons.event_available, size: 32, color: AppColors.textHint),
+          Icon(LucideIcons.calendarX, size: 32, color: AppColors.textHint),
           const SizedBox(height: AppSpacing.md),
           Text(
             'Aucun rendez-vous',
@@ -604,8 +605,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               ),
               child: Icon(
                 appointment.isConsultation
-                    ? Icons.video_call_outlined
-                    : Icons.person_outline,
+                    ? LucideIcons.video
+                    : LucideIcons.user,
                 size: 18,
                 color: appointment.isConsultation
                     ? AppColors.consultationColor
@@ -669,22 +670,22 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               children: [
                 _buildDrawerItem(
                   DoctorPage.dashboard,
-                  Icons.dashboard_outlined,
+                  LucideIcons.layoutDashboard,
                   'Tableau de bord',
                 ),
                 _buildDrawerItem(
                   DoctorPage.calendar,
-                  Icons.calendar_today_outlined,
+                  LucideIcons.calendar,
                   'Calendrier',
                 ),
                 _buildDrawerItem(
                   DoctorPage.appointments,
-                  Icons.list_alt_outlined,
+                  LucideIcons.list,
                   'Rendez-vous',
                 ),
                 _buildDrawerItem(
                   DoctorPage.patients,
-                  Icons.people_outline,
+                  LucideIcons.users,
                   'Patients',
                 ),
                 const Padding(
@@ -696,12 +697,12 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 ),
                 _buildDrawerItem(
                   DoctorPage.profile,
-                  Icons.person_outline,
+                  LucideIcons.user,
                   'Profil',
                 ),
                 _buildDrawerItem(
                   DoctorPage.settings,
-                  Icons.settings_outlined,
+                  LucideIcons.settings,
                   'Paramètres',
                 ),
               ],
@@ -894,32 +895,32 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               children: [
                 _buildSidebarItem(
                   DoctorPage.dashboard,
-                  Icons.dashboard_outlined,
+                  LucideIcons.layoutDashboard,
                   'Tableau de bord',
                 ),
                 _buildSidebarItem(
                   DoctorPage.calendar,
-                  Icons.calendar_today_outlined,
+                  LucideIcons.calendar,
                   'Calendrier',
                 ),
                 _buildSidebarItem(
                   DoctorPage.appointments,
-                  Icons.event_note_outlined,
+                  LucideIcons.fileText,
                   'Rendez-vous',
                 ),
                 _buildSidebarItem(
                   DoctorPage.patients,
-                  Icons.people_outline,
+                  LucideIcons.users,
                   'Patients',
                 ),
                 _buildSidebarItem(
                   DoctorPage.profile,
-                  Icons.person_outline,
+                  LucideIcons.user,
                   'Profil',
                 ),
                 _buildSidebarItem(
                   DoctorPage.settings,
-                  Icons.settings_outlined,
+                  LucideIcons.settings,
                   'Paramètres',
                 ),
               ],
@@ -941,7 +942,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: isSelected
-              ? Border(left: BorderSide(color: AppColors.primary, width: 3))
+              ? Border(left: BorderSide(color: AppColors.primary, width: 2))
               : null,
         ),
         child: ListTile(

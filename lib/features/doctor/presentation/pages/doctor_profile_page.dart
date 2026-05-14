@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
@@ -64,21 +65,21 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.edit_outlined,
+            icon: LucideIcons.pencil,
             title: 'Modifier le profil',
             onTap: () => _showEditProfile(context, ref),
           ),
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.schedule_outlined,
+            icon: LucideIcons.clock,
             title: 'Horaires de travail',
             onTap: () {},
           ),
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.credit_card_outlined,
+            icon: LucideIcons.creditCard,
             title: 'Abonnement',
             onTap: () {},
           ),
@@ -87,7 +88,7 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => _confirmLogout(context, ref),
-              icon: const Icon(Icons.logout, size: 18),
+              icon: Icon(LucideIcons.logOut, size: 18),
               label: const Text('Déconnexion'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
@@ -144,11 +145,11 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
       child: Column(
         children: [
           if (state.city.isNotEmpty)
-            _buildInfoRow(Icons.location_on_outlined, 'Ville', state.city),
+            _buildInfoRow(LucideIcons.mapPin, 'Ville', state.city),
           if (state.phone.isNotEmpty)
-            _buildInfoRow(Icons.phone_outlined, 'Téléphone', state.phone),
+            _buildInfoRow(LucideIcons.phone, 'Téléphone', state.phone),
           _buildInfoRow(
-            Icons.access_time_outlined,
+            LucideIcons.clock,
             'Horaires',
             _buildScheduleSummary(state),
           ),
@@ -222,7 +223,7 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
                   ),
                 ),
               ),
-              Icon(Icons.chevron_right, size: 20, color: AppColors.textHint),
+              Icon(LucideIcons.chevronRight, size: 20, color: AppColors.textHint),
             ],
           ),
         ),

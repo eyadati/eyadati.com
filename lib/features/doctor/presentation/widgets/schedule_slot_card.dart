@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
@@ -91,12 +92,12 @@ class ScheduleSlotCard extends StatelessWidget {
           ),
           IconButton(
             onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined),
+            icon: const Icon(LucideIcons.pencil),
             color: AppColors.textSecondary,
           ),
           IconButton(
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(LucideIcons.trash2),
             color: AppColors.error,
           ),
         ],

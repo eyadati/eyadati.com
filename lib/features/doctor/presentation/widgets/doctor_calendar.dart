@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../models/appointment_data.dart';
@@ -61,7 +62,7 @@ class _DoctorCalendarState extends State<DoctorCalendar> {
             children: [
               IconButton(
                 onPressed: _previousMonth,
-                icon: const Icon(Icons.chevron_left),
+                icon: const Icon(LucideIcons.chevronLeft),
               ),
               Text(
                 DateFormat('MMMM yyyy', 'fr').format(_currentMonth),
@@ -72,7 +73,7 @@ class _DoctorCalendarState extends State<DoctorCalendar> {
               ),
               IconButton(
                 onPressed: _nextMonth,
-                icon: const Icon(Icons.chevron_right),
+                icon: const Icon(LucideIcons.chevronRight),
               ),
             ],
           ),

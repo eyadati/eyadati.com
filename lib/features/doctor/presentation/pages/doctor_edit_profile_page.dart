@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -166,7 +167,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
         backgroundColor: AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(LucideIcons.arrowLeft, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -185,7 +186,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                 controller: _nameController,
                 label: 'Nom complet',
                 hint: 'Entrez votre nom',
-                prefixIcon: Icons.person_outline,
+                prefixIcon: LucideIcons.user,
                 validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -193,7 +194,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                 controller: _phoneController,
                 label: 'Téléphone',
                 hint: '0555 00 00 00',
-                prefixIcon: Icons.phone_outlined,
+                prefixIcon: LucideIcons.phone,
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -203,7 +204,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                 controller: _addressController,
                 label: 'Adresse du cabinet',
                 hint: '123 Rue Didouche Mourad, Alger Centre',
-                prefixIcon: Icons.location_on_outlined,
+                prefixIcon: LucideIcons.mapPin,
                 keyboardType: TextInputType.streetAddress,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -211,7 +212,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                 controller: _mapsLinkController,
                 label: 'Lien Google Maps',
                 hint: 'https://maps.google.com/...',
-                prefixIcon: Icons.map_outlined,
+                prefixIcon: LucideIcons.map,
                 keyboardType: TextInputType.url,
               ),
               const SizedBox(height: AppSpacing.md),
@@ -264,7 +265,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                     : null,
               ),
               child: _photoUrl == null
-                  ? Icon(Icons.camera_alt_outlined, size: 32, color: AppColors.textHint)
+                  ? Icon(LucideIcons.camera, size: 32, color: AppColors.textHint)
                   : null,
             ),
             if (_isUploadingPhoto)
@@ -294,7 +295,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
-                  child: Icon(Icons.edit, size: 12, color: Colors.white),
+                  child: Icon(LucideIcons.pencil, size: 12, color: Colors.white),
                 ),
               ),
           ],

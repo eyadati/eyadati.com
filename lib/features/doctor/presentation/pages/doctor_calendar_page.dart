@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
@@ -131,7 +132,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
           child: FloatingActionButton(
             onPressed: () => _showAddAppointmentDialog(DateTime.now()),
             backgroundColor: AppColors.primary,
-            child: const Icon(Icons.add, color: Colors.white),
+            child: const Icon(LucideIcons.plus, color: Colors.white),
           ),
         ),
       ],
@@ -148,7 +149,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.chevron_left, size: 24),
+            icon: const Icon(LucideIcons.chevronLeft, size: 24),
             onPressed: _previousWeeks,
             color: AppColors.textSecondary,
             padding: EdgeInsets.zero,
@@ -169,7 +170,7 @@ class DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.chevron_right, size: 24),
+            icon: const Icon(LucideIcons.chevronRight, size: 24),
             onPressed: _nextWeeks,
             color: AppColors.textSecondary,
             padding: EdgeInsets.zero,
@@ -504,7 +505,7 @@ class _DayAppointmentsDialog extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.check_circle, size: 12, color: AppColors.primary),
+                          Icon(LucideIcons.circleCheck, size: 12, color: AppColors.primary),
                           const SizedBox(width: 4),
                           Text(
                             'Planifié',
@@ -514,7 +515,7 @@ class _DayAppointmentsDialog extends StatelessWidget {
                       ),
                     ),
                   IconButton(
-                    icon: Icon(Icons.close, color: AppColors.textSecondary, size: 20),
+                    icon: Icon(LucideIcons.x, color: AppColors.textSecondary, size: 20),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -528,7 +529,7 @@ class _DayAppointmentsDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    Icon(Icons.event_available, size: 40, color: AppColors.textHint),
+                    Icon(LucideIcons.calendarX, size: 40, color: AppColors.textHint),
                     const SizedBox(height: 8),
                     const Text(
                       'Aucun rendez-vous ce jour',
@@ -602,7 +603,7 @@ class _DayAppointmentsDialog extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Icon(Icons.chevron_right, size: 18, color: AppColors.textHint),
+                            Icon(LucideIcons.chevronRight, size: 18, color: AppColors.textHint),
                           ],
                         ),
                       ),
@@ -616,7 +617,7 @@ class _DayAppointmentsDialog extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: isScheduled ? onAddAppointment : null,
-                  icon: const Icon(Icons.add, size: 18),
+                  icon: const Icon(LucideIcons.plus, size: 18),
                   label: const Text('Ajouter un rendez-vous'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,

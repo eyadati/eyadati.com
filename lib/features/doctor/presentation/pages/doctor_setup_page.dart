@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
@@ -232,7 +233,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                         const SizedBox(height: AppSpacing.xl),
                         _buildSectionCard(
                           title: 'Horaires de travail',
-                          icon: Icons.schedule_outlined,
+                          icon: LucideIcons.clock,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -253,7 +254,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                         const SizedBox(height: AppSpacing.lg),
                         _buildSectionCard(
                           title: 'Durées de consultation',
-                          icon: Icons.timer_outlined,
+                          icon: LucideIcons.timer,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -279,7 +280,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                         const SizedBox(height: AppSpacing.lg),
                         _buildSectionCard(
                           title: 'Informations du cabinet',
-                          icon: Icons.local_hospital_outlined,
+                          icon: LucideIcons.building,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -298,7 +299,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                                 hint: '123 Rue Didouche Mourad, Alger Centre',
                                 controller: _addressController,
                                 keyboardType: TextInputType.streetAddress,
-                                prefixIcon: Icons.location_on_outlined,
+                                prefixIcon: LucideIcons.mapPin,
                                 validator: (value) => value == null || value.isEmpty ? 'Adresse requise' : null,
                               ),
                               const SizedBox(height: AppSpacing.md),
@@ -307,7 +308,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                                 hint: 'https://maps.google.com/...',
                                 controller: _mapsLinkController,
                                 keyboardType: TextInputType.url,
-                                prefixIcon: Icons.map_outlined,
+                                prefixIcon: LucideIcons.map,
                               ),
                               const SizedBox(height: AppSpacing.md),
                               AppDropdown(
@@ -354,7 +355,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: Icon(LucideIcons.arrowLeft),
             onPressed: () => _showExitDialog(),
             color: AppColors.textSecondary,
           ),
@@ -381,7 +382,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+          Icon(LucideIcons.info, color: AppColors.primary, size: 20),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
@@ -513,7 +514,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
         const SizedBox(width: AppSpacing.md),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Icon(Icons.arrow_forward, color: AppColors.textHint, size: 16),
+          child: Icon(LucideIcons.arrowRight, color: AppColors.textHint, size: 16),
         ),
         const SizedBox(width: AppSpacing.md),
         Expanded(
@@ -540,7 +541,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
         const SizedBox(width: AppSpacing.md),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Icon(Icons.arrow_forward, color: AppColors.textHint, size: 16),
+          child: Icon(LucideIcons.arrowRight, color: AppColors.textHint, size: 16),
         ),
         const SizedBox(width: AppSpacing.md),
         Expanded(
@@ -575,7 +576,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                     : null,
               ),
               child: _photoUrl == null
-                  ? Icon(Icons.camera_alt_outlined, size: 32, color: AppColors.textHint)
+                  ? Icon(LucideIcons.camera, size: 32, color: AppColors.textHint)
                   : null,
             ),
             if (_isUploadingPhoto)
@@ -605,7 +606,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
-                  child: Icon(Icons.edit, size: 12, color: Colors.white),
+                  child: Icon(LucideIcons.pencil, size: 12, color: Colors.white),
                 ),
               ),
           ],
@@ -716,7 +717,7 @@ class _TimeSelector extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Row(
               children: [
-                Icon(Icons.access_time, size: 16, color: AppColors.primary),
+                Icon(LucideIcons.clock, size: 16, color: AppColors.primary),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   time,

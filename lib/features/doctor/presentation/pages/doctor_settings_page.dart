@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
@@ -79,7 +80,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
                 ),
               ),
               trailing: !isArabic
-                  ? Icon(Icons.check, color: AppColors.primary)
+                  ? Icon(LucideIcons.check, color: AppColors.primary)
                   : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('fr');
@@ -97,7 +98,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
                 ),
               ),
               trailing: isArabic
-                  ? Icon(Icons.check, color: AppColors.primary)
+                  ? Icon(LucideIcons.check, color: AppColors.primary)
                   : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('ar');
@@ -149,14 +150,14 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.person_outlined,
+            icon: LucideIcons.user,
             title: 'Modifier le profil',
             onTap: () {},
           ),
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.lock_outlined,
+            icon: LucideIcons.lock,
             title: 'Changer le mot de passe',
             onTap: () {},
           ),
@@ -164,13 +165,13 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           _buildSectionTitle('Notifications'),
           const SizedBox(height: AppSpacing.sm),
           _buildToggleItem(
-            icon: Icons.notifications_outlined,
+            icon: LucideIcons.bell,
             title: 'Notifications push',
             value: _pushEnabled,
             onChanged: _savePushSetting,
           ),
           _buildToggleItem(
-            icon: Icons.email_outlined,
+            icon: LucideIcons.mail,
             title: 'Rappels par email',
             value: _emailEnabled,
             onChanged: _saveEmailSetting,
@@ -181,7 +182,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.language,
+            icon: LucideIcons.languages,
             title: 'Langue',
             trailing: isArabic ? 'العربية' : 'Français',
             onTap: _showLanguageSheet,
@@ -192,14 +193,14 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.description_outlined,
+            icon: LucideIcons.fileText,
             title: "Conditions d'utilisation",
             onTap: () {},
           ),
           _buildMenuItem(
             context: context,
             ref: ref,
-            icon: Icons.privacy_tip_outlined,
+            icon: LucideIcons.shield,
             title: 'Politique de confidentialité',
             onTap: () {},
           ),
@@ -220,7 +221,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    Icons.medical_services_outlined,
+                    LucideIcons.stethoscope,
                     color: AppColors.primary,
                     size: 24,
                   ),
@@ -255,7 +256,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _confirmLogout,
-              icon: const Icon(Icons.logout, size: 18),
+              icon: Icon(LucideIcons.logOut, size: 18),
               label: const Text('Déconnexion'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
@@ -327,7 +328,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
                   ),
                 )
               else
-                Icon(Icons.chevron_right, size: 20, color: AppColors.textHint),
+                Icon(LucideIcons.chevronRight, size: 20, color: AppColors.textHint),
             ],
           ),
         ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
@@ -198,7 +199,7 @@ class _DoctorAddAppointmentDialogState
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close, color: AppColors.textSecondary),
+                      icon: Icon(LucideIcons.x, color: AppColors.textSecondary),
                       onPressed: () => Navigator.pop(context),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -210,7 +211,7 @@ class _DoctorAddAppointmentDialogState
                   controller: _nameController,
                   label: 'Nom du patient',
                   hint: 'Entrez le nom',
-                  prefixIcon: Icons.person_outline,
+                  prefixIcon: LucideIcons.user,
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Le nom est requis';
@@ -223,7 +224,7 @@ class _DoctorAddAppointmentDialogState
                   controller: _phoneController,
                   label: 'Téléphone',
                   hint: 'Entrez le numéro',
-                  prefixIcon: Icons.phone_outlined,
+                  prefixIcon: LucideIcons.phone,
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -249,7 +250,7 @@ class _DoctorAddAppointmentDialogState
                     child: Row(
                       children: [
                         Icon(
-                          Icons.calendar_today,
+                          LucideIcons.calendar,
                           size: 16,
                           color: AppColors.textSecondary,
                         ),
@@ -286,7 +287,7 @@ class _DoctorAddAppointmentDialogState
                     child: Row(
                       children: [
                         Icon(
-                          Icons.event_busy,
+                          LucideIcons.calendarX,
                           size: 16,
                           color: AppColors.textHint,
                         ),
@@ -314,7 +315,7 @@ class _DoctorAddAppointmentDialogState
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_outline,
+                          LucideIcons.info,
                           size: 16,
                           color: AppColors.textHint,
                         ),

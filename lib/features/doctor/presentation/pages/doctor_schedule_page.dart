@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import '../providers/doctor_provider.dart';
@@ -164,7 +165,7 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
                 ),
                 TextButton.icon(
                   onPressed: _showAddSlotDialog,
-                  icon: const Icon(Icons.add, size: 20),
+                  icon: Icon(LucideIcons.plus, size: 20),
                   label: const Text('Ajouter'),
                 ),
               ],
@@ -182,7 +183,7 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
                 padding: const EdgeInsets.all(AppSpacing.xl),
                 child: Column(
                   children: [
-                    Icon(Icons.schedule, size: 48, color: AppColors.textHint),
+                    Icon(LucideIcons.clock, size: 48, color: AppColors.textHint),
                     const SizedBox(height: AppSpacing.md),
                     Text(
                       'Aucun créneau',

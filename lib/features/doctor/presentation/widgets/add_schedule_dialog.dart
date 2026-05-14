@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
@@ -202,7 +203,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.access_time, size: 18, color: AppColors.primary),
+                            const Icon(LucideIcons.clock, size: 18, color: AppColors.primary),
                             const SizedBox(width: 8),
                             Text(
                               _formatTime(_startTime),
@@ -244,7 +245,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.access_time, size: 18, color: AppColors.primary),
+                            const Icon(LucideIcons.clock, size: 18, color: AppColors.primary),
                             const SizedBox(width: 8),
                             Text(
                               _formatTime(_endTime),
@@ -291,7 +292,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.free_breakfast, size: 14, color: AppColors.primary),
+                            Icon(LucideIcons.coffee, size: 14, color: AppColors.primary),
                             const SizedBox(width: 4),
                             Text(_breakStart != null ? _formatTime(_breakStart!) : '--:--',
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -320,7 +321,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.free_breakfast, size: 14, color: AppColors.primary),
+                            Icon(LucideIcons.coffee, size: 14, color: AppColors.primary),
                             const SizedBox(width: 4),
                             Text(_breakEnd != null ? _formatTime(_breakEnd!) : '--:--',
                               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),

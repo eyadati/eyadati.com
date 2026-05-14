@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/cards/stat_card.dart';
@@ -39,7 +40,7 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
                       child: StatCard(
                         title: 'Patients',
                         value: '${doctorState.totalPatients}',
-                        icon: Icons.people,
+                        icon: LucideIcons.users,
                         iconColor: AppColors.primary,
                       ),
                     ),
@@ -48,7 +49,7 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
                       child: StatCard(
                         title: 'Visites totales',
                         value: '${doctorState.allAppointments.length}',
-                        icon: Icons.history,
+                        icon: LucideIcons.history,
                         iconColor: AppColors.secondary,
                       ),
                     ),
@@ -64,7 +65,7 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
               SliverFillRemaining(
                 child: Center(
                   child: EmptyStateCard(
-                    icon: Icons.people_outline,
+                    icon: LucideIcons.users,
                     title: 'Aucun patient',
                     message: 'Vos patients apparaîtront ici',
                   ),
@@ -164,7 +165,7 @@ class _PatientCard extends StatelessWidget {
                     ),
                     if (patient.lastVisit != null) ...[
                       const SizedBox(width: 8),
-                      Icon(Icons.access_time, size: 12, color: AppColors.textHint),
+                      Icon(LucideIcons.clock, size: 12, color: AppColors.textHint),
                       const SizedBox(width: 4),
                       Text(
                         _formatDate(patient.lastVisit!),
@@ -177,7 +178,7 @@ class _PatientCard extends StatelessWidget {
             ),
           ),
           Icon(
-            Icons.chevron_right,
+            LucideIcons.chevronRight,
             color: AppColors.textHint,
           ),
         ],

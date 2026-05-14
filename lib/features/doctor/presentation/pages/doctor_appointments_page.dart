@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/models/appointment_data.dart';
@@ -69,7 +70,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_note, size: 48, color: AppColors.textHint),
+            Icon(LucideIcons.fileText, size: 48, color: AppColors.textHint),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Aucun rendez-vous',
@@ -125,7 +126,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      apt.isConsultation ? Icons.video_call_outlined : Icons.person_outline,
+                      apt.isConsultation ? LucideIcons.video : LucideIcons.user,
                       size: 18,
                       color: apt.status == 'cancelled'
                           ? AppColors.error

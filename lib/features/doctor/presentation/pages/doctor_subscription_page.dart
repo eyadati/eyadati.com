@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/widgets/cards/info_card.dart';
@@ -30,7 +31,7 @@ class DoctorSubscriptionPage extends ConsumerWidget {
               child: Column(
                 children: [
                   const Icon(
-                    Icons.workspace_premium,
+                    LucideIcons.crown,
                     size: 64,
                     color: AppColors.warning,
                   ),
@@ -94,27 +95,27 @@ class DoctorSubscriptionPage extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             _FeatureItem(
-              icon: Icons.check_circle,
+              icon: LucideIcons.circleCheck,
               text: 'Rendez-vous illimités',
               color: AppColors.secondary,
             ),
             _FeatureItem(
-              icon: Icons.check_circle,
+              icon: LucideIcons.circleCheck,
               text: 'Calendrier avancé',
               color: AppColors.secondary,
             ),
             _FeatureItem(
-              icon: Icons.check_circle,
+              icon: LucideIcons.circleCheck,
               text: 'Notifications patients',
               color: AppColors.secondary,
             ),
             _FeatureItem(
-              icon: Icons.check_circle,
+              icon: LucideIcons.circleCheck,
               text: 'Support prioritaire',
               color: AppColors.secondary,
             ),
             _FeatureItem(
-              icon: Icons.check_circle,
+              icon: LucideIcons.circleCheck,
               text: 'Rapports détaillés',
               color: AppColors.secondary,
             ),
@@ -131,14 +132,14 @@ class DoctorSubscriptionPage extends ConsumerWidget {
             InfoCard(
               title: 'Date',
               value: '15 Juin 2026',
-              icon: Icons.calendar_today,
+              icon: LucideIcons.calendar,
               iconColor: AppColors.primary,
             ),
             const SizedBox(height: AppSpacing.sm),
             InfoCard(
               title: 'Montant',
               value: '499 MAD',
-              icon: Icons.attach_money,
+              icon: LucideIcons.euro,
               iconColor: AppColors.secondary,
             ),
             const SizedBox(height: AppSpacing.lg),
