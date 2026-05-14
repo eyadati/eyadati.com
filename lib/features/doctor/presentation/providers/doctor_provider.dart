@@ -730,6 +730,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           patientPhone:
               patientPhone ?? result['patient_phone_snapshot'] as String?,
           status: 'upcoming',
+          isConsultation: false,
           duration: dur,
           patientId: patientId,
           bookingType: patientId != null ? 'online' : 'manual',
