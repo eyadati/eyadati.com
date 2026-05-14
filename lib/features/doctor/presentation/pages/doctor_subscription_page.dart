@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
-import '../../../../core/widgets/cards/info_card.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
+import 'package:eyadati/core/widgets/cards/info_card.dart';
 
 class DoctorSubscriptionPage extends ConsumerWidget {
   const DoctorSubscriptionPage({super.key});
@@ -14,8 +15,6 @@ class DoctorSubscriptionPage extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Abonnement'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -30,39 +29,22 @@ class DoctorSubscriptionPage extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.crown,
                     size: 64,
                     color: AppColors.warning,
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  const Text(
+                  Text(
                     'Plan Pro',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
+                    style: AppTextStyles.headlineMedium,
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        '499 MAD',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const Text(
-                        '/mois',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
+                      Text('499 MAD', style: AppTextStyles.statValue.copyWith(color: AppColors.primary)),
+                      Text('/mois', style: AppTextStyles.bodyMedium),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.md),
@@ -72,27 +54,13 @@ class DoctorSubscriptionPage extends ConsumerWidget {
                       color: AppColors.secondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'Abonnement actif',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.secondary,
-                      ),
-                    ),
+                    child: Text('Abonnement actif', style: AppTextStyles.badge.copyWith(color: AppColors.secondary)),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Inclus dans le plan',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text('Inclus dans le plan', style: AppTextStyles.sectionTitle),
             const SizedBox(height: AppSpacing.md),
             _FeatureItem(
               icon: LucideIcons.circleCheck,
@@ -120,14 +88,7 @@ class DoctorSubscriptionPage extends ConsumerWidget {
               color: AppColors.secondary,
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Prochain paiement',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text('Prochain paiement', style: AppTextStyles.sectionTitle),
             const SizedBox(height: AppSpacing.sm),
             InfoCard(
               title: 'Date',
@@ -148,7 +109,7 @@ class DoctorSubscriptionPage extends ConsumerWidget {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {},
-                    child: const Text('Historique'),
+                    child: Text('Historique', style: AppTextStyles.labelMedium),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -159,7 +120,7 @@ class DoctorSubscriptionPage extends ConsumerWidget {
                       backgroundColor: AppColors.error,
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text('Annuler'),
+                    child: Text('Annuler', style: AppTextStyles.labelMedium),
                   ),
                 ),
               ],
@@ -192,10 +153,7 @@ class _FeatureItem extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Text(
             text,
-            style: const TextStyle(
-              fontSize: 15,
-              color: AppColors.textPrimary,
-            ),
+            style: AppTextStyles.bodyMedium,
           ),
         ],
       ),

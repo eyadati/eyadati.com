@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 
@@ -51,9 +52,7 @@ class ScheduleSlotCard extends StatelessWidget {
               children: [
                 Text(
                   '$startDisplay - $endDisplay$breakDisplay',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                  style: AppTextStyles.sectionTitle.copyWith(
                     color: slot.isActive ? AppColors.textPrimary : AppColors.textHint,
                   ),
                 ),
@@ -70,9 +69,7 @@ class ScheduleSlotCard extends StatelessWidget {
                       ),
                       child: Text(
                         slot.isActive ? 'Actif' : 'Inactif',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                        style: AppTextStyles.badge.copyWith(
                           color: slot.isActive ? AppColors.secondary : AppColors.textHint,
                         ),
                       ),
@@ -80,8 +77,8 @@ class ScheduleSlotCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       ScheduleSlot.dayNameFrench(slot.dayOfWeek),
-                      style: const TextStyle(
-                        fontSize: 12,
+                      style: AppTextStyles.labelMedium.copyWith(
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
                       ),
                     ),

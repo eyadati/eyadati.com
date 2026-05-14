@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 import 'doctor_calendar_page.dart';
@@ -111,11 +112,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 const SizedBox(width: 6),
                 Text(
                   '${doctorState.todayAppointments}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                  style: AppTextStyles.dashboardStatCard,
                 ),
               ],
             ),
@@ -368,23 +365,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: AppSpacing.md),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
+          Text(value, style: AppTextStyles.statValue),
           const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text(title, style: AppTextStyles.statTitle),
         ],
       ),
     );
@@ -402,14 +385,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Text(
-              'Actions rapides',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            child: Text('Actions rapides', style: AppTextStyles.sectionHeader),
           ),
           Divider(height: 1, color: AppColors.border),
           Padding(
@@ -473,15 +449,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               child: Icon(icon, size: 22, color: AppColors.primary),
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text(title, style: AppTextStyles.quickActionTitle),
           ],
         ),
       ),
@@ -503,24 +471,10 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Rendez-vous à venir',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                Text('Rendez-vous à venir', style: AppTextStyles.sectionHeader),
                 TextButton(
                   onPressed: () => _navigateTo(DoctorPage.appointments),
-                  child: Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.primary,
-                    ),
-                  ),
+                  child: Text('Voir tout', style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w600, color: AppColors.primary)),
                 ),
               ],
             ),
@@ -553,14 +507,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         children: [
           Icon(LucideIcons.calendarX, size: 32, color: AppColors.textHint),
           const SizedBox(height: AppSpacing.md),
-          Text(
-            'Aucun rendez-vous',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text('Aucun rendez-vous', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -617,22 +564,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    appointment.patientName,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
+                  Text(appointment.patientName, style: AppTextStyles.cardTitle),
                   const SizedBox(height: 4),
-                  Text(
-                    '$timeStr • ${appointment.startTime.day}/${appointment.startTime.month}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
+                  Text('$timeStr • ${appointment.startTime.day}/${appointment.startTime.month}', style: AppTextStyles.labelMedium),
                 ],
               ),
             ),
@@ -642,14 +576,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 color: statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(
-                statusLabel,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: statusColor,
-                ),
-              ),
+              child: Text(statusLabel, style: AppTextStyles.badge.copyWith(color: statusColor)),
             ),
           ],
         ),
@@ -727,28 +654,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      doctorState.name.isNotEmpty
-                          ? doctorState.name
-                          : 'Docteur',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (doctorState.specialty.isNotEmpty)
-                      Text(
-                        doctorState.specialty,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.8),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(doctorState.name.isNotEmpty ? doctorState.name : 'Docteur', style: AppTextStyles.drawerName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (doctorState.specialty.isNotEmpty) Text(doctorState.specialty, style: AppTextStyles.drawerSpecialty.copyWith(color: Colors.white.withValues(alpha: 0.8)), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -774,28 +681,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      doctorState.name.isNotEmpty
-                          ? doctorState.name
-                          : 'Docteur',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (doctorState.specialty.isNotEmpty)
-                      Text(
-                        doctorState.specialty,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.8),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(doctorState.name.isNotEmpty ? doctorState.name : 'Docteur', style: AppTextStyles.drawerName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (doctorState.specialty.isNotEmpty) Text(doctorState.specialty, style: AppTextStyles.drawerSpecialty.copyWith(color: Colors.white.withValues(alpha: 0.8)), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -820,11 +707,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       backgroundColor: Colors.white,
       child: Text(
         _getInitials(name),
-        style: TextStyle(
-          fontSize: radius * 0.65,
-          fontWeight: FontWeight.w700,
-          color: AppColors.primary,
-        ),
+        style: TextStyle(fontSize: radius * 0.65, fontWeight: FontWeight.w700, color: AppColors.primary),
       ),
     );
   }
@@ -857,14 +740,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             icon,
             color: isSelected ? AppColors.primary : AppColors.textSecondary,
           ),
-          title: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: isSelected ? AppColors.primary : AppColors.textPrimary,
-            ),
-          ),
+          title: Text(label, style: AppTextStyles.labelLarge.copyWith(color: isSelected ? AppColors.primary : AppColors.textPrimary)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -950,14 +826,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             size: 20,
             color: isSelected ? AppColors.primary : AppColors.textSecondary,
           ),
-          title: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: isSelected ? AppColors.primary : AppColors.textPrimary,
-            ),
-          ),
+          title: Text(label, style: AppTextStyles.labelLarge.copyWith(color: isSelected ? AppColors.primary : AppColors.textPrimary)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

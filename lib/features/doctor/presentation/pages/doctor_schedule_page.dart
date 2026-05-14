@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/schedule_slot_card.dart';
 import '../widgets/add_schedule_dialog.dart';
@@ -76,14 +77,7 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Jours de travail',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
+                  Text('Jours de travail', style: AppTextStyles.sectionHeader),
                   const SizedBox(height: AppSpacing.md),
                   Row(
                     children: List.generate(7, (index) {
@@ -118,18 +112,10 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
                             ),
                             child: Column(
                               children: [
-                                Text(
-                                  _days[index],
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : hasSlots
-                                            ? AppColors.secondary
-                                            : AppColors.textSecondary,
-                                  ),
-                                ),
+                                Text(_days[index], style: AppTextStyles.labelMedium.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected ? Colors.white : hasSlots ? AppColors.secondary : AppColors.textSecondary,
+                                )),
                                 if (hasSlots) ...[
                                   const SizedBox(height: 4),
                                   Container(
@@ -155,14 +141,7 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  _getDayFullName(_selectedDay),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                Text(_getDayFullName(_selectedDay), style: AppTextStyles.sectionTitle),
                 TextButton.icon(
                   onPressed: _showAddSlotDialog,
                   icon: Icon(LucideIcons.plus, size: 20),
@@ -185,24 +164,9 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
                   children: [
                     Icon(LucideIcons.clock, size: 48, color: AppColors.textHint),
                     const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Aucun créneau',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    Text('Aucun créneau', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
-                    Text(
-                      'Appuyez sur "Ajouter" pour créer un créneau pour ${_getDayFullName(_selectedDay)}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.textHint,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    Text('Appuyez sur "Ajouter" pour créer un créneau pour ${_getDayFullName(_selectedDay)}', style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300, color: AppColors.textHint), textAlign: TextAlign.center),
                   ],
                 ),
               )

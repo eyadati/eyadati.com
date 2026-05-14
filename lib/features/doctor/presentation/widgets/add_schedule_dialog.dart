@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 
@@ -135,14 +136,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Jour',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text('Jour', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
           const SizedBox(height: AppSpacing.sm),
           SizedBox(
             height: 40,
@@ -163,9 +157,8 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                     child: Center(
                       child: Text(
                         days[index],
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                        style: AppTextStyles.labelMedium.copyWith(
+                          fontWeight: FontWeight.w600,
                           color: isSelected ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
@@ -182,14 +175,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Début',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    Text('Début', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
                     const SizedBox(height: AppSpacing.xs),
                     GestureDetector(
                       onTap: () => _selectTime(true),
@@ -207,10 +193,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                             const SizedBox(width: 8),
                             Text(
                               _formatTime(_startTime),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTextStyles.titleMedium,
                             ),
                           ],
                         ),
@@ -224,14 +207,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Fin',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    Text('Fin', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
                     const SizedBox(height: AppSpacing.xs),
                     GestureDetector(
                       onTap: () => _selectTime(false),
@@ -249,10 +225,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                             const SizedBox(width: 8),
                             Text(
                               _formatTime(_endTime),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTextStyles.titleMedium,
                             ),
                           ],
                         ),
@@ -264,14 +237,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          const Text(
-            'Pause (optionnel)',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text('Pause (optionnel)', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
@@ -287,7 +253,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                     ),
                     child: Column(
                       children: [
-                        Text('Début pause', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        Text('Début pause', style: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -295,7 +261,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                             Icon(LucideIcons.coffee, size: 14, color: AppColors.primary),
                             const SizedBox(width: 4),
                             Text(_breakStart != null ? _formatTime(_breakStart!) : '--:--',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                              style: AppTextStyles.titleMedium),
                           ],
                         ),
                       ],
@@ -316,7 +282,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                     ),
                     child: Column(
                       children: [
-                        Text('Fin pause', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                        Text('Fin pause', style: AppTextStyles.labelSmall.copyWith(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -324,7 +290,7 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
                             Icon(LucideIcons.coffee, size: 14, color: AppColors.primary),
                             const SizedBox(width: 4),
                             Text(_breakEnd != null ? _formatTime(_breakEnd!) : '--:--',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                              style: AppTextStyles.titleMedium),
                           ],
                         ),
                       ],

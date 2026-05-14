@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
 import '../providers/doctor_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -37,24 +38,10 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
               children: [
                 _buildAvatar(doctorState.avatarUrl, doctorState.name),
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                Text(doctorState.name.isNotEmpty ? doctorState.name : 'Docteur', style: AppTextStyles.headlineMedium),
                 if (doctorState.specialty.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    doctorState.specialty,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w300,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
+                  Text(doctorState.specialty, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300)),
                 ],
               ],
             ),
@@ -160,31 +147,14 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
       child: Row(
         children: [
           Icon(icon, size: 20, color: AppColors.textSecondary),
           const SizedBox(width: AppSpacing.md),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w300,
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text(label, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300)),
           const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
+          Text(value, style: AppTextStyles.labelLarge),
         ],
       ),
     );
@@ -213,16 +183,7 @@ class _DoctorProfilePageState extends ConsumerState<DoctorProfilePage> {
             children: [
               Icon(icon, size: 20, color: AppColors.textSecondary),
               const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
+              Expanded(child: Text(title, style: AppTextStyles.labelLarge)),
               Icon(LucideIcons.chevronRight, size: 20, color: AppColors.textHint),
             ],
           ),

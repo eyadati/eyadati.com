@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 
@@ -15,7 +16,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
     final dateStr = '${appointment.startTime.day}/${appointment.startTime.month}/${appointment.startTime.year}';
-    final isConfirmed = appointment.status == 'confirmed';
+    final isConfirmed = appointment.status == 'upcoming';
     final isPending = appointment.status == 'pending';
     final isCancelled = appointment.status == 'cancelled';
 
@@ -38,11 +39,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                   appointment.patientName.isNotEmpty
                       ? appointment.patientName[0].toUpperCase()
                       : 'P',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                  style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -50,23 +47,9 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      appointment.patientName,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+                    Text(appointment.patientName, style: AppTextStyles.sectionTitle),
                     if (appointment.patientId != null)
-                      Text(
-                        'ID: ${appointment.patientId}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w300,
-                          color: AppColors.textHint,
-                        ),
-                      ),
+                      Text('ID: ${appointment.patientId}', style: AppTextStyles.patientId),
                   ],
                 ),
               ),
@@ -115,8 +98,7 @@ IconButton(
                     const SizedBox(width: 4),
                     Text(
                       appointment.isConsultation ? 'Consultation' : 'Standard',
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: AppTextStyles.labelMedium.copyWith(
                         fontWeight: FontWeight.w600,
                         color: appointment.isConsultation ? AppColors.consultationColor : AppColors.primary,
                       ),
@@ -148,23 +130,9 @@ IconButton(
           ),
           if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Notes',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text('Notes', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
             const SizedBox(height: 6),
-            Text(
-              appointment.notes!,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text(appointment.notes!, style: AppTextStyles.notes),
           ],
           const SizedBox(height: AppSpacing.xl),
           if (!isCancelled) ...[
@@ -177,7 +145,7 @@ IconButton(
                       icon: LucideIcons.circleCheck,
                       color: AppColors.success,
                       onTap: () async {
-                        final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'confirmed');
+                        final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'upcoming');
                         if (context.mounted) {
                           Navigator.pop(context);
                           if (ok) {
@@ -276,14 +244,7 @@ IconButton(
       children: [
         Icon(icon, size: 16, color: AppColors.textSecondary),
         const SizedBox(width: 6),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
+        Text(text, style: AppTextStyles.labelLarge),
       ],
     );
   }
@@ -319,14 +280,7 @@ class _ActionButton extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: color),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
+            Text(label, style: AppTextStyles.labelLarge.copyWith(color: color)),
           ],
         ),
       ),

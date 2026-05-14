@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/widgets/cards/stat_card.dart';
 import 'package:eyadati/core/widgets/cards/empty_state_card.dart';
 import '../providers/doctor_provider.dart';
@@ -115,11 +116,7 @@ class _PatientCard extends StatelessWidget {
             backgroundColor: AppColors.primary.withValues(alpha: 0.1),
             child: Text(
               patient.patientName.isNotEmpty ? patient.patientName[0].toUpperCase() : 'P',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-              ),
+              style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary),
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -127,23 +124,10 @@ class _PatientCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  patient.patientName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                Text(patient.patientName, style: AppTextStyles.cardTitle),
                 if (patient.patientPhone != null && patient.patientPhone!.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    patient.patientPhone!,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
+                  Text(patient.patientPhone!, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w400)),
                 ],
                 const SizedBox(height: 4),
                 Row(
@@ -154,23 +138,13 @@ class _PatientCard extends StatelessWidget {
                         color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(
-                        '${patient.totalVisits} visite${patient.totalVisits > 1 ? 's' : ''}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
+                      child: Text('${patient.totalVisits} visite${patient.totalVisits > 1 ? 's' : ''}', style: AppTextStyles.badge.copyWith(color: AppColors.primary)),
                     ),
                     if (patient.lastVisit != null) ...[
                       const SizedBox(width: 8),
                       Icon(LucideIcons.clock, size: 12, color: AppColors.textHint),
                       const SizedBox(width: 4),
-                      Text(
-                        _formatDate(patient.lastVisit!),
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                      ),
+                      Text(_formatDate(patient.lastVisit!), style: AppTextStyles.labelSmall),
                     ],
                   ],
                 ),

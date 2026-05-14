@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/appointment_details_sheet.dart';
@@ -30,17 +31,11 @@ class DoctorAppointmentsPage extends ConsumerWidget {
               labelColor: AppColors.primary,
               unselectedLabelColor: AppColors.textSecondary,
               indicatorColor: AppColors.primary,
-              labelStyle: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-              unselectedLabelStyle: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w300,
-              ),
+              labelStyle: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w600),
+              unselectedLabelStyle: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w300),
               tabs: [
                 Tab(text: 'Tous (${all.length})'),
-                Tab(text: 'Confirmés (${all.where((a) => a.status == 'confirmed').length})'),
+                Tab(text: 'Confirmés (${all.where((a) => a.status == 'upcoming').length})'),
                 Tab(text: 'En attente (${all.where((a) => a.status == 'pending').length})'),
                 Tab(text: 'Annulés (${all.where((a) => a.status == 'cancelled').length})'),
               ],
@@ -52,7 +47,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
               child: TabBarView(
                 children: [
                   _buildList(context, all),
-                  _buildList(context, all.where((a) => a.status == 'confirmed').toList()),
+                  _buildList(context, all.where((a) => a.status == 'upcoming').toList()),
                   _buildList(context, all.where((a) => a.status == 'pending').toList()),
                   _buildList(context, all.where((a) => a.status == 'cancelled').toList()),
                 ],
@@ -72,14 +67,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
           children: [
             Icon(LucideIcons.fileText, size: 48, color: AppColors.textHint),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              'Aucun rendez-vous',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text('Aucun rendez-vous', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
           ],
         ),
       );
@@ -140,26 +128,11 @@ class DoctorAppointmentsPage extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          apt.patientName,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                            decoration: apt.status == 'cancelled'
-                                ? TextDecoration.lineThrough
-                                : null,
-                          ),
-                        ),
+                        Text(apt.patientName, style: AppTextStyles.cardTitle.copyWith(
+                          decoration: apt.status == 'cancelled' ? TextDecoration.lineThrough : null,
+                        )),
                         const SizedBox(height: 4),
-                        Text(
-                          '${apt.startTime.day}/${apt.startTime.month}/${apt.startTime.year} à ${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w300,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
+                        Text('${apt.startTime.day}/${apt.startTime.month}/${apt.startTime.year} à ${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}', style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w300)),
                       ],
                     ),
                   ),
@@ -192,14 +165,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
+      child: Text(label, style: AppTextStyles.badge.copyWith(color: color)),
     );
   }
 }

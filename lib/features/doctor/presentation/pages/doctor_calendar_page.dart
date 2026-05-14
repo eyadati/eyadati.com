@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
@@ -17,81 +20,8 @@ class DoctorCalendarPage extends ConsumerStatefulWidget {
 
 class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedDay = _focusedDay;
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
-    setState(() {
-      _selectedDay = selectedDay;
-      _focusedDay = focusedDay;
-    });
-    _showDayAppointmentsDialog(selectedDay);
-  }
-
-  void _showDayAppointmentsDialog(DateTime day) {
-    final doctorState = ref.read(doctorProvider);
-    final dayAppointments = doctorState.getAppointmentsForDay(day);
-    final isScheduled = doctorState.hasScheduleForDay(day);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => _DayAppointmentsDialog(
-        day: day,
-        appointments: dayAppointments,
-        isScheduled: isScheduled,
-        availableSlots: doctorState.getAvailableSlotsForDay(day).length,
-        onAddAppointment: () {
-          Navigator.pop(ctx);
-          _showAddAppointmentDialog(day);
-        },
-        onViewAppointment: (apt) {
-          Navigator.pop(ctx);
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (c) => AppointmentDetailsSheet(appointment: apt),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showAddAppointmentDialog(DateTime day) {
-    showDialog(
-      context: context,
-      builder: (ctx) =>
-          DoctorAddAppointmentDialog(initialDate: day, initialHour: 9),
-    );
-  }
-
-  void _previousWeeks() {
-    setState(() {
-      _focusedDay = _focusedDay.subtract(const Duration(days: 14));
-    });
-  }
-
-  void _nextWeeks() {
-    setState(() {
-      _focusedDay = _focusedDay.add(const Duration(days: 14));
-    });
-  }
-
-  void _goToToday() {
-    setState(() {
-      _focusedDay = DateTime.now();
-      _selectedDay = DateTime.now();
-    });
-  }
+  final CalendarController _calendarController = CalendarController();
+  final _CalendarDataSource _dataSource = _CalendarDataSource([]);
 
   String _formatWeekRange() {
     final months = [
@@ -112,7 +42,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     final startOfWeek = _focusedDay.subtract(
       Duration(days: _focusedDay.weekday % 7),
     );
-    final endOfWeek = startOfWeek.add(const Duration(days: 13));
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
 
     if (startOfWeek.month == endOfWeek.month) {
       return '${startOfWeek.day} - ${endOfWeek.day} ${months[startOfWeek.month]} ${startOfWeek.year}';
@@ -123,51 +53,301 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     }
   }
 
+  void _previousWeeks() {
+    setState(() {
+      _focusedDay = _focusedDay.subtract(const Duration(days: 7));
+    });
+    _calendarController.displayDate = _focusedDay;
+  }
+
+  void _nextWeeks() {
+    setState(() {
+      _focusedDay = _focusedDay.add(const Duration(days: 7));
+    });
+    _calendarController.displayDate = _focusedDay;
+  }
+
+  void _goToToday() {
+    final today = DateTime.now();
+    setState(() {
+      _focusedDay = today;
+    });
+    _calendarController.displayDate = today;
+  }
+
+  void _showAddAppointmentDialog(DateTime day) {
+    showDialog(
+      context: context,
+      builder: (ctx) =>
+          DoctorAddAppointmentDialog(initialDate: day, initialHour: 9),
+    );
+  }
+
+  AppointmentData _toAppointmentData(_AppointmentWrapper apt) {
+    return AppointmentData(
+      id: apt.id,
+      startTime: apt.startTime,
+      endTime: apt.endTime,
+      patientName: apt.patientName,
+      patientAvatar: apt.patientAvatar,
+      patientPhone: apt.patientPhone,
+      status: apt.status,
+      isConsultation: apt.isConsultation,
+      notes: apt.notes,
+      duration: apt.duration,
+      patientId: apt.patientId,
+      bookingType: apt.bookingType,
+    );
+  }
+
+  List<TimeRegion> _buildBreakRegions(
+    List<ScheduleSlot> slots,
+    DateTime focusedDay,
+  ) {
+    final regions = <TimeRegion>[];
+    final startOfWeek = focusedDay.subtract(
+      Duration(days: focusedDay.weekday % 7),
+    );
+
+    for (final slot in slots) {
+      if (!slot.hasBreak) continue;
+      for (int i = 0; i < 7; i++) {
+        final day = startOfWeek.add(Duration(days: i));
+        if (day.weekday % 7 != slot.dayOfWeek) continue;
+        if (!day.isAfter(DateTime.now().subtract(const Duration(days: 1))))
+          continue;
+
+        final breakStart = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          slot.breakStart! ~/ 60,
+          slot.breakStart! % 60,
+        );
+        final breakEnd = DateTime(
+          day.year,
+          day.month,
+          day.day,
+          slot.breakEnd! ~/ 60,
+          slot.breakEnd! % 60,
+        );
+
+        regions.add(
+          TimeRegion(
+            startTime: breakStart,
+            endTime: breakEnd,
+            color: AppColors.textHint.withValues(alpha: 0.08),
+            enablePointerInteraction: false,
+            text: 'Pause',
+            textStyle: AppTextStyles.labelSmall,
+          ),
+        );
+      }
+    }
+
+    return regions;
+  }
+
+  int _appointmentCount = -1;
+
+  void _updateDataSource(DoctorState doctorState) {
+    _appointmentCount = doctorState.allAppointments.length;
+    final appointments = doctorState.allAppointments
+        .map(
+          (apt) => _AppointmentWrapper(
+            id: apt.id,
+            startTime: apt.startTime,
+            endTime: apt.endTime,
+            patientName: apt.patientName,
+            status: apt.status,
+            isConsultation: apt.isConsultation,
+            duration: apt.duration,
+            notes: apt.notes,
+            patientPhone: apt.patientPhone,
+            patientAvatar: apt.patientAvatar,
+            patientId: apt.patientId,
+            bookingType: apt.bookingType,
+          ),
+        )
+        .toList();
+    _dataSource.updateAppointments(appointments);
+    print('[DoctorCalendarPage] Data source updated with ${appointments.length} appointments');
+  }
+
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
+    
+    // Initial sync and subsequent updates
+    if (_appointmentCount == -1 || doctorState.allAppointments.length != _appointmentCount) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _updateDataSource(doctorState);
+      });
+    }
+
+    print(
+      '[DoctorCalendarPage] Current schedule slots count: ${doctorState.scheduleSlots.length}',
+    );
+    print(
+      '[DoctorCalendarPage] Current appointments count in state: ${doctorState.allAppointments.length}',
+    );
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isWideScreen = screenWidth >= 900;
+
+    final breakRegions = _buildBreakRegions(
+      doctorState.scheduleSlots,
+      _focusedDay,
+    );
 
     return Stack(
       children: [
         Column(
           children: [
-            _buildCalendarHeader(),
+            _buildCalendarHeader(isWideScreen),
             Expanded(
-              child: TableCalendar(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: _focusedDay,
-                selectedDayPredicate: (day) =>
-                    _isSameDay(day, _selectedDay ?? DateTime.now()),
-                onDaySelected: _onDaySelected,
-                calendarFormat: CalendarFormat.twoWeeks,
-                headerVisible: false,
-                daysOfWeekHeight: 32,
-                startingDayOfWeek: StartingDayOfWeek.sunday,
-                daysOfWeekStyle: const DaysOfWeekStyle(
-                  weekdayStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                  weekendStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
+              child: SfCalendarTheme(
+                data: SfCalendarThemeData(
+                  backgroundColor: AppColors.background,
+                  todayHighlightColor: AppColors.primary,
+                  selectionBorderColor: AppColors.primary,
+                  cellBorderColor: AppColors.border,
+                  allDayPanelColor: AppColors.white,
+                  viewHeaderBackgroundColor: AppColors.white,
+                  agendaBackgroundColor: AppColors.white,
+                  headerBackgroundColor: AppColors.white,
                 ),
-                calendarStyle: const CalendarStyle(
-                  outsideDaysVisible: false,
-                  cellMargin: EdgeInsets.all(2),
-                  cellPadding: EdgeInsets.zero,
-                ),
-                calendarBuilders: CalendarBuilders(
-                  defaultBuilder: (context, day, focusedDay) =>
-                      _buildDayCell(doctorState, day, false, false),
-                  todayBuilder: (context, day, focusedDay) =>
-                      _buildDayCell(doctorState, day, false, true),
-                  selectedBuilder: (context, day, focusedDay) =>
-                      _buildDayCell(doctorState, day, true, false),
+                child: SfCalendar(
+                  controller: _calendarController,
+                  dataSource: _dataSource,
+                  view: isWideScreen ? CalendarView.week : CalendarView.day,
+                  initialDisplayDate: _focusedDay,
+                  showCurrentTimeIndicator: true,
+                  showDatePickerButton: false,
+                  showNavigationArrow: false,
+                  headerHeight: 0,
+                  allowDragAndDrop: false,
+                  allowAppointmentResize: false,
+                  todayHighlightColor: AppColors.primary,
+                  specialRegions: breakRegions,
+                  timeSlotViewSettings: TimeSlotViewSettings(
+                    startHour: 8,
+                    endHour: 20,
+                    nonWorkingDays: const [],
+                    timeInterval: const Duration(hours: 2),
+                    timeIntervalHeight: 70,
+                    timeFormat: 'HH:mm',
+                    dayFormat: 'EEE',
+                    dateFormat: 'd',
+                    timeRulerSize: 56,
+                  ),
+                  viewHeaderStyle: ViewHeaderStyle(
+                    dayTextStyle: AppTextStyles.labelMedium,
+                    dateTextStyle: AppTextStyles.titleSmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    backgroundColor: AppColors.white,
+                  ),
+                  appointmentBuilder: (context, details) {
+                    if (details.appointments.isEmpty) return const SizedBox();
+                    final apt =
+                        details.appointments.first as _AppointmentWrapper;
+                    final isConsult = apt.isConsultation;
+                    final color = isConsult
+                        ? AppColors.consultationColor
+                        : AppColors.primary;
+                    final startTimeStr =
+                        '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 1,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border(
+                          left: BorderSide(color: color, width: 3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            startTimeStr,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: color,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Expanded(
+                            child: Text(
+                              apt.patientName,
+                              style: AppTextStyles.labelSmall.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  onViewChanged: (ViewChangedDetails details) {
+                    if (details.visibleDates.isNotEmpty) {
+                      // Defer the state update to the next frame
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        setState(() {
+                          _focusedDay = details
+                              .visibleDates[details.visibleDates.length ~/ 2];
+                        });
+                      });
+                    }
+                  },
+                  onTap: (CalendarTapDetails details) {
+                    if (details.appointments != null &&
+                        details.appointments!.isNotEmpty) {
+                      final apt =
+                          details.appointments!.first as _AppointmentWrapper;
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (c) => AppointmentDetailsSheet(
+                          appointment: _toAppointmentData(apt),
+                        ),
+                      );
+                    } else if (details.date != null) {
+                      final doctorState = ref.read(doctorProvider);
+                      // Use the engine's check instead of the provider's wrapper
+                      final slots = doctorState.getAvailableSlotsForDay(
+                        details.date!,
+                      );
+
+                      if (slots.isNotEmpty) {
+                        _showAddAppointmentDialog(details.date!);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Aucun créneau disponible pour ce jour',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
                 ),
               ),
             ),
@@ -186,7 +366,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
   }
 
-  Widget _buildCalendarHeader() {
+  Widget _buildCalendarHeader(bool isWideScreen) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -207,11 +387,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               onTap: _goToToday,
               child: Text(
                 _formatWeekRange(),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
+                style: AppTextStyles.titleMedium,
                 textAlign: TextAlign.center,
               ),
             ),
@@ -227,409 +403,50 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       ),
     );
   }
-
-  Widget _buildDayCell(
-    DoctorState doctorState,
-    DateTime day,
-    bool isSelected,
-    bool isToday,
-  ) {
-    final isScheduled = doctorState.hasScheduleForDay(day);
-    final appointments = doctorState.getAppointmentsForDay(day);
-
-    Color bgColor;
-    if (isSelected) {
-      bgColor = AppColors.primary;
-    } else if (isToday) {
-      bgColor = AppColors.primary.withValues(alpha: 0.1);
-    } else if (isScheduled) {
-      bgColor = AppColors.white;
-    } else {
-      bgColor = AppColors.background;
-    }
-
-    return Container(
-      margin: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? AppColors.primary
-                  : (isToday ? AppColors.primary : Colors.transparent),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '${day.day}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? Colors.white
-                      : (isToday ? Colors.white : AppColors.textPrimary),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 2),
-          if (appointments.isNotEmpty)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: _buildAppointmentDots(appointments),
-            )
-          else
-            Container(
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isScheduled
-                    ? AppColors.primary.withValues(alpha: 0.3)
-                    : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildAppointmentDots(List<AppointmentData> appointments) {
-    final sorted = [...appointments]
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
-    final display = sorted.take(3).toList();
-
-    return display.map((apt) {
-      final color = apt.isConsultation
-          ? AppColors.consultationColor
-          : AppColors.primary;
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 1),
-        width: 4,
-        height: 4,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.7),
-          shape: BoxShape.circle,
-        ),
-      );
-    }).toList();
-  }
 }
 
-class _DayAppointmentsDialog extends StatelessWidget {
-  final DateTime day;
-  final List<AppointmentData> appointments;
-  final bool isScheduled;
-  final int availableSlots;
-  final VoidCallback onAddAppointment;
-  final Function(AppointmentData) onViewAppointment;
-
-  const _DayAppointmentsDialog({
-    required this.day,
-    required this.appointments,
-    required this.isScheduled,
-    required this.availableSlots,
-    required this.onAddAppointment,
-    required this.onViewAppointment,
-  });
-
+class _AppointmentWrapper extends Appointment {
   @override
-  Widget build(BuildContext context) {
-    const months = [
-      '',
-      'Janvier',
-      'Février',
-      'Mars',
-      'Avril',
-      'Mai',
-      'Juin',
-      'Juillet',
-      'Août',
-      'Septembre',
-      'Octobre',
-      'Novembre',
-      'Décembre',
-    ];
-    const days = [
-      'Dimanche',
-      'Lundi',
-      'Mardi',
-      'Mercredi',
-      'Jeudi',
-      'Vendredi',
-      'Samedi',
-    ];
+  final String id;
+  final String patientName;
+  final String status;
+  final bool isConsultation;
+  final int duration;
+  final String? patientPhone;
+  final String? patientAvatar;
+  final String? patientId;
+  final String bookingType;
 
-    return Dialog(
-      backgroundColor: AppColors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        width: 380,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.75,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${days[day.weekday % 7]}, ${day.day} ${months[day.month]}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${appointments.length} rdv${isScheduled ? ' • $availableSlots créneaux' : ''}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isScheduled)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.circleCheck,
-                            size: 12,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Planifié',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  IconButton(
-                    icon: Icon(
-                      LucideIcons.x,
-                      color: AppColors.textSecondary,
-                      size: 20,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            if (appointments.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(
-                      LucideIcons.calendarX,
-                      size: 40,
-                      color: AppColors.textHint,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Aucun rendez-vous ce jour',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: appointments.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final apt = appointments[index];
-                    return InkWell(
-                      onTap: () => onViewAppointment(apt),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: apt.isConsultation
-                                    ? AppColors.consultationColor.withValues(
-                                        alpha: 0.15,
-                                      )
-                                    : AppColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: apt.isConsultation
-                                        ? AppColors.consultationColor
-                                        : AppColors.primary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    apt.patientName,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    apt.isConsultation
-                                        ? 'Consultation • ${apt.duration} min'
-                                        : 'Rendez-vous • ${apt.duration} min',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getStatusBg(apt.status),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                _getStatusLabel(apt.status),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: _getStatusColor(apt.status),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              LucideIcons.chevronRight,
-                              size: 18,
-                              color: AppColors.textHint,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: isScheduled ? onAddAppointment : null,
-                  icon: const Icon(LucideIcons.plus, size: 18),
-                  label: const Text('Ajouter un rendez-vous'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  _AppointmentWrapper({
+    required this.id,
+    required DateTime startTime,
+    required DateTime endTime,
+    required this.patientName,
+    required this.status,
+    required this.isConsultation,
+    required this.duration,
+    String? notes,
+    this.patientPhone,
+    this.patientAvatar,
+    this.patientId,
+    this.bookingType = 'online',
+  }) : super(
+          id: id,
+          startTime: startTime,
+          endTime: endTime,
+          subject: patientName,
+          notes: notes,
+          color: isConsultation ? AppColors.consultationColor : AppColors.primary,
+        );
+}
+
+class _CalendarDataSource extends CalendarDataSource {
+  _CalendarDataSource(List<Appointment> appointments) {
+    this.appointments = appointments;
   }
 
-  Color _getStatusBg(String status) {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return const Color(0xFFE8F5E9);
-      case 'pending':
-        return const Color(0xFFFFF3E0);
-      case 'cancelled':
-        return const Color(0xFFFFEBEE);
-      default:
-        return AppColors.background;
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return AppColors.secondary;
-      case 'pending':
-        return const Color(0xFFFF9800);
-      case 'cancelled':
-        return AppColors.error;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
-
-  String _getStatusLabel(String status) {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return 'Confirmé';
-      case 'pending':
-        return 'En attente';
-      case 'cancelled':
-        return 'Annulé';
-      default:
-        return status;
-    }
+  void updateAppointments(List<Appointment> appointments) {
+    this.appointments = appointments;
+    notifyListeners(CalendarDataSourceAction.reset, appointments);
   }
 }

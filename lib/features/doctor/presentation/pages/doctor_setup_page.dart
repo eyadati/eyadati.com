@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/buttons/primary_button.dart';
 import '../../../../core/widgets/inputs/app_text_field.dart';
 import '../../../../core/widgets/inputs/app_dropdown.dart';
@@ -360,14 +361,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
             color: AppColors.textSecondary,
           ),
           const SizedBox(width: AppSpacing.md),
-          Text(
-            'Configuration du cabinet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
+          Text('Configuration du cabinet', style: AppTextStyles.titleLarge),
         ],
       ),
     );
@@ -384,16 +378,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
         children: [
           Icon(LucideIcons.info, color: AppColors.primary, size: 20),
           const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Complétez votre profil pour commencer à recevoir des patients.',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+Expanded(child: Text('Complétez votre profil pour commencer à recevoir des patients.', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary))),
         ],
       ),
     );
@@ -426,14 +411,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                   child: Icon(icon, color: AppColors.primary, size: 18),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                Text(title, style: AppTextStyles.cardTitle),
               ],
             ),
           ),
@@ -448,14 +426,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   }
 
   Widget _buildSectionLabel(String label) {
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        color: AppColors.textSecondary,
-      ),
-    );
+    return Text(label, style: AppTextStyles.labelMedium);
   }
 
   Widget _buildDaySelector() {
@@ -642,14 +613,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                 color: isSelected ? color : AppColors.border,
               ),
             ),
-            child: Text(
-              '$minutes min',
-              style: TextStyle(
-                color: isSelected ? AppColors.white : AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
-              ),
-            ),
+            child: Text('$minutes min', style: AppTextStyles.labelMedium.copyWith(color: isSelected ? AppColors.white : AppColors.textPrimary)),
           ),
         );
       }).toList(),
@@ -707,26 +671,13 @@ class _TimeSelector extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            Text(label, style: AppTextStyles.labelSmall),
             const SizedBox(height: AppSpacing.xs),
             Row(
               children: [
                 Icon(LucideIcons.clock, size: 16, color: AppColors.primary),
                 const SizedBox(width: AppSpacing.xs),
-                Text(
-                  time,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
+                Text(time, style: AppTextStyles.titleSmall),
               ],
             ),
           ],

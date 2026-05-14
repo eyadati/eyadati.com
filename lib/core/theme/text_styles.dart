@@ -85,13 +85,13 @@ class AppTextStyles {
 
   static TextStyle get labelMedium => GoogleFonts.inter(
     fontSize: 12,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     color: AppColors.textSecondary,
   );
 
   static TextStyle get labelSmall => GoogleFonts.inter(
     fontSize: 11,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     color: AppColors.textHint,
   );
 
@@ -141,5 +141,83 @@ class AppTextStyles {
     fontSize: 11,
     fontWeight: FontWeight.w600,
     color: AppColors.white,
+  );
+
+  static TextStyle get slotTime => GoogleFonts.inter(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle get slotBadge => GoogleFonts.inter(
+    fontSize: 10,
+    fontWeight: FontWeight.w600,
+    color: AppColors.secondary,
+  );
+
+  static TextStyle get patientId => GoogleFonts.inter(
+    fontSize: 11,
+    fontWeight: FontWeight.w300,
+    color: AppColors.textHint,
+  );
+
+  static TextStyle get notes => GoogleFonts.inter(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle get dialogAlertTitle => GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle get statValue => GoogleFonts.inter(
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle get statTitle => GoogleFonts.inter(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textSecondary,
+  );
+
+  static TextStyle get quickActionTitle => GoogleFonts.inter(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle get sectionHeader => GoogleFonts.inter(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle get dashboardStatCard => GoogleFonts.inter(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: AppColors.primary,
+  );
+
+  static TextStyle get pageHeaderTitle => GoogleFonts.inter(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
+
+  static TextStyle get drawerName => GoogleFonts.inter(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
+
+  static TextStyle get drawerSpecialty => GoogleFonts.inter(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: Colors.white,
   );
 }

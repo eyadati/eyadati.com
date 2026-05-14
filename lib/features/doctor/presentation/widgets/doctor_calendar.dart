@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/theme/text_styles.dart';
 import '../../../../models/appointment_data.dart';
 import '../providers/providers.dart';
 
@@ -66,10 +67,7 @@ class _DoctorCalendarState extends State<DoctorCalendar> {
               ),
               Text(
                 DateFormat('MMMM yyyy', 'fr').format(_currentMonth),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTextStyles.titleMedium,
               ),
               IconButton(
                 onPressed: _nextMonth,
@@ -86,11 +84,7 @@ class _DoctorCalendarState extends State<DoctorCalendar> {
                       child: Text(
                         d,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
+                        style: AppTextStyles.labelMedium,
                       ),
                     ))
                 .toList(),

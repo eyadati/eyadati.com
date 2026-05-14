@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import '../providers/doctor_provider.dart';
@@ -170,9 +171,8 @@ class _DoctorAddAppointmentDialogState
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-
-    final slots = doctorState.getAvailableSlotsForDay(_selectedDate);
     final hasSchedule = doctorState.hasScheduleForDay(_selectedDate);
+    final slots = doctorState.getAvailableSlotsForDay(_selectedDate);
 
     return Dialog(
       backgroundColor: AppColors.white,
@@ -190,14 +190,7 @@ class _DoctorAddAppointmentDialogState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Nouveau rendez-vous',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+                    Text('Nouveau rendez-vous', style: AppTextStyles.sectionTitle),
                     IconButton(
                       icon: Icon(LucideIcons.x, color: AppColors.textSecondary),
                       onPressed: () => Navigator.pop(context),
@@ -228,14 +221,7 @@ class _DoctorAddAppointmentDialogState
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Date',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                Text('Date', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
                 const SizedBox(height: 4),
                 InkWell(
                   onTap: _pickDate,
@@ -257,25 +243,14 @@ class _DoctorAddAppointmentDialogState
                         const SizedBox(width: 8),
                         Text(
                           _formatDate(_selectedDate),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w300,
-                            color: AppColors.textPrimary,
-                          ),
+                          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300),
                         ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Créneau horaire',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                Text('Créneau horaire', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
                 const SizedBox(height: 4),
                 if (!hasSchedule)
                   Container(
@@ -292,16 +267,12 @@ class _DoctorAddAppointmentDialogState
                           color: AppColors.textHint,
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Pas de planning pour ce jour',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w300,
-                              color: AppColors.textSecondary,
+                          Expanded(
+                            child: Text(
+                              'Pas de planning pour ce jour',
+                              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   )
@@ -320,16 +291,12 @@ class _DoctorAddAppointmentDialogState
                           color: AppColors.textHint,
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Aucun créneau disponible pour ce jour',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w300,
-                              color: AppColors.textSecondary,
+                          Expanded(
+                            child: Text(
+                              'Aucun créneau disponible pour ce jour',
+                              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   )
@@ -373,12 +340,9 @@ class _DoctorAddAppointmentDialogState
                             child: Center(
                               child: Text(
                                 '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
-                                style: TextStyle(
-                                  fontSize: 11,
+                                style: AppTextStyles.labelMedium.copyWith(
                                   fontWeight: FontWeight.w600,
-                                  color: isSelected
-                                      ? Colors.white
-                                      : AppColors.textPrimary,
+                                  color: isSelected ? Colors.white : AppColors.textPrimary,
                                 ),
                               ),
                             ),

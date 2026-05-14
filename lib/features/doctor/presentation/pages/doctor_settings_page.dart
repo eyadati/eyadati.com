@@ -4,6 +4,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/providers/locale_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -60,28 +61,12 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Langue',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text('Langue', style: AppTextStyles.sectionTitle),
             const SizedBox(height: AppSpacing.lg),
             ListTile(
               leading: Text('🇫🇷', style: TextStyle(fontSize: 24)),
-              title: Text(
-                'Français',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              trailing: !isArabic
-                  ? Icon(LucideIcons.check, color: AppColors.primary)
-                  : null,
+              title: Text('Français', style: AppTextStyles.bodyMedium),
+              trailing: !isArabic ? Icon(LucideIcons.check, color: AppColors.primary) : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('fr');
                 Navigator.pop(ctx);
@@ -89,17 +74,8 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             ),
             ListTile(
               leading: Text('🇩🇿', style: TextStyle(fontSize: 24)),
-              title: Text(
-                'العربية',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              trailing: isArabic
-                  ? Icon(LucideIcons.check, color: AppColors.primary)
-                  : null,
+              title: Text('العربية', style: AppTextStyles.bodyMedium),
+              trailing: isArabic ? Icon(LucideIcons.check, color: AppColors.primary) : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('ar');
                 Navigator.pop(ctx);
@@ -128,7 +104,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               Navigator.pop(ctx);
               await ref.read(authProvider.notifier).logout();
             },
-            child: Text('Déconnexion', style: TextStyle(color: AppColors.error)),
+            child: Text('Déconnexion', style: AppTextStyles.labelLarge.copyWith(color: AppColors.error)),
           ),
         ],
       ),
@@ -230,22 +206,8 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Eyadati',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      'Version 1.0.0',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w300,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    Text('Eyadati', style: AppTextStyles.labelLarge),
+                    Text('Version 1.0.0', style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w300)),
                   ],
                 ),
               ],
@@ -274,14 +236,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textSecondary,
-      ),
-    );
+    return Text(title, style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary));
   }
 
   Widget _buildMenuItem({
@@ -308,27 +263,9 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             children: [
               Icon(icon, size: 20, color: AppColors.textSecondary),
               const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              if (trailing != null)
-                Text(
-                  trailing,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w300,
-                    color: AppColors.textSecondary,
-                  ),
-                )
-              else
-                Icon(LucideIcons.chevronRight, size: 20, color: AppColors.textHint),
+              Expanded(child: Text(title, style: AppTextStyles.bodyMedium)),
+              if (trailing != null) Text(trailing, style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w300))
+              else Icon(LucideIcons.chevronRight, size: 20, color: AppColors.textHint),
             ],
           ),
         ),
@@ -355,16 +292,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           children: [
             Icon(icon, size: 20, color: AppColors.textSecondary),
             const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
+            Expanded(child: Text(title, style: AppTextStyles.bodyMedium)),
             Switch(
               value: value,
               onChanged: onChanged,

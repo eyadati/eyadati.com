@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import 'package:eyadati/core/widgets/inputs/app_dropdown.dart';
@@ -134,7 +135,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Profil mis à jour', style: TextStyle(color: AppColors.white)),
+            content: Text('Profil mis à jour'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -143,7 +144,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e', style: TextStyle(color: AppColors.white)),
+            content: Text('Erreur: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -158,11 +159,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Modifier le profil', style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        )),
+        title: Text('Modifier le profil', style: AppTextStyles.pageHeaderTitle),
         foregroundColor: AppColors.textPrimary,
         backgroundColor: AppColors.white,
         elevation: 0,
@@ -305,13 +302,6 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
-      ),
-    );
+    return Text(title, style: AppTextStyles.sectionHeader);
   }
 }
