@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
+import '../../../../models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 
 class DoctorAddAppointmentDialog extends ConsumerStatefulWidget {
   final DateTime initialDate;
-  final int initialHour;
-  final int? initialMinute;
+  final DateTime? initialTime;
 
   const DoctorAddAppointmentDialog({
     super.key,
     required this.initialDate,
-    this.initialHour = 9,
-    this.initialMinute,
+    this.initialTime,
   });
 
   @override
@@ -32,6 +32,9 @@ class _DoctorAddAppointmentDialogState
   final _phoneController = TextEditingController();
   late DateTime _selectedDate;
   TimeOfDay? _selectedSlot;
+  int? _selectedDuration;
+
+  static const List<int> _durationOptions = [10, 20, 30, 40, 50, 60];
 
   @override
   void initState() {
@@ -41,8 +44,11 @@ class _DoctorAddAppointmentDialogState
       widget.initialDate.month,
       widget.initialDate.day,
     );
-    if (widget.initialMinute != null) {
-      _selectedSlot = TimeOfDay(hour: widget.initialHour, minute: widget.initialMinute!);
+    if (widget.initialTime != null) {
+      _selectedSlot = TimeOfDay(
+        hour: widget.initialTime!.hour,
+        minute: widget.initialTime!.minute,
+      );
     }
   }
 
@@ -53,49 +59,51 @@ class _DoctorAddAppointmentDialogState
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = DateTime(picked.year, picked.month, picked.day);
-        _selectedSlot = null;
-      });
+  int _calculateRemainingMinutes(DateTime slotStart, List<AppointmentData> dayAppointments) {
+    final slotEnd = slotStart.add(const Duration(minutes: 30));
+    int occupiedMinutes = 0;
+
+    for (final apt in dayAppointments) {
+      final aptStart = apt.startTime;
+      final aptEnd = apt.startTime.add(Duration(minutes: apt.duration));
+
+      if (aptStart.isBefore(slotEnd) && aptEnd.isAfter(slotStart)) {
+        final overlapStart = aptStart.isBefore(slotStart) ? slotStart : aptStart;
+        final overlapEnd = aptEnd.isAfter(slotEnd) ? slotEnd : aptEnd;
+        occupiedMinutes += overlapEnd.difference(overlapStart).inMinutes;
+      }
     }
+
+    return 30 - occupiedMinutes;
+  }
+
+  List<int> _getAvailableDurations(int remainingMinutes) {
+    return _durationOptions.where((d) => d <= remainingMinutes).toList();
   }
 
   String _formatDate(DateTime date) {
-    const months = [
-      '',
-      'Janvier',
-      'Février',
-      'Mars',
-      'Avril',
-      'Mai',
-      'Juin',
-      'Juillet',
-      'Août',
-      'Septembre',
-      'Octobre',
-      'Novembre',
-      'Décembre',
-    ];
-    return '${date.day} ${months[date.month]} ${date.year}';
+    return DateFormat('d MMMM yyyy', 'fr').format(date);
+  }
+
+  String _formatTime(TimeOfDay time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Veuillez sélectionner un créneau',
-            style: TextStyle(color: AppColors.white),
-          ),
+        const SnackBar(
+          content: Text('Veuillez sélectionner un créneau'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    if (_selectedDuration == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez sélectionner une durée'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -111,8 +119,8 @@ class _DoctorAddAppointmentDialogState
     );
 
     final selectedSlotMinutes = _selectedSlot!.hour * 60 + _selectedSlot!.minute;
+    final endMinutes = selectedSlotMinutes + _selectedDuration!;
     final doctorState = ref.read(doctorProvider);
-    final endMinutes = selectedSlotMinutes + doctorState.appointmentDuration;
     final conflicts = doctorState.allAppointments.where((apt) {
       if (apt.startTime.year != _selectedDate.year ||
           apt.startTime.month != _selectedDate.month ||
@@ -123,49 +131,40 @@ class _DoctorAddAppointmentDialogState
     }).toList();
 
     if (conflicts.isNotEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Ce créneau est déjà occupé par ${conflicts.first.patientName}',
-              style: TextStyle(color: AppColors.white),
-            ),
-            backgroundColor: AppColors.warning,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ce créneau est déjà occupé par ${conflicts.first.patientName}',
           ),
-        );
-      }
+          backgroundColor: AppColors.warning,
+        ),
+      );
       return;
     }
 
-    final success = await ref
-        .read(doctorProvider.notifier)
-        .createAppointment(
-          scheduledAt: scheduledAt,
-          patientName: _nameController.text.trim(),
-          patientPhone: _phoneController.text.trim().isEmpty
-              ? null
-              : _phoneController.text.trim(),
-        );
+    final success = await ref.read(doctorProvider.notifier).createAppointment(
+      scheduledAt: scheduledAt,
+      patientName: _nameController.text.trim(),
+      patientPhone: _phoneController.text.trim().isEmpty
+          ? null
+          : _phoneController.text.trim(),
+    );
+
+    // Note: Duration will be set via doctor settings (default 20 min for appointment, 40 for consultation)
 
     if (mounted) {
       if (success) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Rendez-vous créé',
-              style: TextStyle(color: AppColors.white),
-            ),
+          const SnackBar(
+            content: Text('Rendez-vous créé'),
             backgroundColor: AppColors.success,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Erreur lors de la création',
-              style: TextStyle(color: AppColors.white),
-            ),
+          const SnackBar(
+            content: Text('Erreur lors de la création'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -176,8 +175,22 @@ class _DoctorAddAppointmentDialogState
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-    final hasSchedule = doctorState.hasScheduleForDay(_selectedDate);
-    final slots = doctorState.getAvailableSlotsForDay(_selectedDate);
+    final dayAppointments = doctorState.allAppointments.where((apt) {
+      return apt.startTime.year == _selectedDate.year &&
+          apt.startTime.month == _selectedDate.month &&
+          apt.startTime.day == _selectedDate.day;
+    }).toList();
+
+    final slotStart = _selectedSlot != null
+        ? DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day,
+            _selectedSlot!.hour, _selectedSlot!.minute)
+        : null;
+
+    final remainingMinutes = slotStart != null
+        ? _calculateRemainingMinutes(slotStart, dayAppointments)
+        : 30;
+
+    final availableDurations = _getAvailableDurations(remainingMinutes);
 
     return Dialog(
       backgroundColor: AppColors.white,
@@ -195,9 +208,15 @@ class _DoctorAddAppointmentDialogState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Nouveau rendez-vous', style: AppTextStyles.sectionTitle),
+                    const Text(
+                      'Nouveau rendez-vous',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     IconButton(
-                      icon: Icon(LucideIcons.x, color: AppColors.textSecondary),
+                      icon: const Icon(LucideIcons.x, color: AppColors.textSecondary),
                       onPressed: () => Navigator.pop(context),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -205,6 +224,83 @@ class _DoctorAddAppointmentDialogState
                   ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
+                if (widget.initialTime != null)
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.clock,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _formatDate(_selectedDate),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                'à ${_formatTime(_selectedSlot!)}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: remainingMinutes > 0
+                                ? AppColors.success.withValues(alpha: 0.2)
+                                : AppColors.error.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            remainingMinutes > 0
+                                ? '$remainingMinutes min dispo'
+                                : 'Complet',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: remainingMinutes > 0
+                                  ? AppColors.success
+                                  : AppColors.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Text(
+                    _formatDate(_selectedDate),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.md),
+                const Divider(),
+                const SizedBox(height: AppSpacing.md),
                 AppTextField(
                   controller: _nameController,
                   label: 'Nom du patient',
@@ -225,144 +321,235 @@ class _DoctorAddAppointmentDialogState
                   prefixIcon: LucideIcons.phone,
                   keyboardType: TextInputType.phone,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                Text('Date', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
-                const SizedBox(height: 4),
-                InkWell(
-                  onTap: _pickDate,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          LucideIcons.calendar,
-                          size: 16,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatDate(_selectedDate),
-                          style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300),
-                        ),
-                      ],
+                const SizedBox(height: AppSpacing.lg),
+                if (_selectedSlot != null) ...[
+                  const Text(
+                    'Durée du rendez-vous',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
                     ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text('Créneau horaire', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
-                const SizedBox(height: 4),
-                if (!hasSchedule)
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          LucideIcons.calendarX,
-                          size: 16,
-                          color: AppColors.textHint,
-                        ),
-                        const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Pas de planning pour ce jour',
-                              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300),
-                            ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: availableDurations.map((duration) {
+                      final isSelected = _selectedDuration == duration;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedDuration = duration;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
                           ),
-                      ],
-                    ),
-                  )
-                else if (slots.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          LucideIcons.info,
-                          size: 16,
-                          color: AppColors.textHint,
-                        ),
-                        const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Aucun créneau disponible pour ce jour',
-                              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300),
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    constraints: const BoxConstraints(maxHeight: 110),
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 5,
-                            childAspectRatio: 2.2,
-                            crossAxisSpacing: 5,
-                            mainAxisSpacing: 5,
-                          ),
-                      itemCount: slots.length,
-                      itemBuilder: (context, index) {
-                        final slot = slots[index];
-                        final isSelected =
-                            _selectedSlot?.hour == slot.startTime.hour &&
-                            _selectedSlot?.minute == slot.startTime.minute;
-                        return GestureDetector(
-                          onTap: () => setState(() {
-                            _selectedSlot = TimeOfDay(
-                              hour: slot.startTime.hour,
-                              minute: slot.startTime.minute,
-                            );
-                          }),
-                          child: Container(
-                            decoration: BoxDecoration(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.background,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
                               color: isSelected
                                   ? AppColors.primary
-                                  : AppColors.background,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.border,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${slot.startTime.hour.toString().padLeft(2, '0')}:${slot.startTime.minute.toString().padLeft(2, '0')}',
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected ? Colors.white : AppColors.textPrimary,
-                                ),
-                              ),
+                                  : AppColors.border,
                             ),
                           ),
-                        );
-                      },
+                          child: Text(
+                            '$duration min',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? AppColors.white
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  if (availableDurations.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            LucideIcons.alertCircle,
+                            size: 18,
+                            color: AppColors.error,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Aucun créneau disponible à cette heure',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ] else
+                  const Text(
+                    'Sélectionnez un créneau ci-dessous',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
                     ),
                   ),
-                const SizedBox(height: AppSpacing.md),
-                PrimaryButton(onPressed: _save, label: 'Créer le rendez-vous'),
+                const SizedBox(height: AppSpacing.lg),
+                _buildTimeSlots(doctorState),
+                const SizedBox(height: AppSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrimaryButton(
+                    label: 'Créer le rendez-vous',
+                    onPressed: _save,
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTimeSlots(DoctorState doctorState) {
+    final slots = doctorState.getAvailableSlotsForDay(_selectedDate);
+    
+    if (slots.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text(
+            'Aucun créneau disponible',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Créneaux disponibles',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: slots.map((slot) {
+            final slotTime = TimeOfDay(hour: slot.startTime.hour, minute: slot.startTime.minute);
+            final isSelected = _selectedSlot == slotTime;
+            
+            final slotStart = DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+              slot.startTime.hour,
+              slot.startTime.minute,
+            );
+            final dayAppointments = doctorState.allAppointments.where((apt) {
+              return apt.startTime.year == _selectedDate.year &&
+                  apt.startTime.month == _selectedDate.month &&
+                  apt.startTime.day == _selectedDate.day;
+            }).toList();
+            final remaining = _calculateRemainingMinutes(slotStart, dayAppointments);
+            
+            return GestureDetector(
+              onTap: remaining > 0
+                  ? () {
+                      setState(() {
+                        _selectedSlot = slotTime;
+                        _selectedDuration = null;
+                      });
+                    }
+                  : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary
+                      : remaining > 0
+                          ? AppColors.background
+                          : AppColors.textHint.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSelected
+                        ? AppColors.primary
+                        : remaining > 0
+                            ? AppColors.border
+                            : AppColors.textHint.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatTime(slotTime),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: isSelected
+                            ? AppColors.white
+                            : remaining > 0
+                                ? AppColors.textPrimary
+                                : AppColors.textHint,
+                      ),
+                    ),
+                    if (remaining > 0 && remaining < 30) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.white.withValues(alpha: 0.2)
+                              : AppColors.warning.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${remaining}m',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? AppColors.white : AppColors.warning,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

@@ -398,7 +398,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                       context: context,
                       builder: (ctx) => DoctorAddAppointmentDialog(
                         initialDate: now,
-                        initialHour: 9,
                       ),
                     );
                   },

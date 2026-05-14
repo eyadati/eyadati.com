@@ -171,8 +171,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       context: context,
       builder: (ctx) => DoctorAddAppointmentDialog(
         initialDate: day,
-        initialHour: initialTime?.hour ?? 9,
-        initialMinute: initialTime?.minute,
+        initialTime: initialTime,
       ),
     );
   }
@@ -517,7 +516,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                         details.date!,
                       );
                       if (slots.isNotEmpty) {
-                        _showAddAppointmentDialog(details.date!);
+                        _showAddAppointmentDialog(
+                          details.date!,
+                          initialTime: details.date,
+                        );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -719,7 +721,7 @@ class _NotificationSheet extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(LucideIcons.bell, size: 20, color: AppColors.primary),
+                Icon(LucideIcons.bell, size: 20, color: Colors.black),
                 const SizedBox(width: 8),
                 Text(
                   'En attente de confirmation',
