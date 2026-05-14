@@ -243,12 +243,17 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
             ),
         ],
       ),
-      onPressed: count > 0 ? () => _showNotificationSheet(context, pendingOnline) : null,
+      onPressed: count > 0
+          ? () => _showNotificationSheet(context, pendingOnline)
+          : null,
       color: count > 0 ? AppColors.textPrimary : AppColors.textHint,
     );
   }
 
-  void _showNotificationSheet(BuildContext context, List<AppointmentData> pending) {
+  void _showNotificationSheet(
+    BuildContext context,
+    List<AppointmentData> pending,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -397,7 +402,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                 headerBackgroundColor: AppColors.white,
               ),
               child: Padding(
-                padding: const EdgeInsets.only(right: 14.0),
+                padding: const EdgeInsets.only(right: 17.0),
                 child: SfCalendar(
                   controller: _calendarController,
                   dataSource: _dataSource,
@@ -722,7 +727,11 @@ class _NotificationSheet extends ConsumerWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(LucideIcons.x, size: 20, color: AppColors.textSecondary),
+                  icon: Icon(
+                    LucideIcons.x,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
                   onPressed: () => Navigator.pop(context),
                   constraints: const BoxConstraints(),
                   padding: EdgeInsets.zero,
@@ -734,7 +743,10 @@ class _NotificationSheet extends ConsumerWidget {
           if (appointments.isEmpty)
             Padding(
               padding: const EdgeInsets.all(32),
-              child: Text('Aucune notification', style: AppTextStyles.bodyMedium),
+              child: Text(
+                'Aucune notification',
+                style: AppTextStyles.bodyMedium,
+              ),
             )
           else
             Flexible(
@@ -760,8 +772,10 @@ class _NotificationItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dateStr = '${appointment.startTime.day}/${appointment.startTime.month}/${appointment.startTime.year}';
-    final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${appointment.startTime.day}/${appointment.startTime.month}/${appointment.startTime.year}';
+    final timeStr =
+        '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -786,7 +800,10 @@ class _NotificationItem extends ConsumerWidget {
                   color: AppColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text('En ligne', style: AppTextStyles.badge.copyWith(color: AppColors.warning)),
+                child: Text(
+                  'En ligne',
+                  style: AppTextStyles.badge.copyWith(color: AppColors.warning),
+                ),
               ),
             ],
           ),
@@ -804,7 +821,9 @@ class _NotificationItem extends ConsumerWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
-                    ref.read(doctorProvider.notifier).cancelAppointmentStatus(appointment.id);
+                    ref
+                        .read(doctorProvider.notifier)
+                        .cancelAppointmentStatus(appointment.id);
                     Navigator.pop(context);
                   },
                   style: OutlinedButton.styleFrom(
@@ -819,7 +838,9 @@ class _NotificationItem extends ConsumerWidget {
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    ref.read(doctorProvider.notifier).confirmAppointment(appointment.id);
+                    ref
+                        .read(doctorProvider.notifier)
+                        .confirmAppointment(appointment.id);
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
