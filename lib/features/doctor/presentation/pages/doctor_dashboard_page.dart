@@ -34,7 +34,6 @@ class DoctorDashboardPage extends ConsumerStatefulWidget {
 
 class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   DoctorPage _currentPage = DoctorPage.dashboard;
-  final GlobalKey<DoctorCalendarPageState> _calendarKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +147,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       case DoctorPage.dashboard:
         return _buildDashboardContent();
       case DoctorPage.calendar:
-        return DoctorCalendarPage(key: _calendarKey);
+        return const DoctorCalendarPage();
       case DoctorPage.appointments:
         return const DoctorAppointmentsPage();
       case DoctorPage.profile:
