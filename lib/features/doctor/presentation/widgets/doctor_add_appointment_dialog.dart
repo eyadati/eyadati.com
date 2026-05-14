@@ -33,8 +33,7 @@ class _DoctorAddAppointmentDialogState
   late DateTime _selectedDate;
   TimeOfDay? _selectedSlot;
   int? _selectedDuration;
-
-  static const List<int> _durationOptions = [10, 20, 30, 40, 50, 60];
+  bool _isConsultation = false;
 
   @override
   void initState() {
@@ -59,8 +58,13 @@ class _DoctorAddAppointmentDialogState
     super.dispose();
   }
 
+  int _getSlotIntervalMinutes() {
+    return 30;
+  }
+
   int _calculateRemainingMinutes(DateTime slotStart, List<AppointmentData> dayAppointments) {
-    final slotEnd = slotStart.add(const Duration(minutes: 30));
+    final slotDuration = _getSlotIntervalMinutes();
+    final slotEnd = slotStart.add(Duration(minutes: slotDuration));
     int occupiedMinutes = 0;
 
     for (final apt in dayAppointments) {
@@ -74,11 +78,29 @@ class _DoctorAddAppointmentDialogState
       }
     }
 
-    return 30 - occupiedMinutes;
+    return slotDuration - occupiedMinutes;
   }
 
-  List<int> _getAvailableDurations(int remainingMinutes) {
-    return _durationOptions.where((d) => d <= remainingMinutes).toList();
+  List<int> _getAvailableDurations(DoctorState doctorState, int remainingMinutes) {
+    final appointmentDuration = doctorState.appointmentDuration;
+    final consultationDuration = doctorState.consultationDuration;
+    
+    final Set<int> options = {10, 20, appointmentDuration};
+    
+    if (remainingMinutes >= consultationDuration) {
+      options.add(consultationDuration);
+    }
+    
+    if (remainingMinutes > 30) {
+      options.add(30);
+      options.add(40);
+      options.add(50);
+      options.add(60);
+    }
+    
+    final filtered = options.where((d) => d <= remainingMinutes).toList();
+    filtered.sort();
+    return filtered;
   }
 
   String _formatDate(DateTime date) {
@@ -87,6 +109,22 @@ class _DoctorAddAppointmentDialogState
 
   String _formatTime(TimeOfDay time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateTime(picked.year, picked.month, picked.day);
+        _selectedSlot = null;
+        _selectedDuration = null;
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -110,6 +148,11 @@ class _DoctorAddAppointmentDialogState
       return;
     }
 
+    final doctorState = ref.read(doctorProvider);
+    final effectiveDuration = _isConsultation 
+        ? doctorState.consultationDuration 
+        : _selectedDuration!;
+
     final scheduledAt = DateTime(
       _selectedDate.year,
       _selectedDate.month,
@@ -119,8 +162,7 @@ class _DoctorAddAppointmentDialogState
     );
 
     final selectedSlotMinutes = _selectedSlot!.hour * 60 + _selectedSlot!.minute;
-    final endMinutes = selectedSlotMinutes + _selectedDuration!;
-    final doctorState = ref.read(doctorProvider);
+    final endMinutes = selectedSlotMinutes + effectiveDuration;
     final conflicts = doctorState.allAppointments.where((apt) {
       if (apt.startTime.year != _selectedDate.year ||
           apt.startTime.month != _selectedDate.month ||
@@ -144,20 +186,24 @@ class _DoctorAddAppointmentDialogState
 
     final success = await ref.read(doctorProvider.notifier).createAppointment(
       scheduledAt: scheduledAt,
+      duration: _selectedDuration,
+      isConsultation: _isConsultation,
       patientName: _nameController.text.trim(),
       patientPhone: _phoneController.text.trim().isEmpty
           ? null
           : _phoneController.text.trim(),
     );
 
-    // Note: Duration will be set via doctor settings (default 20 min for appointment, 40 for consultation)
-
     if (mounted) {
       if (success) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Rendez-vous créé'),
+          SnackBar(
+            content: Text(
+              _isConsultation 
+                  ? 'Consultation créée'
+                  : 'Rendez-vous créé',
+            ),
             backgroundColor: AppColors.success,
           ),
         );
@@ -188,9 +234,9 @@ class _DoctorAddAppointmentDialogState
 
     final remainingMinutes = slotStart != null
         ? _calculateRemainingMinutes(slotStart, dayAppointments)
-        : 30;
+        : _getSlotIntervalMinutes();
 
-    final availableDurations = _getAvailableDurations(remainingMinutes);
+    final availableDurations = _getAvailableDurations(doctorState, remainingMinutes);
 
     return Dialog(
       backgroundColor: AppColors.white,
@@ -290,12 +336,41 @@ class _DoctorAddAppointmentDialogState
                     ),
                   )
                 else
-                  Text(
-                    _formatDate(_selectedDate),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                  InkWell(
+                    onTap: _pickDate,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.calendar,
+                            size: 20,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _formatDate(_selectedDate),
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const Icon(
+                            LucideIcons.chevronDown,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 const SizedBox(height: AppSpacing.md),
@@ -321,59 +396,146 @@ class _DoctorAddAppointmentDialogState
                   prefixIcon: LucideIcons.phone,
                   keyboardType: TextInputType.phone,
                 ),
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: _isConsultation 
+                        ? AppColors.consultationColor.withValues(alpha: 0.1)
+                        : AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isConsultation 
+                          ? AppColors.consultationColor 
+                          : AppColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Switch(
+                        value: _isConsultation,
+                        onChanged: (value) {
+                          setState(() {
+                            _isConsultation = value;
+                            if (value) {
+                              _selectedDuration = doctorState.consultationDuration;
+                            } else {
+                              _selectedDuration = doctorState.appointmentDuration;
+                            }
+                          });
+                        },
+                        activeColor: AppColors.consultationColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Consultation',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _isConsultation 
+                                    ? AppColors.consultationColor 
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Durée: ${doctorState.consultationDuration} min',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.lg),
                 if (_selectedSlot != null) ...[
-                  const Text(
-                    'Durée du rendez-vous',
-                    style: TextStyle(
+                  Text(
+                    _isConsultation 
+                        ? 'Durée: ${doctorState.consultationDuration} min (fixe)'
+                        : 'Durée du rendez-vous',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: availableDurations.map((duration) {
-                      final isSelected = _selectedDuration == duration;
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedDuration = duration;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
+                  if (_isConsultation)
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.consultationColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            LucideIcons.clock,
+                            size: 18,
+                            color: AppColors.consultationColor,
                           ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.background,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                            ),
-                          ),
-                          child: Text(
-                            '$duration min',
-                            style: TextStyle(
+                          const SizedBox(width: 8),
+                          Text(
+                            '${doctorState.consultationDuration} minutes',
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? AppColors.white
-                                  : AppColors.textPrimary,
+                              color: AppColors.consultationColor,
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  if (availableDurations.isEmpty)
+                        ],
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: availableDurations.map((duration) {
+                        final isSelected = _selectedDuration == duration;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedDuration = duration;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.background,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                              ),
+                            ),
+                            child: Text(
+                              '$duration min',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected
+                                    ? AppColors.white
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  if (availableDurations.isEmpty && !_isConsultation)
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
@@ -412,7 +574,9 @@ class _DoctorAddAppointmentDialogState
                 SizedBox(
                   width: double.infinity,
                   child: PrimaryButton(
-                    label: 'Créer le rendez-vous',
+                    label: _isConsultation 
+                        ? 'Créer la consultation' 
+                        : 'Créer le rendez-vous',
                     onPressed: _save,
                   ),
                 ),
@@ -481,7 +645,6 @@ class _DoctorAddAppointmentDialogState
                   ? () {
                       setState(() {
                         _selectedSlot = slotTime;
-                        _selectedDuration = null;
                       });
                     }
                   : null,

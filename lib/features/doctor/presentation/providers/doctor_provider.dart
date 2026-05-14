@@ -684,16 +684,22 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     String? patientName,
     String? patientPhone,
     String? notes,
+    int? duration,
+    bool isConsultation = false,
   }) async {
     try {
+      final effectiveDuration = duration ?? (isConsultation 
+          ? state.consultationDuration 
+          : state.appointmentDuration);
+      
       final insertData = <String, dynamic>{
         'doctor_id': state.userId,
         'scheduled_at': scheduledAt.toIso8601String(),
-        'duration': state.appointmentDuration,
+        'duration': effectiveDuration,
         'status': 'upcoming',
         'booking_type': patientId != null ? 'online' : 'manual',
-        'appointment_type': 'standard',
-        'is_consultation': false,
+        'appointment_type': isConsultation ? 'consultation' : 'standard',
+        'is_consultation': isConsultation,
       };
 
       if (patientId != null) {

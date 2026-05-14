@@ -396,9 +396,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                     final now = DateTime.now();
                     showDialog(
                       context: context,
-                      builder: (ctx) => DoctorAddAppointmentDialog(
-                        initialDate: now,
-                      ),
+                      builder: (ctx) =>
+                          DoctorAddAppointmentDialog(initialDate: now),
                     );
                   },
                 ),
@@ -860,7 +859,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Image.asset(
               'assets/logo.png',
-              height: 60,
+              height: 45,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => Icon(
                 LucideIcons.stethoscope,
