@@ -209,6 +209,53 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     }
   }
 
+  Widget _buildNotificationBell(DoctorState state) {
+    final pendingOnline = state.allAppointments
+        .where((a) => a.status == 'pending' && a.bookingType == 'online')
+        .toList();
+    final count = pendingOnline.length;
+
+    return IconButton(
+      icon: Stack(
+        children: [
+          Icon(LucideIcons.bell, size: 22),
+          if (count > 0)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: AppColors.error,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Text(
+                  '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+      onPressed: count > 0 ? () => _showNotificationSheet(context, pendingOnline) : null,
+      color: count > 0 ? AppColors.textPrimary : AppColors.textHint,
+    );
+  }
+
+  void _showNotificationSheet(BuildContext context, List<AppointmentData> pending) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _NotificationSheet(appointments: pending),
+    );
+  }
+
   List<TimeRegion> _buildBreakRegions(
     List<ScheduleSlot> slots,
     DateTime focusedDay,
@@ -324,6 +371,8 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               ),
         centerTitle: false,
         actions: [
+          _buildNotificationBell(doctorState),
+          const SizedBox(width: 8),
           if (!isScheduleView)
             _ViewToggle(
               currentView: _currentView,
@@ -632,6 +681,158 @@ class _ToggleButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NotificationSheet extends ConsumerWidget {
+  final List<AppointmentData> appointments;
+
+  const _NotificationSheet({required this.appointments});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(LucideIcons.bell, size: 20, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'En attente de confirmation',
+                  style: AppTextStyles.titleSmall,
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(LucideIcons.x, size: 20, color: AppColors.textSecondary),
+                  onPressed: () => Navigator.pop(context),
+                  constraints: const BoxConstraints(),
+                  padding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: AppColors.border),
+          if (appointments.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text('Aucune notification', style: AppTextStyles.bodyMedium),
+            )
+          else
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: appointments.length,
+                itemBuilder: (context, index) {
+                  return _NotificationItem(appointment: appointments[index]);
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationItem extends ConsumerWidget {
+  final AppointmentData appointment;
+
+  const _NotificationItem({required this.appointment});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dateStr = '${appointment.startTime.day}/${appointment.startTime.month}/${appointment.startTime.year}';
+    final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.user, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 4),
+              Text(appointment.patientName, style: AppTextStyles.labelLarge),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text('En ligne', style: AppTextStyles.badge.copyWith(color: AppColors.warning)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(LucideIcons.calendar, size: 12, color: AppColors.textHint),
+              const SizedBox(width: 4),
+              Text('$dateStr à $timeStr', style: AppTextStyles.bodySmall),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    ref.read(doctorProvider.notifier).cancelAppointmentStatus(appointment.id);
+                    Navigator.pop(context);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Annuler'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    ref.read(doctorProvider.notifier).confirmAppointment(appointment.id);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Confirmer'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

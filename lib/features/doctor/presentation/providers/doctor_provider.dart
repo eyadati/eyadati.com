@@ -786,6 +786,69 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     }
   }
 
+  Future<bool> confirmAppointment(String appointmentId) async {
+    try {
+      await _client
+          .from('appointments')
+          .update({'status': 'upcoming'})
+          .eq('id', appointmentId);
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id, startTime: a.startTime, endTime: a.endTime,
+            patientName: a.patientName, patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone, status: 'upcoming',
+            isConsultation: a.isConsultation, notes: a.notes,
+            duration: a.duration, patientId: a.patientId,
+            bookingType: a.bookingType,
+          );
+        }
+        return a;
+      }).toList();
+
+      final updatedUpcoming = state.upcomingAppointments.where((a) => a.id != appointmentId).toList()
+        ..addAll(updatedAll.where((a) => a.status == 'upcoming' && a.startTime.isAfter(DateTime.now())));
+
+      state = state.copyWith(allAppointments: updatedAll, upcomingAppointments: updatedUpcoming);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> cancelAppointmentStatus(String appointmentId) async {
+    try {
+      await _client
+          .from('appointments')
+          .update({'status': 'cancelled'})
+          .eq('id', appointmentId);
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id, startTime: a.startTime, endTime: a.endTime,
+            patientName: a.patientName, patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone, status: 'cancelled',
+            isConsultation: a.isConsultation, notes: a.notes,
+            duration: a.duration, patientId: a.patientId,
+            bookingType: a.bookingType,
+          );
+        }
+        return a;
+      }).toList();
+
+      final updatedUpcoming = state.upcomingAppointments.where((a) => a.id != appointmentId).toList();
+
+      state = state.copyWith(allAppointments: updatedAll, upcomingAppointments: updatedUpcoming);
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
   Future<bool> deleteAppointment(String appointmentId) async {
     try {
       await _client.from('appointments').delete().eq('id', appointmentId);
