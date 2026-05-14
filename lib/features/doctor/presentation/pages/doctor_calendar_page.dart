@@ -363,7 +363,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                 cellEndPadding: 4,
                 selectionDecoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.1),
-                  border: Border.all(color: AppColors.primary, width: 2),
+                  border: Border.all(color: AppColors.primary, width: 0.3),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 timeSlotViewSettings: TimeSlotViewSettings(
@@ -405,8 +405,8 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                     ),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border(left: BorderSide(color: color, width: 3)),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.black, width: 0.5),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +416,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                           startTimeStr,
                           style: AppTextStyles.labelSmall.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: color,
+                            color: Colors.black,
                           ),
                         ),
                         if (bounds.height > 28)
@@ -425,7 +425,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                               apt.patientName,
                               style: AppTextStyles.labelSmall.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: color,
+                                color: Colors.black,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
