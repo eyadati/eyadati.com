@@ -24,6 +24,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   final _CalendarDataSource _dataSource = _CalendarDataSource([]);
   CalendarView _currentView = CalendarView.week;
   int _appointmentCount = -1;
+  bool _initialSyncDone = false;
 
   @override
   void initState() {
@@ -31,11 +32,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _updateDataSource(ref.read(doctorProvider));
-    });
-    ref.listen<DoctorState>(doctorProvider, (prev, next) {
-      if (prev != null && prev.allAppointments.length != next.allAppointments.length) {
-        _updateDataSource(next);
-      }
+      _initialSyncDone = true;
     });
   }
 
