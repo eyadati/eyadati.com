@@ -274,7 +274,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
           ? _buildScheduleView(doctorState)
           : SfCalendarTheme(
               data: SfCalendarThemeData(
-                backgroundColor: AppColors.background,
+                backgroundColor: AppColors.white,
                 todayHighlightColor: AppColors.primary,
                 selectionBorderColor: AppColors.primary,
                 cellBorderColor: AppColors.border,
@@ -312,6 +312,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                   dayFormat: 'EEE',
                   dateFormat: 'd',
                   timeRulerSize: 56,
+                  timeTextStyle: AppTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 viewHeaderStyle: ViewHeaderStyle(
                   dayTextStyle: AppTextStyles.labelMedium,
