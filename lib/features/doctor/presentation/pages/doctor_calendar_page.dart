@@ -280,7 +280,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     final isDayView = _currentView == CalendarView.day;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
@@ -347,145 +347,137 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                 agendaBackgroundColor: AppColors.white,
                 headerBackgroundColor: AppColors.white,
               ),
-              child: SfCalendar(
-                controller: _calendarController,
-                dataSource: _dataSource,
-                view: _currentView,
-                initialDisplayDate: _focusedDay,
-                showCurrentTimeIndicator: true,
-                showDatePickerButton: false,
-                showNavigationArrow: false,
-                headerHeight: 0,
-                allowDragAndDrop: false,
-                allowAppointmentResize: false,
-                todayHighlightColor: AppColors.primary,
-                specialRegions: breakRegions,
-                cellEndPadding: 4,
-                selectionDecoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  border: Border.all(color: AppColors.primary, width: 0.3),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                timeSlotViewSettings: TimeSlotViewSettings(
-                  startHour: startHour.toDouble(),
-                  endHour: endHour.toDouble(),
-                  nonWorkingDays: const [],
-                  timeInterval: const Duration(hours: 1),
-                  timeIntervalHeight: intervalHeight * 1.3,
-                  timeFormat: 'HH:mm',
-                  dayFormat: 'EEE',
-                  dateFormat: 'd',
-                  timeRulerSize: 56,
-                  timeTextStyle: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                viewHeaderStyle: ViewHeaderStyle(
-                  dayTextStyle: AppTextStyles.labelMedium,
-                  dateTextStyle: AppTextStyles.titleSmall.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  backgroundColor: AppColors.white,
-                ),
-                appointmentBuilder: (context, details) {
-                  if (details.appointments.isEmpty) return const SizedBox();
-                  final apt = details.appointments.first as _AppointmentWrapper;
-                  final color = _getStatusColor(apt);
-                  final bounds = details.bounds;
-                  final startTimeStr =
-                      '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
+              child: Padding(
+                padding: const EdgeInsets.only(right: 14.0),
+                child: SfCalendar(
+                  controller: _calendarController,
+                  dataSource: _dataSource,
+                  view: _currentView,
+                  initialDisplayDate: _focusedDay,
+                  showCurrentTimeIndicator: true,
+                  showDatePickerButton: false,
+                  showNavigationArrow: false,
+                  headerHeight: 0,
+                  allowDragAndDrop: false,
+                  allowAppointmentResize: false,
+                  todayHighlightColor: AppColors.primary,
+                  specialRegions: breakRegions,
+                  cellEndPadding: 4,
 
-                  return Container(
-                    width: bounds.width - 4,
-                    height: bounds.height - 2,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 2,
+                  timeSlotViewSettings: TimeSlotViewSettings(
+                    startHour: startHour.toDouble(),
+                    endHour: endHour.toDouble(),
+                    nonWorkingDays: const [],
+                    timeInterval: const Duration(hours: 1),
+                    timeIntervalHeight: intervalHeight * 1.3,
+                    timeFormat: 'HH:mm',
+                    dayFormat: 'EEE',
+                    dateFormat: 'd',
+                    timeRulerSize: 56,
+                    timeTextStyle: AppTextStyles.bodySmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSecondary,
                     ),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.black, width: 0.5),
+                  ),
+                  viewHeaderStyle: ViewHeaderStyle(
+                    dayTextStyle: AppTextStyles.labelMedium,
+                    dateTextStyle: AppTextStyles.titleSmall.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          startTimeStr,
-                          style: AppTextStyles.labelSmall.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                          ),
-                        ),
-                        if (bounds.height > 28)
-                          Expanded(
-                            child: Text(
-                              apt.patientName,
-                              style: AppTextStyles.labelSmall.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                    backgroundColor: AppColors.white,
+                  ),
+                  appointmentBuilder: (context, details) {
+                    if (details.appointments.isEmpty) return const SizedBox();
+                    final apt =
+                        details.appointments.first as _AppointmentWrapper;
+                    final color = _getStatusColor(apt);
+                    final bounds = details.bounds;
+                    final startTimeStr =
+                        '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
+
+                    return Container(
+                      width: bounds.width - 4,
+                      height: bounds.height - 2,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            startTimeStr,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
                             ),
                           ),
-                      ],
-                    ),
-                  );
-                },
-                onViewChanged: (ViewChangedDetails details) {
-                  if (details.visibleDates.isNotEmpty) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      setState(() {
-                        _focusedDay = details
-                            .visibleDates[details.visibleDates.length ~/ 2];
-                      });
-                    });
-                  }
-                },
-                onTap: (CalendarTapDetails details) {
-                  if (details.appointments != null &&
-                      details.appointments!.isNotEmpty) {
-                    final apt =
-                        details.appointments!.first as _AppointmentWrapper;
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (c) => AppointmentDetailsSheet(
-                        appointment: _toAppointmentData(apt),
+                          if (bounds.height > 28)
+                            Expanded(
+                              child: Text(
+                                apt.patientName,
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
                       ),
                     );
-                  } else if (details.date != null) {
-                    final doctorState = ref.read(doctorProvider);
-                    final slots = doctorState.getAvailableSlotsForDay(
-                      details.date!,
-                    );
-                    if (slots.isNotEmpty) {
-                      _showAddAppointmentDialog(details.date!);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Aucun créneau disponible pour ce jour',
-                          ),
+                  },
+                  onViewChanged: (ViewChangedDetails details) {
+                    if (details.visibleDates.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        setState(() {
+                          _focusedDay = details
+                              .visibleDates[details.visibleDates.length ~/ 2];
+                        });
+                      });
+                    }
+                  },
+                  onTap: (CalendarTapDetails details) {
+                    if (details.appointments != null &&
+                        details.appointments!.isNotEmpty) {
+                      final apt =
+                          details.appointments!.first as _AppointmentWrapper;
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (c) => AppointmentDetailsSheet(
+                          appointment: _toAppointmentData(apt),
                         ),
                       );
+                    } else if (details.date != null) {
+                      final doctorState = ref.read(doctorProvider);
+                      final slots = doctorState.getAvailableSlotsForDay(
+                        details.date!,
+                      );
+                      if (slots.isNotEmpty) {
+                        _showAddAppointmentDialog(details.date!);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Aucun créneau disponible pour ce jour',
+                            ),
+                          ),
+                        );
+                      }
                     }
-                  }
-                },
+                  },
+                ),
               ),
             ),
-      floatingActionButton: !isScheduleView
-          ? FloatingActionButton(
-              onPressed: () => _showAddAppointmentDialog(DateTime.now()),
-              backgroundColor: AppColors.primary,
-              child: const Icon(LucideIcons.plus, color: Colors.white),
-            )
-          : null,
     );
   }
 

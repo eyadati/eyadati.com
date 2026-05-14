@@ -613,6 +613,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             'patient_id, patient_name_snapshot, patient_phone_snapshot, scheduled_at, status',
           )
           .eq('doctor_id', state.userId!)
+          .eq('status', 'upcoming')
           .order('scheduled_at', ascending: false);
 
       final Map<String, PatientVisitData> patientMap = {};

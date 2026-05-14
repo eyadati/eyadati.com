@@ -49,7 +49,7 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
                     Expanded(
                       child: StatCard(
                         title: 'Visites totales',
-                        value: '${doctorState.allAppointments.length}',
+                        value: '${doctorState.allAppointments.where((a) => a.status == 'upcoming').length}',
                         icon: LucideIcons.history,
                         iconColor: AppColors.secondary,
                       ),
@@ -140,12 +140,6 @@ class _PatientCard extends StatelessWidget {
                       ),
                       child: Text('${patient.totalVisits} visite${patient.totalVisits > 1 ? 's' : ''}', style: AppTextStyles.badge.copyWith(color: AppColors.primary)),
                     ),
-                    if (patient.lastVisit != null) ...[
-                      const SizedBox(width: 8),
-                      Icon(LucideIcons.clock, size: 12, color: AppColors.textHint),
-                      const SizedBox(width: 4),
-                      Text(_formatDate(patient.lastVisit!), style: AppTextStyles.labelSmall),
-                    ],
                   ],
                 ),
               ],
@@ -158,14 +152,5 @@ class _PatientCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-    if (diff.inDays == 0) return 'Aujourd\'hui';
-    if (diff.inDays == 1) return 'Hier';
-    if (diff.inDays < 7) return 'Il y a ${diff.inDays}j';
-    return '${date.day}/${date.month}/${date.year}';
   }
 }

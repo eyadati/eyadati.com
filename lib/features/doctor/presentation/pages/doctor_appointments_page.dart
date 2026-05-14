@@ -17,7 +17,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
     final all = doctorState.allAppointments;
 
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Column(
         children: [
           Container(
@@ -36,7 +36,6 @@ class DoctorAppointmentsPage extends ConsumerWidget {
               tabs: [
                 Tab(text: 'Tous (${all.length})'),
                 Tab(text: 'Confirmés (${all.where((a) => a.status == 'upcoming').length})'),
-                Tab(text: 'En attente (${all.where((a) => a.status == 'pending').length})'),
                 Tab(text: 'Annulés (${all.where((a) => a.status == 'cancelled').length})'),
               ],
             ),
@@ -48,7 +47,6 @@ class DoctorAppointmentsPage extends ConsumerWidget {
                 children: [
                   _buildList(context, all),
                   _buildList(context, all.where((a) => a.status == 'upcoming').toList()),
-                  _buildList(context, all.where((a) => a.status == 'pending').toList()),
                   _buildList(context, all.where((a) => a.status == 'cancelled').toList()),
                 ],
               ),
@@ -149,12 +147,15 @@ class DoctorAppointmentsPage extends ConsumerWidget {
   Widget _buildStatusBadge(String status) {
     Color color;
     String label;
-    if (status == 'confirmed') {
-      color = AppColors.success;
-      label = 'Confirmé';
-    } else if (status == 'cancelled') {
+    if (status == 'cancelled') {
       color = AppColors.error;
       label = 'Annulé';
+    } else if (status == 'completed') {
+      color = AppColors.success;
+      label = 'Terminé';
+    } else if (status == 'absent') {
+      color = AppColors.textHint;
+      label = 'Absent';
     } else {
       color = AppColors.warning;
       label = 'En attente';

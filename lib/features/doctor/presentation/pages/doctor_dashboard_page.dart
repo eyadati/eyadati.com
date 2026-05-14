@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/models/appointment_data.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import '../providers/doctor_provider.dart';
 import 'doctor_calendar_page.dart';
 import 'doctor_appointments_page.dart';
@@ -47,7 +48,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
           Expanded(
             child: Column(
               children: [
-                _buildHeader(doctorState, isWideScreen),
                 Expanded(
                   child: Center(
                     child: ConstrainedBox(
@@ -230,6 +230,10 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   }
 
   Widget _buildStatsSection(DoctorState doctorState) {
+    final now = DateTime.now();
+    final onlineCount = doctorState.upcomingAppointments
+        .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
+        .length;
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 600;
@@ -263,19 +267,19 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 children: [
                   Expanded(
                     child: _buildStatCard(
-                      'En attente',
-                      '${_getPendingCount(doctorState)}',
-                      Icons.pending_outlined,
-                      AppColors.warning,
+                      'En ligne',
+                      '$onlineCount',
+                      Icons.videocam_outlined,
+                      AppColors.primary,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: _buildStatCard(
-                      'Terminés',
-                      '${_getCompletedCount(doctorState)}',
-                      Icons.check_circle_outlined,
-                      AppColors.success,
+                      'En attente',
+                      '${doctorState.upcomingAppointments.where((a) => a.status == 'pending').length}',
+                      Icons.pending_outlined,
+                      AppColors.warning,
                     ),
                   ),
                 ],
@@ -306,38 +310,25 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _buildStatCard(
-                'En attente',
-                '${_getPendingCount(doctorState)}',
-                Icons.pending_outlined,
-                AppColors.warning,
+                'En ligne',
+                '$onlineCount',
+                Icons.videocam_outlined,
+                AppColors.primary,
               ),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _buildStatCard(
-                'Terminés',
-                '${_getCompletedCount(doctorState)}',
-                Icons.check_circle_outlined,
-                AppColors.success,
+                'En attente',
+                '${doctorState.upcomingAppointments.where((a) => a.status == 'pending').length}',
+                Icons.pending_outlined,
+                AppColors.warning,
               ),
             ),
           ],
         );
       },
     );
-  }
-
-  int _getPendingCount(DoctorState state) {
-    return state.upcomingAppointments
-        .where((a) => a.status == 'pending' || a.status == 'confirmed')
-        .length;
-  }
-
-  int _getCompletedCount(DoctorState state) {
-    final now = DateTime.now();
-    return state.upcomingAppointments
-        .where((a) => a.startTime.isBefore(now))
-        .length;
   }
 
   Widget _buildStatCard(
@@ -916,7 +907,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 ),
                 _buildSidebarItem(
                   DoctorPage.settings,
-                  Icons.settings_outlined,
+                  LucideIcons.settings,
                   'Paramètres',
                 ),
               ],
