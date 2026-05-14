@@ -11,12 +11,7 @@ import 'doctor_patients_page.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
 
-enum DoctorPage {
-  dashboard,
-  calendar,
-  settings,
-  patients,
-}
+enum DoctorPage { dashboard, calendar, settings, patients }
 
 class DoctorDashboardPage extends ConsumerStatefulWidget {
   const DoctorDashboardPage({super.key});
@@ -640,8 +635,23 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               children: [
                 _buildDrawerItem(
                   DoctorPage.dashboard,
-                  Icons.dashboard_outlined,
+                  LucideIcons.layoutDashboard,
                   'Tableau de bord',
+                ),
+                _buildDrawerItem(
+                  DoctorPage.calendar,
+                  LucideIcons.calendarDays,
+                  'Calendrier',
+                ),
+                _buildDrawerItem(
+                  DoctorPage.patients,
+                  LucideIcons.users,
+                  'Patients',
+                ),
+                _buildDrawerItem(
+                  DoctorPage.settings,
+                  LucideIcons.settings,
+                  'Paramètres',
                 ),
                 _buildDrawerItem(
                   DoctorPage.calendar,
@@ -723,7 +733,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildSidebarHeader(DoctorState doctorState) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(color: AppColors.primary),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -771,14 +781,14 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       return CircleAvatar(
         radius: radius,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.grey,
         foregroundColor: AppColors.primary,
         backgroundImage: NetworkImage(avatarUrl),
       );
     }
     return CircleAvatar(
       radius: radius,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey.shade400,
       child: Text(
         _getInitials(name),
         style: TextStyle(
@@ -809,6 +819,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : null,
           border: isSelected
               ? Border(left: BorderSide(color: AppColors.primary, width: 3))
               : null,
@@ -816,12 +827,13 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         child: ListTile(
           leading: Icon(
             icon,
+            size: 22,
             color: isSelected ? AppColors.primary : AppColors.textSecondary,
           ),
           title: Text(
             label,
             style: TextStyle(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
               fontSize: 14,
               color: isSelected ? AppColors.primary : AppColors.textPrimary,
             ),
@@ -842,36 +854,75 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   Widget _buildSidebar(DoctorState doctorState) {
     return Container(
       width: 240,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(right: BorderSide(color: AppColors.border, width: 1)),
-      ),
+      color: AppColors.white,
       child: Column(
         children: [
-          _buildSidebarHeader(doctorState),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Image.asset(
+              'assets/logo.png',
+              height: 60,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => Icon(
+                LucideIcons.stethoscope,
+                size: 32,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
               children: [
                 _buildSidebarItem(
                   DoctorPage.dashboard,
-                  Icons.dashboard_outlined,
+                  LucideIcons.layoutDashboard,
                   'Tableau de bord',
                 ),
                 _buildSidebarItem(
                   DoctorPage.calendar,
-                  Icons.calendar_today_outlined,
+                  LucideIcons.calendarDays,
                   'Calendrier',
                 ),
                 _buildSidebarItem(
                   DoctorPage.patients,
-                  Icons.people_outline,
+                  LucideIcons.users,
                   'Patients',
                 ),
                 _buildSidebarItem(
                   DoctorPage.settings,
                   LucideIcons.settings,
                   'Paramètres',
+                ),
+              ],
+            ),
+          ),
+          _buildSidebarFooter(doctorState),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarFooter(DoctorState doctorState) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+
+      child: Row(
+        children: [
+          _buildAvatarWidget(doctorState.avatarUrl, doctorState.name, 24),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  doctorState.name.isNotEmpty ? doctorState.name : 'Docteur',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -891,20 +942,21 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : null,
           border: isSelected
-              ? Border(left: BorderSide(color: AppColors.primary, width: 2))
+              ? Border(left: BorderSide(color: AppColors.primary, width: 3))
               : null,
         ),
         child: ListTile(
           leading: Icon(
             icon,
-            size: 20,
+            size: 22,
             color: isSelected ? AppColors.primary : AppColors.textSecondary,
           ),
           title: Text(
             label,
             style: TextStyle(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
               fontSize: 14,
               color: isSelected ? AppColors.primary : AppColors.textPrimary,
             ),
