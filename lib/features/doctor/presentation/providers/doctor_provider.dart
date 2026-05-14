@@ -691,11 +691,12 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         'duration': state.appointmentDuration,
         'status': 'upcoming',
         'booking_type': patientId != null ? 'online' : 'manual',
+        'appointment_type': 'standard',
+        'is_consultation': false,
       };
 
       if (patientId != null) {
         insertData['patient_id'] = patientId;
-        insertData['appointment_type'] = 'standard';
       }
 
       if (patientName != null) {

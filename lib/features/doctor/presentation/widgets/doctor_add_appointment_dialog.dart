@@ -11,11 +11,13 @@ import '../providers/doctor_provider.dart';
 class DoctorAddAppointmentDialog extends ConsumerStatefulWidget {
   final DateTime initialDate;
   final int initialHour;
+  final int? initialMinute;
 
   const DoctorAddAppointmentDialog({
     super.key,
     required this.initialDate,
-    required this.initialHour,
+    this.initialHour = 9,
+    this.initialMinute,
   });
 
   @override
@@ -39,6 +41,9 @@ class _DoctorAddAppointmentDialogState
       widget.initialDate.month,
       widget.initialDate.day,
     );
+    if (widget.initialMinute != null) {
+      _selectedSlot = TimeOfDay(hour: widget.initialHour, minute: widget.initialMinute!);
+    }
   }
 
   @override

@@ -142,10 +142,13 @@ class SlotEngine {
     List<PotentialSlot> potentialSlots,
     List<AppointmentData> appointments,
   ) {
-    if (appointments.isEmpty) return potentialSlots;
+    final activeAppointments = appointments.where(
+      (apt) => apt.status == 'upcoming' || apt.status == 'pending',
+    ).toList();
+    if (activeAppointments.isEmpty) return potentialSlots;
 
     return potentialSlots.where((slot) {
-      return !appointments.any((apt) => _overlaps(slot, apt));
+      return !activeAppointments.any((apt) => _overlaps(slot, apt));
     }).toList();
   }
 
