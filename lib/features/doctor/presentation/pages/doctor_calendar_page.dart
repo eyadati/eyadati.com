@@ -25,15 +25,103 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   CalendarView _currentView = CalendarView.week;
   int _appointmentCount = -1;
   bool _initialSyncDone = false;
+  final bool _useMockData = true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _updateDataSource(ref.read(doctorProvider));
+      if (_useMockData) {
+        _loadMockAppointments();
+      } else {
+        _updateDataSource(ref.read(doctorProvider));
+      }
       _initialSyncDone = true;
     });
+  }
+
+  void _loadMockAppointments() {
+    final mockAppointments = _generateMockAppointments();
+    _dataSource.updateAppointments(mockAppointments);
+    setState(() {
+      _appointmentCount = mockAppointments.length;
+    });
+  }
+
+  List<Appointment> _generateMockAppointments() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    final mockPatients = [
+      ('Ahmed Benali', true, 30),
+      ('Fatima Kheddam', false, 20),
+      ('Mohamed Cherif', true, 30),
+      ('Samira Boudiaf', false, 40),
+      ('Ali Mekki', false, 20),
+      ('Youssef Amrani', true, 30),
+      ('Nadia Bensaid', false, 20),
+      ('Rachid Haroun', true, 30),
+      ('Hind Zerrouki', false, 60),
+      ('Karim Belkacem', true, 30),
+      ('Amina Larbi', false, 20),
+      ('Tarek Mahdi', false, 30),
+      ('Souad Amrani', true, 20),
+      ('Bilal Hamdi', false, 40),
+      ('Leila Mansouri', false, 30),
+    ];
+
+    final appointments = <Appointment>[];
+    
+    for (int dayOffset = -3; dayOffset <= 3; dayOffset++) {
+      final date = today.add(Duration(days: dayOffset));
+      if (date.weekday == 6 || date.weekday == 7) continue;
+      
+      int slotIndex = 0;
+      final dayShifts = [
+        (9, 0), (9, 30), (10, 0), (10, 30), (11, 0), (11, 30),
+        (14, 0), (14, 30), (15, 0), (15, 30), (16, 0), (16, 30),
+      ];
+      
+      int appointmentIndex = 0;
+      while (slotIndex < dayShifts.length && appointmentIndex < mockPatients.length) {
+        final (hour, minute) = dayShifts[slotIndex];
+        final (name, isConsultation, duration) = mockPatients[appointmentIndex];
+        
+        final startTime = DateTime(date.year, date.month, date.day, hour, minute);
+        final endTime = startTime.add(Duration(minutes: duration));
+        
+        String status;
+        if (dayOffset < 0) {
+          status = ['completed', 'absent', 'completed'][appointmentIndex % 3];
+        } else if (dayOffset == 0) {
+          status = appointmentIndex % 4 == 0 ? 'pending' : 'upcoming';
+        } else {
+          status = 'upcoming';
+        }
+        
+        appointments.add(_AppointmentWrapper(
+          id: 'mock_${date.millisecondsSinceEpoch}_$appointmentIndex',
+          startTime: startTime,
+          endTime: endTime,
+          patientName: name,
+          status: status,
+          isConsultation: isConsultation,
+          duration: duration,
+          notes: 'Patient régulier',
+          patientPhone: '+213 555 123 456',
+          patientAvatar: null,
+          patientId: 'mock_patient_$appointmentIndex',
+          bookingType: 'manual',
+        ));
+        
+        slotIndex++;
+        if (duration > 30) slotIndex++;
+        appointmentIndex++;
+      }
+    }
+    
+    return appointments;
   }
 
   (int startHour, int endHour) _getVisibleHours(DoctorState state) {
