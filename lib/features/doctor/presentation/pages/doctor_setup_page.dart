@@ -56,16 +56,19 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
     'Autres',
   ];
 
-  final List<String> _cities = [
-    'Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Djelfa',
-    'Sétif', 'Sidi Bel Abbès', 'Biskra', 'Tébessa', 'Ouargla', 'Béjaïa',
-    'Tlemcen', 'Béchar', 'Mascara', 'Tiaret', 'Bordj Bou Arréridj',
-    'Souk Ahras', 'Mila', 'Skikda', 'Bouira', 'Médéa', 'Laghouat',
-    'Ghardaia', 'Relizane', 'El Oued', 'Khenchela', 'Msila', 'BBA',
-    'Boumerdès', 'Sidi Aïssa', 'Tipaza', 'Aïn Témouchent', 'Bejaïa',
-    'Tizi Ouzou', 'Bouira', 'Djurdjura', 'Médéa', 'Blida', 'Cherchell',
-    'Tipasa', 'Mascara', 'Saïda', 'Tafraoui', 'Moulay Slissen',
+  static const List<String> algerianCities = [
+    'Adrar', 'Ain Defla', 'Ain Temouchent', 'Alger', 'Annaba', 'Batna',
+    'Bechar', 'Bejaia', 'Biskra', 'Blida', 'Bordj Bou Arreridj', 'Bouira',
+    'Boumerdes', 'Chlef', 'Constantine', 'Djelfa', 'El Bayadh', 'El Oued',
+    'El Tarf', 'Ghardaia', 'Guelma', 'Illizi', 'Jijel', 'Khenchela',
+    'Laghouat', 'Mascara', 'Medea', 'Mila', 'Mostaganem', 'Msila',
+    'Naama', 'Oran', 'Ouargla', 'Oum El Bouaghi', 'Relizane', 'Saida',
+    'Setif', 'Sidi Bel Abbes', 'Skikda', 'Souk Ahras', 'Tamanghasset',
+    'Tebessa', 'Tiaret', 'Tindouf', 'Tipaza', 'Tissemsilt', 'Tizi Ouzou',
+    'Tlemcen',
   ];
+
+  final List<String> _cities = algerianCities;
 
   @override
   void dispose() {

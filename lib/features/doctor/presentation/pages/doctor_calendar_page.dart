@@ -25,7 +25,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   CalendarView _currentView = CalendarView.week;
   int _appointmentCount = -1;
   bool _initialSyncDone = false;
-  final bool _useMockData = true;
+  final bool _useMockData = false;
 
   @override
   void initState() {
@@ -52,7 +52,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   List<Appointment> _generateMockAppointments() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    
+
     final mockPatients = [
       ('Ahmed Benali', true, 30),
       ('Fatima Kheddam', false, 20),
@@ -72,25 +72,42 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     ];
 
     final appointments = <Appointment>[];
-    
+
     for (int dayOffset = -3; dayOffset <= 3; dayOffset++) {
       final date = today.add(Duration(days: dayOffset));
       if (date.weekday == 6 || date.weekday == 7) continue;
-      
+
       int slotIndex = 0;
       final dayShifts = [
-        (9, 0), (9, 30), (10, 0), (10, 30), (11, 0), (11, 30),
-        (14, 0), (14, 30), (15, 0), (15, 30), (16, 0), (16, 30),
+        (9, 0),
+        (9, 30),
+        (10, 0),
+        (10, 30),
+        (11, 0),
+        (11, 30),
+        (14, 0),
+        (14, 30),
+        (15, 0),
+        (15, 30),
+        (16, 0),
+        (16, 30),
       ];
-      
+
       int appointmentIndex = 0;
-      while (slotIndex < dayShifts.length && appointmentIndex < mockPatients.length) {
+      while (slotIndex < dayShifts.length &&
+          appointmentIndex < mockPatients.length) {
         final (hour, minute) = dayShifts[slotIndex];
         final (name, isConsultation, duration) = mockPatients[appointmentIndex];
-        
-        final startTime = DateTime(date.year, date.month, date.day, hour, minute);
+
+        final startTime = DateTime(
+          date.year,
+          date.month,
+          date.day,
+          hour,
+          minute,
+        );
         final endTime = startTime.add(Duration(minutes: duration));
-        
+
         String status;
         if (dayOffset < 0) {
           status = ['completed', 'absent', 'completed'][appointmentIndex % 3];
@@ -99,28 +116,30 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
         } else {
           status = 'upcoming';
         }
-        
-        appointments.add(_AppointmentWrapper(
-          id: 'mock_${date.millisecondsSinceEpoch}_$appointmentIndex',
-          startTime: startTime,
-          endTime: endTime,
-          patientName: name,
-          status: status,
-          isConsultation: isConsultation,
-          duration: duration,
-          notes: 'Patient régulier',
-          patientPhone: '+213 555 123 456',
-          patientAvatar: null,
-          patientId: 'mock_patient_$appointmentIndex',
-          bookingType: 'manual',
-        ));
-        
+
+        appointments.add(
+          _AppointmentWrapper(
+            id: 'mock_${date.millisecondsSinceEpoch}_$appointmentIndex',
+            startTime: startTime,
+            endTime: endTime,
+            patientName: name,
+            status: status,
+            isConsultation: isConsultation,
+            duration: duration,
+            notes: 'Patient régulier',
+            patientPhone: '+213 555 123 456',
+            patientAvatar: null,
+            patientId: 'mock_patient_$appointmentIndex',
+            bookingType: 'manual',
+          ),
+        );
+
         slotIndex++;
         if (duration > 30) slotIndex++;
         appointmentIndex++;
       }
     }
-    
+
     return appointments;
   }
 

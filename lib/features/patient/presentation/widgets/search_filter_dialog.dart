@@ -19,18 +19,19 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
   String? _selectedSpecialty;
   bool _isLoading = false;
 
-  final List<String> _cities = [
-    'Casablanca',
-    'Rabat',
-    'Marrakech',
-    'Fes',
-    'Tangier',
-    'Agadir',
-    'Meknes',
-    'Oujda',
-    'Kenitra',
-    'Tetouan',
+  static const List<String> algerianCities = [
+    'Adrar', 'Ain Defla', 'Ain Temouchent', 'Alger', 'Annaba', 'Batna',
+    'Bechar', 'Bejaia', 'Biskra', 'Blida', 'Bordj Bou Arreridj', 'Bouira',
+    'Boumerdes', 'Chlef', 'Constantine', 'Djelfa', 'El Bayadh', 'El Oued',
+    'El Tarf', 'Ghardaia', 'Guelma', 'Illizi', 'Jijel', 'Khenchela',
+    'Laghouat', 'Mascara', 'Medea', 'Mila', 'Mostaganem', 'Msila',
+    'Naama', 'Oran', 'Ouargla', 'Oum El Bouaghi', 'Relizane', 'Saida',
+    'Setif', 'Sidi Bel Abbes', 'Skikda', 'Souk Ahras', 'Tamanghasset',
+    'Tebessa', 'Tiaret', 'Tindouf', 'Tipaza', 'Tissemsilt', 'Tizi Ouzou',
+    'Tlemcen',
   ];
+
+  final List<String> _cities = algerianCities;
 
   final List<String> _specialties = [
     'Médecine générale',

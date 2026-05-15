@@ -32,13 +32,19 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
   bool _isUploadingPhoto = false;
   String? _photoUrl;
 
-  final List<String> _algerianCities = [
-    'Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Djelfa',
-    'Sétif', 'Saïda', 'Sidi Bel Abbès', 'Biskra', 'Tébessa', 'Ouargla',
-    'Kénitra', 'Tlemcen', 'Béjaïa', 'Adrar', 'Mostaganem', 'Souk Ahras',
-    'Médéa', 'Tizi Ouzou', 'Boumahdes', 'Mosta', 'Skikda', 'Souk Ahras',
-    'Jijel', 'Alger', 'Blida', 'Bouira', 'Tizi Ouzou', 'Boumerdès',
+  static const List<String> algerianCities = [
+    'Adrar', 'Ain Defla', 'Ain Temouchent', 'Alger', 'Annaba', 'Batna',
+    'Bechar', 'Bejaia', 'Biskra', 'Blida', 'Bordj Bou Arreridj', 'Bouira',
+    'Boumerdes', 'Chlef', 'Constantine', 'Djelfa', 'El Bayadh', 'El Oued',
+    'El Tarf', 'Ghardaia', 'Guelma', 'Illizi', 'Jijel', 'Khenchela',
+    'Laghouat', 'Mascara', 'Medea', 'Mila', 'Mostaganem', 'Msila',
+    'Naama', 'Oran', 'Ouargla', 'Oum El Bouaghi', 'Relizane', 'Saida',
+    'Setif', 'Sidi Bel Abbes', 'Skikda', 'Souk Ahras', 'Tamanghasset',
+    'Tebessa', 'Tiaret', 'Tindouf', 'Tipaza', 'Tissemsilt', 'Tizi Ouzou',
+    'Tlemcen',
   ];
+
+  final List<String> _algerianCities = algerianCities;
 
   final List<String> _specialties = [
     'Médecin généraliste',
