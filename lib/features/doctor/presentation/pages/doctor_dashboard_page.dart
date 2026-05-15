@@ -954,7 +954,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
           title: Text(
             label,
             style: TextStyle(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
               fontSize: 14,
               color: isSelected ? AppColors.primary : AppColors.textPrimary,
             ),

@@ -213,19 +213,29 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .eq('doctor_id', state.userId!)
           .order('scheduled_at', ascending: false);
 
-      final now = DateTime.now();
+final now = DateTime.now();
       final allAppointments = result.map((a) {
         final start = DateTime.parse(a['scheduled_at'] as String);
         final duration = a['duration'] as int? ?? 30;
+        
+        // Debug logging for patient name
+        final patientNameSnapshot = a['patient_name_snapshot'] as String?;
+        final patientData = a['patient'] as Map<String, dynamic>?;
+        final patientFullName = patientData?['full_name'] as String?;
+        
+        print('[DEBUG] Appointment ${a['id']}:');
+        print('  patient_name_snapshot: $patientNameSnapshot');
+        print('  patient.full_name: $patientFullName');
+        print('  patient data: $patientData');
+        
+        final resolvedName = patientNameSnapshot ?? patientFullName ?? 'Patient';
+        print('  resolved name: $resolvedName');
+        
         return AppointmentData(
           id: a['id'] as String,
           startTime: start,
           endTime: start.add(Duration(minutes: duration)),
-          patientName:
-              (a['patient_name_snapshot'] as String?) ??
-              ((a['patient'] as Map<String, dynamic>?)?['full_name']
-                  as String?) ??
-              'Patient',
+          patientName: resolvedName,
           patientAvatar:
               (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
           patientPhone: a['patient_phone_snapshot'] as String?,
@@ -766,7 +776,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .from('appointments')
           .update({'status': status})
           .eq('id', appointmentId);
-      final updated = state.upcomingAppointments.map((a) {
+      
+      // Update upcoming appointments
+      final updatedUpcoming = state.upcomingAppointments.map((a) {
         if (a.id == appointmentId) {
           return AppointmentData(
             id: a.id,
@@ -779,14 +791,41 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             notes: a.notes,
             duration: a.duration,
             patientId: a.patientId,
+            patientPhone: a.patientPhone,
+            bookingType: a.bookingType,
           );
         }
         return a;
       }).toList();
-      state = state.copyWith(upcomingAppointments: updated);
+      
+      // Update ALL appointments (for calendar view)
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: status,
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+            bookingType: a.bookingType,
+          );
+        }
+        return a;
+      }).toList();
+      
+      state = state.copyWith(
+        upcomingAppointments: updatedUpcoming,
+        allAppointments: updatedAll,
+      );
       return true;
     } catch (e) {
-      print('[DoctorNotifier] Error in createAppointment: $e');
+      print('[DoctorNotifier] Error in updateAppointmentStatus: $e');
       state = state.copyWith(errorMessage: e.toString());
       return false;
     }

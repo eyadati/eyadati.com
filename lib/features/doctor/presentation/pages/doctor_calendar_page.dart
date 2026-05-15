@@ -525,7 +525,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                   cellEndPadding: 4,
 
                   timeSlotViewSettings: TimeSlotViewSettings(
-                    startHour: startHour.toDouble(),
+                    startHour: 8.0,
                     endHour: endHour.toDouble(),
                     nonWorkingDays: const [],
                     timeInterval: const Duration(hours: 1),
@@ -573,7 +573,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                           Text(
                             startTimeStr,
                             style: AppTextStyles.labelSmall.copyWith(
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: Colors.black,
                             ),
                           ),
@@ -582,13 +582,14 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                               child: Text(
                                 apt.patientName,
                                 style: AppTextStyles.labelSmall.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w800,
                                   color: Colors.black,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                          SizedBox(height: 10),
                         ],
                       ),
                     );

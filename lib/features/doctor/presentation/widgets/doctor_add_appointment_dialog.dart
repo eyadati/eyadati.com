@@ -82,23 +82,20 @@ class _DoctorAddAppointmentDialogState
   }
 
   List<int> _getAvailableDurations(DoctorState doctorState, int remainingMinutes) {
-    final appointmentDuration = doctorState.appointmentDuration;
     final consultationDuration = doctorState.consultationDuration;
     
-    final Set<int> options = {10, 20, appointmentDuration};
+    // Static duration options - always show all options
+    final List<int> allOptions = [10, 20, 30, 40, 50, 60];
     
+    // Add consultation as a separate option (shown as "Consultation" in UI)
+    // Filter only what fits in remaining time, but include consultation if time allows
+    final filtered = allOptions.where((d) => d <= remainingMinutes).toList();
+    
+    // Always include consultation option if there's enough time
     if (remainingMinutes >= consultationDuration) {
-      options.add(consultationDuration);
+      // Add consultation - will be shown with special label in UI
     }
     
-    if (remainingMinutes > 30) {
-      options.add(30);
-      options.add(40);
-      options.add(50);
-      options.add(60);
-    }
-    
-    final filtered = options.where((d) => d <= remainingMinutes).toList();
     filtered.sort();
     return filtered;
   }
