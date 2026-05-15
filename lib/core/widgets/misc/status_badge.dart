@@ -17,17 +17,9 @@ class StatusBadge extends StatelessWidget {
     this.fontSize,
   });
 
-  factory StatusBadge.pending() {
+  factory StatusBadge.upcoming() {
     return const StatusBadge(
-      label: 'En attente',
-      color: Color(0xFFFFF3E0),
-      textColor: Color(0xFFFF9800),
-    );
-  }
-
-  factory StatusBadge.confirmed() {
-    return const StatusBadge(
-      label: 'Confirmé',
+      label: 'À venir',
       color: Color(0xFFE8F5E9),
       textColor: Color(0xFF4CAF50),
     );
@@ -38,14 +30,6 @@ class StatusBadge extends StatelessWidget {
       label: 'Annulé',
       color: Color(0xFFFFEBEE),
       textColor: Color(0xFFF44336),
-    );
-  }
-
-  factory StatusBadge.completed() {
-    return const StatusBadge(
-      label: 'Terminé',
-      color: Color(0xFFE3F2FD),
-      textColor: Color(0xFF2196F3),
     );
   }
 

@@ -143,7 +143,7 @@ class SlotEngine {
     List<AppointmentData> appointments,
   ) {
     final activeAppointments = appointments.where(
-      (apt) => apt.status == 'upcoming' || apt.status == 'pending',
+      (apt) => apt.status == 'upcoming',
     ).toList();
     if (activeAppointments.isEmpty) return potentialSlots;
 

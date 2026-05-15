@@ -256,15 +256,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                       AppColors.primary,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: _buildStatCard(
-                      'En attente',
-                      '${doctorState.upcomingAppointments.where((a) => a.status == 'pending').length}',
-                      Icons.pending_outlined,
-                      AppColors.warning,
-                    ),
-                  ),
                 ],
               ),
             ],
@@ -297,15 +288,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                 '$onlineCount',
                 Icons.videocam_outlined,
                 AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: _buildStatCard(
-                'En attente',
-                '${doctorState.upcomingAppointments.where((a) => a.status == 'pending').length}',
-                Icons.pending_outlined,
-                AppColors.warning,
               ),
             ),
           ],

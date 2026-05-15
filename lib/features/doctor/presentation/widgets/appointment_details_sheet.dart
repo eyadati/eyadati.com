@@ -16,8 +16,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
     final dateStr = '${appointment.startTime.day}/${appointment.startTime.month}/${appointment.startTime.year}';
-    final isConfirmed = appointment.status == 'upcoming';
-    final isPending = appointment.status == 'pending';
+    final isUpcoming = appointment.status == 'upcoming';
     final isCancelled = appointment.status == 'cancelled';
 
     return Container(
@@ -110,19 +109,17 @@ IconButton(
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isConfirmed
+                  color: isUpcoming
                       ? AppColors.success.withValues(alpha: 0.1)
-                      : isPending
-                          ? AppColors.warning.withValues(alpha: 0.1)
-                          : AppColors.error.withValues(alpha: 0.1),
+                      : AppColors.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  isConfirmed ? 'Confirmé' : isPending ? 'En attente' : isCancelled ? 'Annulé' : appointment.status,
+                  isUpcoming ? 'À venir' : isCancelled ? 'Annulé' : appointment.status,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isConfirmed ? AppColors.success : isPending ? AppColors.warning : AppColors.error,
+                    color: isUpcoming ? AppColors.success : AppColors.error,
                   ),
                 ),
               ),
@@ -138,27 +135,6 @@ IconButton(
           if (!isCancelled) ...[
             Row(
               children: [
-                if (!isConfirmed) ...[
-                  Expanded(
-                    child: _ActionButton(
-                      label: 'Confirmer',
-                      icon: LucideIcons.circleCheck,
-                      color: AppColors.success,
-                      onTap: () async {
-                        final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'upcoming');
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          if (ok) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Rendez-vous confirmé', style: TextStyle(color: AppColors.white)), backgroundColor: AppColors.success),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                ],
                 Expanded(
                   child: _ActionButton(
                     label: 'Annuler',

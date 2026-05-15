@@ -61,10 +61,7 @@ class AppStrings {
   static const String schedule = 'Planning';
   static const String subscription = 'Abonnement';
 
-  static const String pending = 'En attente';
-  static const String confirmed = 'Confirmé';
   static const String cancelled = 'Annulé';
-  static const String completed = 'Terminé';
 
   static const String consultation = 'Consultation';
   static const String regularVisit = 'Visite régulière';

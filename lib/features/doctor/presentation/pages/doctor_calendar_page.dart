@@ -110,9 +110,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
         String status;
         if (dayOffset < 0) {
-          status = ['completed', 'absent', 'completed'][appointmentIndex % 3];
-        } else if (dayOffset == 0) {
-          status = appointmentIndex % 4 == 0 ? 'pending' : 'upcoming';
+          status = appointmentIndex % 2 == 0 ? 'cancelled' : 'upcoming';
         } else {
           status = 'upcoming';
         }
@@ -301,58 +299,20 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   Color _getStatusColor(_AppointmentWrapper apt) {
-    switch (apt.status) {
-      case 'cancelled':
-        return AppColors.error.withValues(alpha: 0.5);
-      case 'absent':
-        return AppColors.textHint;
-      case 'completed':
-        return AppColors.success;
-      default:
-        return apt.isConsultation
-            ? AppColors.consultationColor
-            : AppColors.primary;
+    if (apt.status == 'cancelled') {
+      return AppColors.error.withValues(alpha: 0.5);
     }
+    return apt.isConsultation
+        ? AppColors.consultationColor
+        : AppColors.primary;
   }
 
   Widget _buildNotificationBell(DoctorState state) {
-    final pendingOnline = state.allAppointments
-        .where((a) => a.status == 'pending' && a.bookingType == 'online')
-        .toList();
-    final count = pendingOnline.length;
-
+    // Remove pending notification bell - not needed with upcoming/cancelled only
     return IconButton(
-      icon: Stack(
-        children: [
-          Icon(LucideIcons.bell, size: 22),
-          if (count > 0)
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: AppColors.error,
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                child: Text(
-                  '$count',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-        ],
-      ),
-      onPressed: count > 0
-          ? () => _showNotificationSheet(context, pendingOnline)
-          : null,
-      color: count > 0 ? AppColors.textPrimary : AppColors.textHint,
+      icon: Icon(LucideIcons.bell, size: 22),
+      onPressed: null,
+      color: AppColors.textHint,
     );
   }
 
@@ -577,6 +537,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                               color: Colors.black,
                             ),
                           ),
+                          SizedBox(height: 10),
                           if (bounds.height > 28)
                             Expanded(
                               child: Text(
@@ -589,7 +550,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          SizedBox(height: 10),
                         ],
                       ),
                     );
@@ -1009,16 +969,10 @@ class _AppointmentWrapper extends Appointment {
 
   @override
   Color get color {
-    switch (status) {
-      case 'cancelled':
-        return AppColors.error.withValues(alpha: 0.5);
-      case 'absent':
-        return AppColors.textHint;
-      case 'completed':
-        return AppColors.success;
-      default:
-        return isConsultation ? AppColors.consultationColor : AppColors.primary;
+    if (status == 'cancelled') {
+      return AppColors.error.withValues(alpha: 0.5);
     }
+    return isConsultation ? AppColors.consultationColor : AppColors.primary;
   }
 }
 

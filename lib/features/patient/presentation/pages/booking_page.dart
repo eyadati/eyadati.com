@@ -103,7 +103,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         'patient_id': userId,
         'scheduled_at': scheduledAt.toIso8601String(),
         'duration': duration,
-        'status': 'pending',
+        'status': 'upcoming',
         'appointment_type': _appointmentType,
         'notes': _notesController.text.isEmpty ? null : _notesController.text,
       });
