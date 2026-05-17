@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/providers/locale_provider.dart';
-import 'package:eyadati/core/utils/time_utils.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/doctor_provider.dart';
+import 'doctor_change_password_page.dart';
 import 'doctor_edit_profile_page.dart';
+import 'doctor_privacy_page.dart';
 import 'doctor_schedule_page.dart';
 import 'doctor_subscription_page.dart';
+import 'doctor_terms_page.dart';
 
 class DoctorSettingsPage extends ConsumerStatefulWidget {
   const DoctorSettingsPage({super.key});
@@ -22,28 +23,6 @@ class DoctorSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
-  bool _pushEnabled = true;
-  bool _emailEnabled = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _emailEnabled = prefs.getBool('email_reminders') ?? true;
-    });
-  }
-
-  Future<void> _saveEmailSetting(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('email_reminders', value);
-    setState(() => _emailEnabled = value);
-  }
-
   void _showLanguageSheet() {
     final locale = ref.read(localeProvider);
     final isArabic = locale.languageCode == 'ar';
@@ -163,10 +142,13 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           _buildMenuItem(
             icon: LucideIcons.lock,
             title: 'Changer le mot de passe',
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const DoctorChangePasswordPage(),
+              ),
+            ),
           ),
-          const SizedBox(height: AppSpacing.lg),
-
           const SizedBox(height: AppSpacing.lg),
           _buildSectionTitle('Langue'),
           const SizedBox(height: AppSpacing.sm),
@@ -182,12 +164,22 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           _buildMenuItem(
             icon: LucideIcons.fileText,
             title: "Conditions d'utilisation",
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const DoctorTermsPage(),
+              ),
+            ),
           ),
           _buildMenuItem(
             icon: LucideIcons.shield,
             title: 'Politique de confidentialité',
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const DoctorPrivacyPage(),
+              ),
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           _buildVersionCard(),
@@ -360,15 +352,10 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
   String _buildScheduleSummary(DoctorState state) {
     if (state.scheduleSlots.isEmpty) return 'Non configuré';
     final dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-    final workingDays = state.scheduleSlots
-        .where((s) => s.isActive)
-        .map((s) => dayNames[s.dayOfWeek])
-        .toList();
-    if (workingDays.isEmpty) return 'Non configuré';
-    final firstSlot = state.scheduleSlots.first;
-    final start = TimeUtils.minutesToString(firstSlot.startTime);
-    final end = TimeUtils.minutesToString(firstSlot.endTime);
-    return workingDays.join(', ') + ' ($start-$end)';
+    final activeSlots = state.scheduleSlots.where((s) => s.isActive).toList();
+    if (activeSlots.isEmpty) return 'Non configuré';
+    final workingDays = activeSlots.map((s) => dayNames[s.dayOfWeek]).toList();
+    return workingDays.join(', ');
   }
 
   Widget _buildVersionCard() {
@@ -459,42 +446,6 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToggleItem({
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: AppColors.textSecondary),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(child: Text(title, style: AppTextStyles.bodyMedium)),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
-              thumbColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected))
-                  return AppColors.primary;
-                return AppColors.textHint;
-              }),
-            ),
-          ],
         ),
       ),
     );

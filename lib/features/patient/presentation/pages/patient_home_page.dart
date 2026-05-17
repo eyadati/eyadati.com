@@ -49,7 +49,7 @@ class _PatientHomePageState extends ConsumerState<PatientHomePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.background,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: const Text(
@@ -97,19 +97,26 @@ class _PatientHomePageState extends ConsumerState<PatientHomePage> {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      ...patientState.upcomingAppointments.take(2).map(
+                      ...patientState.upcomingAppointments
+                          .take(2)
+                          .map(
                             (appointment) => Padding(
-                              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.sm,
+                              ),
                               child: UpcomingAppointmentCard(
                                 appointment: appointment,
-                                onTap: () => context.push(RouteNames.patientAppointments),
+                                onTap: () => context.push(
+                                  RouteNames.patientAppointments,
+                                ),
                               ),
                             ),
                           ),
                       const SizedBox(height: AppSpacing.sm),
                       if (patientState.upcomingAppointments.length > 2)
                         TextButton(
-                          onPressed: () => context.push(RouteNames.patientAppointments),
+                          onPressed: () =>
+                              context.push(RouteNames.patientAppointments),
                           child: Text(
                             '+ ${patientState.upcomingAppointments.length - 2} autres',
                             style: const TextStyle(
@@ -127,9 +134,7 @@ class _PatientHomePageState extends ConsumerState<PatientHomePage> {
                 hasScrollBody: false,
                 child: _buildEmptyState(),
               ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 100),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),
@@ -144,10 +149,7 @@ class _PatientHomePageState extends ConsumerState<PatientHomePage> {
         icon: const Icon(LucideIcons.search, size: 22),
         label: const Text(
           'Réserver un médecin',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -186,10 +188,7 @@ class _PatientHomePageState extends ConsumerState<PatientHomePage> {
             const Text(
               'Appuyez sur le bouton ci-dessous pour\ntrouver un médecin',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: AppSpacing.xl),
           ],

@@ -28,6 +28,13 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Patients'),
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(doctorProvider.notifier).loadPatients(),
         child: CustomScrollView(
