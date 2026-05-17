@@ -448,6 +448,50 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
+    
+    // Per supabase_checklist: Explicit loading/error/empty states
+    if (doctorState.isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.surface,
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    if (doctorState.errorMessage != null) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.alertCircle, size: 48, color: AppColors.error),
+                const SizedBox(height: 16),
+                Text(
+                  'Erreur de chargement',
+                  style: AppTextStyles.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  doctorState.errorMessage!,
+                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => ref.read(doctorProvider.notifier).refresh(),
+                  child: const Text('Réessayer'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth >= 900;
     final intervalHeight = _getTimeIntervalHeight(screenWidth);
