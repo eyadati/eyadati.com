@@ -16,6 +16,8 @@ class TimeUtils {
 
   static String formatMinutes(int m) => minutesToString(m);
 
+  static int extractMinuteFromDate(DateTime dt) => dt.hour * 60 + dt.minute;
+
   static bool overlaps(int startA, int endA, int startB, int endB) =>
       startA < endB && startB < endA;
 }

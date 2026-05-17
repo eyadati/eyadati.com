@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
+import 'package:eyadati/core/utils/time_utils.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import '../../../../models/appointment_data.dart';
@@ -60,25 +61,6 @@ class _DoctorAddAppointmentDialogState
 
   int _getSlotIntervalMinutes() {
     return 30;
-  }
-
-  int _calculateRemainingMinutes(DateTime slotStart, List<AppointmentData> dayAppointments) {
-    final slotDuration = _getSlotIntervalMinutes();
-    final slotEnd = slotStart.add(Duration(minutes: slotDuration));
-    int occupiedMinutes = 0;
-
-    for (final apt in dayAppointments) {
-      final aptStart = apt.startTime;
-      final aptEnd = apt.startTime.add(Duration(minutes: apt.duration));
-
-      if (aptStart.isBefore(slotEnd) && aptEnd.isAfter(slotStart)) {
-        final overlapStart = aptStart.isBefore(slotStart) ? slotStart : aptStart;
-        final overlapEnd = aptEnd.isAfter(slotEnd) ? slotEnd : aptEnd;
-        occupiedMinutes += overlapEnd.difference(overlapStart).inMinutes;
-      }
-    }
-
-    return slotDuration - occupiedMinutes;
   }
 
   List<int> _getAvailableDurations(DoctorState doctorState, int remainingMinutes) {
@@ -586,9 +568,14 @@ class _DoctorAddAppointmentDialogState
   }
 
   Widget _buildTimeSlots(DoctorState doctorState) {
-    final slots = doctorState.getAvailableSlotsForDay(_selectedDate);
+    final validStarts = doctorState.availabilityService.getValidStarts(
+      _selectedDate,
+      doctorState.allAppointments,
+      duration: _selectedDuration,
+      isConsultation: _isConsultation,
+    );
     
-    if (slots.isEmpty) {
+    if (validStarts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
@@ -619,16 +606,18 @@ class _DoctorAddAppointmentDialogState
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: slots.map((slot) {
-            final slotTime = TimeOfDay(hour: slot.startTime.hour, minute: slot.startTime.minute);
+          children: validStarts.map((slot) {
+            final slotHour = slot.minute ~/ 60;
+            final slotMinute = slot.minute % 60;
+            final slotTime = TimeOfDay(hour: slotHour, minute: slotMinute);
             final isSelected = _selectedSlot == slotTime;
             
             final slotStart = DateTime(
               _selectedDate.year,
               _selectedDate.month,
               _selectedDate.day,
-              slot.startTime.hour,
-              slot.startTime.minute,
+              slotHour,
+              slotMinute,
             );
             final dayAppointments = doctorState.allAppointments.where((apt) {
               return apt.startTime.year == _selectedDate.year &&
@@ -651,59 +640,22 @@ class _DoctorAddAppointmentDialogState
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary
-                      : remaining > 0
-                          ? AppColors.background
-                          : AppColors.textHint.withValues(alpha: 0.1),
+                  color: isSelected 
+                      ? AppColors.primary 
+                      : (remaining > 0 ? AppColors.white : AppColors.background),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isSelected
-                        ? AppColors.primary
-                        : remaining > 0
-                            ? AppColors.border
-                            : AppColors.textHint.withValues(alpha: 0.3),
+                    color: isSelected ? AppColors.primary : AppColors.border,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _formatTime(slotTime),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: isSelected
-                            ? AppColors.white
-                            : remaining > 0
-                                ? AppColors.textPrimary
-                                : AppColors.textHint,
-                      ),
-                    ),
-                    if (remaining > 0 && remaining < 30) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.white.withValues(alpha: 0.2)
-                              : AppColors.warning.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${remaining}m',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? AppColors.white : AppColors.warning,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  TimeUtils.minutesToString(slot.minute),
+                  style: TextStyle(
+                    color: isSelected 
+                        ? AppColors.white 
+                        : (remaining > 0 ? AppColors.textPrimary : AppColors.textHint),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ),
             );
@@ -711,5 +663,18 @@ class _DoctorAddAppointmentDialogState
         ),
       ],
     );
+  }
+
+  int _calculateRemainingMinutes(DateTime slotStart, List<AppointmentData> appointments) {
+    if (appointments.isEmpty) return 60;
+    final slotMinute = slotStart.hour * 60 + slotStart.minute;
+    for (final apt in appointments) {
+      final aptStart = apt.startTime.hour * 60 + apt.startTime.minute;
+      final aptEnd = aptStart + apt.duration;
+      if (slotMinute >= aptStart && slotMinute < aptEnd) {
+        return aptEnd - slotMinute;
+      }
+    }
+    return 60;
   }
 }

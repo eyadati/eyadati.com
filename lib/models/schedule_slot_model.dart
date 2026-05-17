@@ -1,6 +1,6 @@
 import 'package:eyadati/core/utils/time_utils.dart';
 
-class ScheduleSlot {
+class DaySchedule {
   final String id;
   final String doctorId;
   final int dayOfWeek;
@@ -12,7 +12,7 @@ class ScheduleSlot {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  ScheduleSlot({
+  DaySchedule({
     required this.id,
     required this.doctorId,
     required this.dayOfWeek,
@@ -25,8 +25,8 @@ class ScheduleSlot {
     this.updatedAt,
   });
 
-  factory ScheduleSlot.fromDbMap(Map<String, dynamic> json) {
-    return ScheduleSlot(
+  factory DaySchedule.fromDbMap(Map<String, dynamic> json) {
+    return DaySchedule(
       id: json['id'] as String,
       doctorId: json['doctor_id'] as String,
       dayOfWeek: json['day_of_week'] as int,
@@ -51,8 +51,8 @@ class ScheduleSlot {
     return 0;
   }
 
-  factory ScheduleSlot.fromJson(Map<String, dynamic> json) {
-    return ScheduleSlot(
+  factory DaySchedule.fromJson(Map<String, dynamic> json) {
+    return DaySchedule(
       id: json['id'] as String,
       doctorId: json['doctor_id'] as String,
       dayOfWeek: json['day_of_week'] as int,
@@ -83,7 +83,7 @@ class ScheduleSlot {
     };
   }
 
-  ScheduleSlot copyWith({
+  DaySchedule copyWith({
     String? id,
     String? doctorId,
     int? dayOfWeek,
@@ -95,7 +95,7 @@ class ScheduleSlot {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return ScheduleSlot(
+    return DaySchedule(
       id: id ?? this.id,
       doctorId: doctorId ?? this.doctorId,
       dayOfWeek: dayOfWeek ?? this.dayOfWeek,
@@ -121,3 +121,5 @@ class ScheduleSlot {
     return days[dayOfWeek];
   }
 }
+
+typedef ScheduleSlot = DaySchedule;

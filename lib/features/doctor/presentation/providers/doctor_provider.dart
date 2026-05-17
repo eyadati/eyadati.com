@@ -3,7 +3,7 @@ import 'package:eyadati/models/schedule_slot_model.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import 'package:eyadati/services/providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:eyadati/core/engine/slot_engine.dart';
+import 'package:eyadati/core/engine/availability_service.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
 
 class DoctorState {
@@ -53,30 +53,11 @@ class DoctorState {
     this.errorMessage,
   });
 
-  SlotEngine get slotEngine => SlotEngine(
+  AvailabilityService get availabilityService => AvailabilityService(
     scheduleSlots: scheduleSlots,
     appointmentDuration: appointmentDuration,
     consultationDuration: consultationDuration,
   );
-
-  List<PotentialSlot> getAvailableSlotsForDay(
-    DateTime date, {
-    bool isConsultation = false,
-  }) {
-    return slotEngine.getAvailableSlots(
-      date,
-      isConsultation: isConsultation,
-      existingAppointments: allAppointments,
-    );
-  }
-
-  bool hasScheduleForDay(DateTime date) => slotEngine.hasScheduleForDay(date);
-
-  List<ScheduleSlot> getScheduleForDay(DateTime date) =>
-      slotEngine.getScheduleForDay(date);
-
-  int getWorkingHoursForDay(DateTime date) =>
-      slotEngine.getWorkingHoursForDay(date);
 
   List<AppointmentData> getAppointmentsForDay(DateTime date) {
     return allAppointments.where((apt) {
