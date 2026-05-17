@@ -618,13 +618,13 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     Color bgColor = AppColors.aptVideoCall;
     Color textColor = AppColors.aptVideoCallText;
     IconData icon = LucideIcons.video;
-    String typeLabel = 'Video Call';
+    String typeLabel = 'Video';
 
     if (apt.bookingType == 'home') {
       bgColor = AppColors.aptHomeVisit;
       textColor = AppColors.aptHomeVisitText;
       icon = LucideIcons.home;
-      typeLabel = 'Home Visit';
+      typeLabel = 'Home';
     } else if (apt.isConsultation) {
       bgColor = AppColors.aptInPerson;
       textColor = AppColors.aptInPersonText;
@@ -632,9 +632,15 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       typeLabel = 'In-Person';
     }
 
+    if (bounds.height < 30 || bounds.width < 30) {
+      return Container(
+        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(4)),
+      );
+    }
+
     return Container(
-      margin: const EdgeInsets.all(2),
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.all(1),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(8),
@@ -642,42 +648,48 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Text(
-                '${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')} AM',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: textColor,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
           Text(
-            apt.patientName,
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            '${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
+            style: AppTextStyles.labelSmall.copyWith(color: textColor, fontWeight: FontWeight.w700),
           ),
-          const Spacer(),
-          Row(
-            children: [
-              Icon(icon, size: 12, color: textColor),
-              const SizedBox(width: 4),
-              Text(
-                typeLabel,
+          if (bounds.height > 40) ...[
+            const SizedBox(height: 2),
+            Expanded(
+              child: Text(
+                apt.patientName,
                 style: AppTextStyles.labelSmall.copyWith(
-                  color: textColor,
-                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ],
-          ),
+            ),
+          ],
+          if (bounds.height > 55) ...[
+            const Spacer(),
+            Row(
+              children: [
+                Icon(icon, size: 10, color: textColor),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    typeLabel,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 10,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
