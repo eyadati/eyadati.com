@@ -198,9 +198,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     if (apt.status == 'cancelled') {
       return AppColors.error.withValues(alpha: 0.5);
     }
-    return apt.isConsultation
-        ? AppColors.consultationColor
-        : AppColors.primary;
+    return apt.isConsultation ? AppColors.consultationColor : AppColors.primary;
   }
 
   Widget _buildNotificationBell(DoctorState state) {
@@ -274,12 +272,12 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     final now = DateTime.now();
     // Per supabase_checklist: Use computed getters instead of stored derived lists
     final upcomingList = doctorState.upcomingAppointmentsList;
-    
+
     final weekCount = doctorState.weekAppointmentsCount;
     final onlineCount = upcomingList
         .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
         .length;
-    
+
     final nextAppointment = upcomingList.isNotEmpty ? upcomingList.first : null;
 
     return Container(
@@ -304,15 +302,18 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: _buildNextAppointmentCard(nextAppointment),
-          ),
+          Expanded(child: _buildNextAppointmentCard(nextAppointment)),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -370,7 +371,11 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                 color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(LucideIcons.clock, color: AppColors.primary, size: 16),
+              child: Icon(
+                LucideIcons.clock,
+                color: AppColors.primary,
+                size: 16,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -393,9 +398,13 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       );
     }
 
-    final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
-    final dateStr = '${appointment.startTime.day}/${appointment.startTime.month}';
-    final typeColor = appointment.isConsultation ? AppColors.consultationColor : AppColors.primary;
+    final timeStr =
+        '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${appointment.startTime.day}/${appointment.startTime.month}';
+    final typeColor = appointment.isConsultation
+        ? AppColors.consultationColor
+        : AppColors.primary;
     final typeLabel = appointment.isConsultation ? 'Consultation' : 'RDV';
 
     return Container(
@@ -448,52 +457,12 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-    
-    // Per supabase_checklist: Explicit loading/error/empty states
+
     if (doctorState.isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.surface,
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
-    
-    if (doctorState.errorMessage != null) {
-      return Scaffold(
-        backgroundColor: AppColors.surface,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(LucideIcons.alertCircle, size: 48, color: AppColors.error),
-                const SizedBox(height: 16),
-                Text(
-                  'Erreur de chargement',
-                  style: AppTextStyles.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  doctorState.errorMessage!,
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => ref.read(doctorProvider.notifier).refresh(),
-                  child: const Text('Réessayer'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    
+
     final screenWidth = MediaQuery.of(context).size.width;
-    final isWideScreen = screenWidth >= 900;
     final intervalHeight = _getTimeIntervalHeight(screenWidth);
     final (startHour, endHour) = _getVisibleHours(doctorState);
 
@@ -509,230 +478,205 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       doctorState.scheduleSlots,
       _focusedDay,
     );
-    final isScheduleView = _currentView == CalendarView.schedule;
     final isDayView = _currentView == CalendarView.day;
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        surfaceTintColor: Colors.transparent,
-        title: isScheduleView
-            ? null
-            : Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(LucideIcons.chevronLeft, size: 22),
-                    onPressed: isDayView ? _previousDay : _previousWeeks,
-                    color: AppColors.textSecondary,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: _goToToday,
-                      child: Text(
-                        isDayView ? _formatDayRange() : _formatWeekRange(),
-                        style: AppTextStyles.titleMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(LucideIcons.chevronRight, size: 22),
-                    onPressed: isDayView ? _nextDay : _nextWeeks,
-                    color: AppColors.textSecondary,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                  ),
-                ],
+    return Column(
+      children: [
+        _buildCalendarHeader(isDayView),
+        const Divider(height: 1, color: AppColors.border),
+        Expanded(
+          child: SfCalendarTheme(
+            data: SfCalendarThemeData(
+              backgroundColor: AppColors.white,
+              todayHighlightColor: AppColors.primary,
+              selectionBorderColor: AppColors.primary,
+              cellBorderColor: AppColors.border.withValues(alpha: 0.5),
+              viewHeaderBackgroundColor: AppColors.white,
+              timeTextStyle: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textHint,
+                fontWeight: FontWeight.w500,
               ),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.settings, size: 22),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DoctorSettingsPage()),
-              );
-            },
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(width: 4),
-          _buildNotificationBell(doctorState),
-          const SizedBox(width: 8),
-          if (!isScheduleView)
-            _ViewToggle(
-              currentView: _currentView,
-              onWeekTap: () => _switchView(CalendarView.week),
-              onDayTap: () => _switchView(CalendarView.day),
-              onScheduleTap: () => _switchView(CalendarView.schedule),
             ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildCardsRow(doctorState),
-          Expanded(
-            child: isScheduleView
-          ? _buildScheduleView(doctorState)
-          : SfCalendarTheme(
-              data: SfCalendarThemeData(
-                backgroundColor: AppColors.white,
-                todayHighlightColor: AppColors.primary,
-                selectionBorderColor: AppColors.primary,
-                cellBorderColor: AppColors.border,
-                allDayPanelColor: AppColors.white,
-                viewHeaderBackgroundColor: AppColors.white,
-                agendaBackgroundColor: AppColors.white,
-                headerBackgroundColor: AppColors.white,
+            child: SfCalendar(
+              controller: _calendarController,
+              dataSource: _dataSource,
+              view: _currentView,
+              initialDisplayDate: _focusedDay,
+              showCurrentTimeIndicator: true,
+              headerHeight: 0,
+              todayHighlightColor: AppColors.primary,
+              specialRegions: breakRegions,
+              timeSlotViewSettings: TimeSlotViewSettings(
+                startHour: 8,
+                endHour: 20,
+                timeInterval: const Duration(hours: 1),
+                timeIntervalHeight: 100,
+                timeFormat: 'H a',
+                timeRulerSize: 60,
+                dayFormat: 'EEE',
+                dateFormat: 'd',
               ),
-              child: Padding(
-                padding: const EdgeInsets.only(right: 17.0),
-                child: SfCalendar(
-                  controller: _calendarController,
-                  dataSource: _dataSource,
-                  view: _currentView,
-                  initialDisplayDate: _focusedDay,
-                  showCurrentTimeIndicator: true,
-                  showDatePickerButton: false,
-                  showNavigationArrow: false,
-                  headerHeight: 0,
-                  allowDragAndDrop: false,
-                  allowAppointmentResize: false,
-                  todayHighlightColor: AppColors.primary,
-                  specialRegions: breakRegions,
-                  cellEndPadding: 4,
-
-                  timeSlotViewSettings: TimeSlotViewSettings(
-                    startHour: 8.0,
-                    endHour: endHour.toDouble(),
-                    nonWorkingDays: const [],
-                    timeInterval: const Duration(hours: 1),
-                    timeIntervalHeight: intervalHeight * 1.3,
-                    timeFormat: 'HH:mm',
-                    dayFormat: 'EEE',
-                    dateFormat: 'd',
-                    timeRulerSize: 56,
-                    timeTextStyle: AppTextStyles.bodySmall.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  viewHeaderStyle: ViewHeaderStyle(
-                    dayTextStyle: AppTextStyles.labelMedium,
-                    dateTextStyle: AppTextStyles.titleSmall.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    backgroundColor: AppColors.white,
-                  ),
-                  appointmentBuilder: (context, details) {
-                    if (details.appointments.isEmpty) return const SizedBox();
-                    final apt =
-                        details.appointments.first as _AppointmentWrapper;
-                    final color = _getStatusColor(apt);
-                    final bounds = details.bounds;
-                    final startTimeStr =
-                        '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
-
-                    return Container(
-                      width: bounds.width - 4,
-                      height: bounds.height - 2,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            startTimeStr,
-                            style: AppTextStyles.labelSmall.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black,
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          if (bounds.height > 28)
-                            Expanded(
-                              child: Text(
-                                apt.patientName,
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.black,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                  onViewChanged: (ViewChangedDetails details) {
-                    if (details.visibleDates.isNotEmpty) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        setState(() {
-                          _focusedDay = details
-                              .visibleDates[details.visibleDates.length ~/ 2];
-                        });
-                      });
-                    }
-                  },
-                  onTap: (CalendarTapDetails details) {
-                    if (details.appointments != null &&
-                        details.appointments!.isNotEmpty) {
-                      final apt =
-                          details.appointments!.first as _AppointmentWrapper;
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (c) => AppointmentDetailsSheet(
-                          appointment: _toAppointmentData(apt),
-                        ),
-                      );
-                    } else if (details.date != null) {
-                      final doctorState = ref.read(doctorProvider);
-                      final validStarts = doctorState.availabilityService.getValidStarts(
-                        details.date!,
-                        doctorState.allAppointments,
-                      );
-                      if (validStarts.isNotEmpty) {
-                        _showAddAppointmentDialog(
-                          details.date!,
-                          initialTime: details.date,
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Aucun créneau disponible pour ce jour',
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
+              viewHeaderStyle: ViewHeaderStyle(
+                dayTextStyle: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.textHint,
+                ),
+                dateTextStyle: AppTextStyles.titleMedium.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              appointmentBuilder: (context, details) {
+                final apt = details.appointments.first as _AppointmentWrapper;
+                return _buildAppointmentWidget(apt, details.bounds);
+              },
+              onViewChanged: (details) {
+                if (details.visibleDates.isNotEmpty) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    setState(() {
+                      _focusedDay = details
+                          .visibleDates[details.visibleDates.length ~/ 2];
+                    });
+                  });
+                }
+              },
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarHeader(bool isDayView) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(4),
+          ),
+          const SizedBox(width: 16),
+          IconButton(
+            icon: const Icon(LucideIcons.chevronLeft, size: 20),
+            onPressed: isDayView ? _previousDay : _previousWeeks,
+            padding: EdgeInsets.zero,
+          ),
+          Text(
+            isDayView ? _formatDayRange() : _formatWeekRange(),
+            style: AppTextStyles.bodyMedium.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(LucideIcons.chevronRight, size: 20),
+            onPressed: isDayView ? _nextDay : _nextWeeks,
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewToggleItem(
+    String label,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: isSelected ? AppColors.primary : AppColors.textHint,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppointmentWidget(_AppointmentWrapper apt, Rect bounds) {
+    Color bgColor = AppColors.aptVideoCall;
+    Color textColor = AppColors.aptVideoCallText;
+    IconData icon = LucideIcons.video;
+    String typeLabel = 'Video Call';
+
+    if (apt.bookingType == 'home') {
+      bgColor = AppColors.aptHomeVisit;
+      textColor = AppColors.aptHomeVisitText;
+      icon = LucideIcons.home;
+      typeLabel = 'Home Visit';
+    } else if (apt.isConsultation) {
+      bgColor = AppColors.aptInPerson;
+      textColor = AppColors.aptInPersonText;
+      icon = LucideIcons.user;
+      typeLabel = 'In-Person';
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: textColor.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')} AM',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            apt.patientName,
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Icon(icon, size: 12, color: textColor),
+              const SizedBox(width: 4),
+              Text(
+                typeLabel,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
