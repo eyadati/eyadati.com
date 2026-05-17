@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
@@ -93,15 +92,17 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
       final fileName = '${const Uuid().v4()}.jpg';
       final path = 'avatars/$fileName';
 
-      await Supabase.instance.client.storage.from('avatars').uploadBinary(path, bytes);
-      final url = Supabase.instance.client.storage.from('avatars').getPublicUrl(path);
+      final client = SupabaseInitializer.client;
+      await client.storage.from('avatars').uploadBinary(path, bytes);
+      final publicUrl = client.storage.from('avatars').getPublicUrl(path);
 
-      setState(() => _photoUrl = url);
+      setState(() => _photoUrl = publicUrl);
     } catch (e) {
+      print('[DoctorEditProfile] Photo upload error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de l\'upload de la photo'),
+            content: Text('Erreur lors de l\'upload de la photo: $e'),
             backgroundColor: AppColors.error,
           ),
         );

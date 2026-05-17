@@ -246,6 +246,33 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             _buildInfoChip(LucideIcons.phone, state.phone),
           if (state.scheduleSlots.isNotEmpty)
             _buildInfoChip(LucideIcons.clock, _buildScheduleSummary(state)),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildDurationChip('RDV: ${state.appointmentDuration}min', LucideIcons.timer),
+              const SizedBox(width: 8),
+              _buildDurationChip('Consult: ${state.consultationDuration}min', LucideIcons.stethoscope),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDurationChip(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AppColors.primary),
+          const SizedBox(width: 4),
+          Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary)),
         ],
       ),
     );
