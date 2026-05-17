@@ -291,9 +291,10 @@ final now = DateTime.now();
         return;
       }
 
+      // Per supabase_checklist: Use explicit column selection to ensure data is fetched
       final doctorData = await _client
           .from('doctors')
-          .select()
+          .select('specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -337,6 +338,7 @@ final now = DateTime.now();
           .lt('scheduled_at', endOfWeek.toIso8601String())
           .count();
 
+      // Per supabase_checklist: Use explicit columns to ensure all data is fetched
       final allApptsData = await _client
           .from('appointments')
           .select('''
@@ -345,7 +347,10 @@ final now = DateTime.now();
             duration,
             status,
             appointment_type,
+            booking_type,
             notes,
+            patient_name_snapshot,
+            patient_phone_snapshot,
             patient:profiles!patient_id (
               id,
               full_name,
