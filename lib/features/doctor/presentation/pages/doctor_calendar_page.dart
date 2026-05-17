@@ -490,7 +490,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               backgroundColor: AppColors.white,
               todayHighlightColor: AppColors.primary,
               selectionBorderColor: AppColors.primary,
-              cellBorderColor: AppColors.border.withValues(alpha: 0.5),
+              cellBorderColor: AppColors.primary.withValues(alpha: 0.65),
               viewHeaderBackgroundColor: AppColors.white,
               timeTextStyle: AppTextStyles.labelSmall.copyWith(
                 color: AppColors.textHint,
@@ -526,7 +526,99 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               ),
               appointmentBuilder: (context, details) {
                 final apt = details.appointments.first as _AppointmentWrapper;
-                return _buildAppointmentWidget(apt, details.bounds);
+                return GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (c) => AppointmentDetailsSheet(
+                        appointment: AppointmentData(
+                          id: apt.id,
+                          startTime: apt.startTime,
+                          endTime: apt.endTime,
+                          patientName: apt.patientName,
+                          status: apt.status,
+                          isConsultation: apt.isConsultation,
+                          duration: apt.duration,
+                          notes: apt.notes,
+                          patientPhone: apt.patientPhone,
+                          patientAvatar: apt.patientAvatar,
+                          patientId: apt.patientId,
+                          bookingType: apt.bookingType,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Tooltip(
+                    richMessage: WidgetSpan(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: AppColors.primaryLight,
+                              child: Text(
+                                apt.patientName.isNotEmpty
+                                    ? apt.patientName[0].toUpperCase()
+                                    : 'P',
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  apt.patientName,
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${apt.isConsultation ? "Consultation" : "RDV"} • ${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.textHint,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    waitDuration: const Duration(milliseconds: 300),
+                    decoration: const BoxDecoration(color: Colors.transparent),
+                    child: _buildAppointmentWidget(apt, details.bounds),
+                  ),
+                );
+              },
+              onTap: (CalendarTapDetails details) {
+                if (details.appointments == null ||
+                    details.appointments!.isEmpty) {
+                  if (details.date != null) {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => DoctorAddAppointmentDialog(
+                        initialDate: details.date!,
+                      ),
+                    );
+                  }
+                }
               },
               onViewChanged: (details) {
                 if (details.visibleDates.isNotEmpty) {
@@ -617,79 +709,62 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   Widget _buildAppointmentWidget(_AppointmentWrapper apt, Rect bounds) {
     Color bgColor = AppColors.aptVideoCall;
     Color textColor = AppColors.aptVideoCallText;
-    IconData icon = LucideIcons.video;
-    String typeLabel = 'Video';
+    Color accentColor = AppColors.primary;
 
     if (apt.bookingType == 'home') {
       bgColor = AppColors.aptHomeVisit;
       textColor = AppColors.aptHomeVisitText;
-      icon = LucideIcons.home;
-      typeLabel = 'Home';
+      accentColor = AppColors.aptHomeVisitText;
     } else if (apt.isConsultation) {
       bgColor = AppColors.aptInPerson;
       textColor = AppColors.aptInPersonText;
-      icon = LucideIcons.user;
-      typeLabel = 'In-Person';
-    }
-
-    if (bounds.height < 30 || bounds.width < 30) {
-      return Container(
-        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(4)),
-      );
+      accentColor = AppColors.aptInPersonText;
     }
 
     return Container(
-      margin: const EdgeInsets.all(1),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      margin: const EdgeInsets.all(2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: textColor.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          Text(
-            '${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
-            style: AppTextStyles.labelSmall.copyWith(color: textColor, fontWeight: FontWeight.w700),
-          ),
-          if (bounds.height > 40) ...[
-            const SizedBox(height: 2),
-            Expanded(
-              child: Text(
-                apt.patientName,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+          Container(
+            width: 4,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: BorderRadius.circular(2),
             ),
-          ],
-          if (bounds.height > 55) ...[
-            const Spacer(),
-            Row(
-              children: [
-                Icon(icon, size: 10, color: textColor),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    typeLabel,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  Text(
+                    '${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
                     style: AppTextStyles.labelSmall.copyWith(
                       color: textColor,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Text(
+                    apt.patientName,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ],
       ),
     );

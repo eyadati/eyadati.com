@@ -29,21 +29,27 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       print('[SplashPage] not mounted, returning');
       return;
     }
-    
+
     await ref.read(authProvider.notifier).checkAuthStatus();
     print('[SplashPage] checkAuthStatus completed');
-    
+
     if (!mounted) {
       print('[SplashPage] not mounted after check, returning');
       return;
     }
-    
+
     final authState = ref.read(authProvider);
-    print('[SplashPage] authState - isInitialized: ${authState.isInitialized}, isAuthenticated: ${authState.isAuthenticated}, isDoctor: ${authState.isDoctor}');
-    
+    print(
+      '[SplashPage] authState - isInitialized: ${authState.isInitialized}, isAuthenticated: ${authState.isAuthenticated}, isDoctor: ${authState.isDoctor}',
+    );
+
     if (authState.isAuthenticated) {
       print('[SplashPage] navigating to home');
-      context.go(authState.isDoctor ? RouteNames.doctorDashboard : RouteNames.patientHome);
+      context.go(
+        authState.isDoctor
+            ? RouteNames.doctorDashboard
+            : RouteNames.patientHome,
+      );
     } else {
       print('[SplashPage] navigating to login');
       context.go(RouteNames.login);
@@ -82,17 +88,11 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'عياداتي',
-              style: TextStyle(
-                fontSize: 18,
-                color: AppColors.white,
-              ),
+              'عيادتي',
+              style: TextStyle(fontSize: 18, color: AppColors.white),
             ),
             const SizedBox(height: 48),
-            const LoadingIndicator(
-              color: AppColors.white,
-              size: 32,
-            ),
+            const LoadingIndicator(color: AppColors.white, size: 32),
           ],
         ),
       ),

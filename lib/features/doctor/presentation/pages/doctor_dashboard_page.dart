@@ -86,42 +86,29 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     final onlineCount = doctorState.allAppointments
         .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
         .length;
-    final nextAppointmentName = doctorState.upcomingAppointments.isNotEmpty
-        ? doctorState.upcomingAppointments.first.patientName
-        : 'Aucun';
+
+    final nextApt = doctorState.upcomingAppointments.isNotEmpty 
+        ? doctorState.upcomingAppointments.first 
+        : null;
+
+    String nextAptInfo = 'Aucun';
+    if (nextApt != null) {
+      final dateStr = '${nextApt.startTime.day}/${nextApt.startTime.month}';
+      final timeStr = '${nextApt.startTime.hour}:${nextApt.startTime.minute.toString().padLeft(2, '0')}';
+      final type = nextApt.isConsultation ? 'Consultation' : 'RDV';
+      nextAptInfo = '$type\n$dateStr à $timeStr';
+    }
 
     return Row(
       children: [
-        Expanded(
-          child: _buildStatCard(
-            "Cette semaine",
-            '${doctorState.weekAppointmentsCount}',
-            LucideIcons.calendar,
-            AppColors.primary,
-          ),
-        ),
+        Expanded(child: _buildStatCard("Cette semaine", '${doctorState.weekAppointmentsCount}', LucideIcons.calendar, AppColors.primary)),
         const SizedBox(width: 24),
-        Expanded(
-          child: _buildStatCard(
-            "En ligne",
-            '$onlineCount',
-            LucideIcons.video,
-            AppColors.secondary,
-          ),
-        ),
+        Expanded(child: _buildStatCard("En ligne", '$onlineCount', LucideIcons.video, AppColors.secondary)),
         const SizedBox(width: 24),
-        Expanded(
-          child: _buildStatCard(
-            "Prochain RDV",
-            nextAppointmentName,
-            LucideIcons.user,
-            AppColors.warning,
-          ),
-        ),
+        Expanded(child: _buildStatCard("Prochain RDV", nextAptInfo, LucideIcons.user, AppColors.warning)),
       ],
     );
   }
-
   Widget _buildStatCard(
     String title,
     String value,

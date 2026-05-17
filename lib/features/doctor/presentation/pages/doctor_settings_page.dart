@@ -34,15 +34,8 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _pushEnabled = prefs.getBool('push_notifications') ?? true;
       _emailEnabled = prefs.getBool('email_reminders') ?? true;
     });
-  }
-
-  Future<void> _savePushSetting(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('push_notifications', value);
-    setState(() => _pushEnabled = value);
   }
 
   Future<void> _saveEmailSetting(bool value) async {
@@ -70,18 +63,20 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             Text('Langue', style: AppTextStyles.sectionTitle),
             const SizedBox(height: AppSpacing.lg),
             ListTile(
-              leading: const Text('🇫🇷', style: TextStyle(fontSize: 24)),
               title: Text('Français', style: AppTextStyles.bodyMedium),
-              trailing: !isArabic ? Icon(LucideIcons.check, color: AppColors.primary) : null,
+              trailing: !isArabic
+                  ? Icon(LucideIcons.check, color: AppColors.primary)
+                  : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('fr');
                 Navigator.pop(ctx);
               },
             ),
             ListTile(
-              leading: const Text('🇩🇿', style: TextStyle(fontSize: 24)),
               title: Text('العربية', style: AppTextStyles.bodyMedium),
-              trailing: isArabic ? Icon(LucideIcons.check, color: AppColors.primary) : null,
+              trailing: isArabic
+                  ? Icon(LucideIcons.check, color: AppColors.primary)
+                  : null,
               onTap: () {
                 ref.read(localeProvider.notifier).setLocale('ar');
                 Navigator.pop(ctx);
@@ -110,7 +105,10 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               Navigator.pop(ctx);
               await ref.read(authProvider.notifier).logout();
             },
-            child: Text('Deconnexion', style: AppTextStyles.labelLarge.copyWith(color: AppColors.error)),
+            child: Text(
+              'Deconnexion',
+              style: AppTextStyles.labelLarge.copyWith(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -137,7 +135,9 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             title: 'Modifier le profil',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const DoctorEditProfilePage()),
+              MaterialPageRoute(
+                builder: (context) => const DoctorEditProfilePage(),
+              ),
             ),
           ),
           _buildMenuItem(
@@ -145,7 +145,9 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             title: 'Horaires de travail',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const DoctorSchedulePage()),
+              MaterialPageRoute(
+                builder: (context) => const DoctorSchedulePage(),
+              ),
             ),
           ),
           _buildMenuItem(
@@ -153,7 +155,9 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             title: 'Abonnement',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const DoctorSubscriptionPage()),
+              MaterialPageRoute(
+                builder: (context) => const DoctorSubscriptionPage(),
+              ),
             ),
           ),
           _buildMenuItem(
@@ -162,20 +166,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             onTap: () {},
           ),
           const SizedBox(height: AppSpacing.lg),
-          _buildSectionTitle('Notifications'),
-          const SizedBox(height: AppSpacing.sm),
-          _buildToggleItem(
-            icon: LucideIcons.bell,
-            title: 'Notifications push',
-            value: _pushEnabled,
-            onChanged: _savePushSetting,
-          ),
-          _buildToggleItem(
-            icon: LucideIcons.mail,
-            title: 'Rappels par email',
-            value: _emailEnabled,
-            onChanged: _saveEmailSetting,
-          ),
+
           const SizedBox(height: AppSpacing.lg),
           _buildSectionTitle('Langue'),
           const SizedBox(height: AppSpacing.sm),
@@ -243,16 +234,18 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             const SizedBox(height: 4),
             Text(
               state.specialty,
-              style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w300),
+              style: AppTextStyles.bodyMedium.copyWith(
+                fontWeight: FontWeight.w300,
+              ),
             ),
           ],
           const SizedBox(height: AppSpacing.md),
-          if (state.city.isNotEmpty) _buildInfoChip(LucideIcons.mapPin, state.city),
-          if (state.phone.isNotEmpty) _buildInfoChip(LucideIcons.phone, state.phone),
-          if (state.scheduleSlots.isNotEmpty) _buildInfoChip(
-            LucideIcons.clock,
-            _buildScheduleSummary(state),
-          ),
+          if (state.city.isNotEmpty)
+            _buildInfoChip(LucideIcons.mapPin, state.city),
+          if (state.phone.isNotEmpty)
+            _buildInfoChip(LucideIcons.phone, state.phone),
+          if (state.scheduleSlots.isNotEmpty)
+            _buildInfoChip(LucideIcons.clock, _buildScheduleSummary(state)),
         ],
       ),
     );
@@ -272,12 +265,26 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             placeholder: (context, url) => CircleAvatar(
               radius: 48,
               backgroundColor: AppColors.primary,
-              child: Text(_getInitials(name), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white)),
+              child: Text(
+                _getInitials(name),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ),
             errorWidget: (context, url, error) => CircleAvatar(
               radius: 48,
               backgroundColor: AppColors.primary,
-              child: Text(_getInitials(name), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white)),
+              child: Text(
+                _getInitials(name),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ),
@@ -286,7 +293,14 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
     return CircleAvatar(
       radius: 48,
       backgroundColor: AppColors.primary,
-      child: Text(_getInitials(name), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white)),
+      child: Text(
+        _getInitials(name),
+        style: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
     );
   }
 
@@ -305,7 +319,12 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
         children: [
           Icon(icon, size: 14, color: AppColors.textSecondary),
           const SizedBox(width: 4),
-          Text(text, style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w300)),
+          Text(
+            text,
+            style: AppTextStyles.labelMedium.copyWith(
+              fontWeight: FontWeight.w300,
+            ),
+          ),
         ],
       ),
     );
@@ -314,7 +333,10 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
   String _buildScheduleSummary(DoctorState state) {
     if (state.scheduleSlots.isEmpty) return 'Non configuré';
     final dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-    final workingDays = state.scheduleSlots.where((s) => s.isActive).map((s) => dayNames[s.dayOfWeek]).toList();
+    final workingDays = state.scheduleSlots
+        .where((s) => s.isActive)
+        .map((s) => dayNames[s.dayOfWeek])
+        .toList();
     if (workingDays.isEmpty) return 'Non configuré';
     final firstSlot = state.scheduleSlots.first;
     final start = TimeUtils.minutesToString(firstSlot.startTime);
@@ -338,14 +360,23 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(LucideIcons.stethoscope, color: AppColors.primary, size: 24),
+            child: Icon(
+              LucideIcons.stethoscope,
+              color: AppColors.primary,
+              size: 24,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Eyadati', style: AppTextStyles.labelLarge),
-              Text('Version 1.0.0', style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w300)),
+              Text(
+                'Version 1.0.0',
+                style: AppTextStyles.labelMedium.copyWith(
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
             ],
           ),
         ],
@@ -354,7 +385,10 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(title, style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary));
+    return Text(
+      title,
+      style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary),
+    );
   }
 
   Widget _buildMenuItem({
@@ -365,26 +399,38 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: AppColors.textSecondary),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(child: Text(title, style: AppTextStyles.bodyMedium)),
-              if (trailing != null)
-                Text(trailing, style: AppTextStyles.labelMedium.copyWith(fontWeight: FontWeight.w300))
-              else
-                Icon(LucideIcons.chevronRight, size: 20, color: AppColors.textHint),
-            ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: AppColors.textSecondary),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(child: Text(title, style: AppTextStyles.bodyMedium)),
+                if (trailing != null)
+                  Text(
+                    trailing,
+                    style: AppTextStyles.labelMedium.copyWith(
+                      fontWeight: FontWeight.w300,
+                    ),
+                  )
+                else
+                  const Icon(
+                    LucideIcons.chevronRight,
+                    size: 16,
+                    color: AppColors.textHint,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -416,7 +462,8 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               onChanged: onChanged,
               activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
               thumbColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.selected)) return AppColors.primary;
+                if (states.contains(WidgetState.selected))
+                  return AppColors.primary;
                 return AppColors.textHint;
               }),
             ),
