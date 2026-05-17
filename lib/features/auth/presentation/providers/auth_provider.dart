@@ -23,7 +23,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       final result = await _repository.signIn(email: email, password: password);
       if (result.isSuccess) {
         final user = result.user!;
-        final role = user.userMetadata?['role'] as String? ?? 'patient';
+        // Per auth_checklist: Role must come from profiles table, not userMetadata
+        final role = await _fetchRoleFromProfile(user.id);
         final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
         state = state.copyWith(
           isAuthenticated: true,
@@ -119,6 +120,26 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     }
   }
 
+  // Per auth_checklist: Fetch role from profiles table (source of truth)
+  Future<String> _fetchRoleFromProfile(String userId) async {
+    try {
+      final profile = await SupabaseInitializer.client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+      if (profile != null && profile['role'] != null) {
+        return profile['role'] as String;
+      }
+      // If no profile, fallback to patient but log warning
+      print('[AuthProvider] WARNING: No profile found for user $userId, defaulting to patient');
+      return 'patient';
+    } catch (e) {
+      print('[AuthProvider] ERROR fetching role from profile: $e');
+      return 'patient';
+    }
+  }
+
   Future<void> checkAuthStatus() async {
     state = state.copyWith(isLoading: true);
     print('[AuthProvider] checkAuthStatus called');
@@ -126,8 +147,9 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       final user = _repository.currentUser;
       print('[AuthProvider] currentUser: ${user?.id ?? "null"}, email: ${user?.email ?? "null"}');
       if (user != null) {
-        final role = user.userMetadata?['role'] as String? ?? 'patient';
-        print('[AuthProvider] user role: $role');
+        // Per auth_checklist: Role from profiles table, not userMetadata
+        final role = await _fetchRoleFromProfile(user.id);
+        print('[AuthProvider] user role from profile: $role');
         final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
         print('[AuthProvider] doctor setup completed: $setupCompleted');
         state = state.copyWith(
