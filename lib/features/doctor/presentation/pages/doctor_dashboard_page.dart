@@ -22,35 +22,19 @@ class DoctorDashboardPage extends ConsumerStatefulWidget {
 }
 
 class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
-  DoctorPage _currentPage = DoctorPage.dashboard;
+  DoctorPage _currentPage = DoctorPage.calendar;
 
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWideScreen = screenWidth >= 900;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      drawer: isWideScreen ? null : _buildDrawer(doctorState),
-      body: Row(
-        children: [
-          if (isWideScreen) _buildSidebar(doctorState),
-          Expanded(
-            child: Column(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1200),
-                      child: _buildCurrentPage(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: _buildCurrentPage(),
+        ),
       ),
     );
   }

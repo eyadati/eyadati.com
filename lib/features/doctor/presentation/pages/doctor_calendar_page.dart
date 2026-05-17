@@ -10,6 +10,7 @@ import 'package:eyadati/models/schedule_slot_model.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
+import 'doctor_settings_page.dart';
 
 class DoctorCalendarPage extends ConsumerStatefulWidget {
   const DoctorCalendarPage({super.key});
@@ -374,6 +375,180 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     return regions;
   }
 
+  Widget _buildCardsRow(DoctorState doctorState) {
+    final now = DateTime.now();
+    final upcomingList = doctorState.upcomingAppointments;
+    
+    final weekCount = doctorState.weekAppointments;
+    final onlineCount = upcomingList
+        .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
+        .length;
+    
+    final nextAppointment = upcomingList.isNotEmpty ? upcomingList.first : null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              'Cette semaine',
+              '$weekCount',
+              LucideIcons.calendar,
+              AppColors.secondary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              'En ligne',
+              '$onlineCount',
+              LucideIcons.video,
+              AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildNextAppointmentCard(nextAppointment),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNextAppointmentCard(AppointmentData? appointment) {
+    if (appointment == null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(LucideIcons.clock, color: AppColors.primary, size: 16),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '--',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Prochain RDV',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
+    final dateStr = '${appointment.startTime.day}/${appointment.startTime.month}';
+    final typeColor = appointment.isConsultation ? AppColors.consultationColor : AppColors.primary;
+    final typeLabel = appointment.isConsultation ? 'Consultation' : 'RDV';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: typeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              typeLabel,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: typeColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appointment.patientName,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$dateStr à $timeStr',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
@@ -442,6 +617,17 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               ),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.settings, size: 22),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DoctorSettingsPage()),
+              );
+            },
+            color: AppColors.textSecondary,
+          ),
+          const SizedBox(width: 4),
           _buildNotificationBell(doctorState),
           const SizedBox(width: 8),
           if (!isScheduleView)
@@ -454,7 +640,11 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: isScheduleView
+      body: Column(
+        children: [
+          _buildCardsRow(doctorState),
+          Expanded(
+            child: isScheduleView
           ? _buildScheduleView(doctorState)
           : SfCalendarTheme(
               data: SfCalendarThemeData(
@@ -602,6 +792,9 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 

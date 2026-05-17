@@ -1,884 +1,739 @@
-# Appointment & Slot System Roadmap (Eyadati)
+# Eyadati Calendar & Availability Refactor Checklist
 
-Your structure is already good enough for a scalable booking system.
+# PRIMARY OBJECTIVE
 
-The main challenge now is not database structure.
+Transform the current calendar system into:
 
-It is:
-
-```
-slot generation architecture
-```
-
-You need to separate clearly:
-
-1. Doctor availability
-2. Generated potential slots
-3. Occupied slots (appointments)
-4. Realtime synchronization
-
-Most booking systems become messy because these concepts get mixed.
-
----
-
-## Core Philosophy
-
-You should NEVER store:
-
-```
-all possible slots in database
-```
-
-That becomes:
-
-- bloated
-- expensive
-- hard to maintain
-- difficult to sync
-
-Instead:
-
-## Correct Approach
-
-Slots should be:
-
-```
-generated dynamically
-```
-
-from:
-
-- doctor schedule
-- appointment duration
-- break time
-- existing appointments
-
-This is how modern booking systems work.
-
----
-
-## Main System Flow
-
-```
-Doctor Schedule
-        ↓
-Generate Possible Slots
-        ↓
-Fetch Existing Appointments
-        ↓
-Remove Occupied Times
-        ↓
-Return Available Slots
-```
-
-This is the heart of your booking engine.
-
----
-
-## Important Tables Roles
-
-### doctors
-
-Global doctor settings:
-
-- durations
-- working days
-- opening hours
-- pauses
-- subscription state
-
-Think of this as:
-
-```
-doctor configuration
-```
-
----
-
-### doctor_schedule
-
-This should become:
-
-```
-daily schedule overrides
-```
-
-More flexible than `working_days`.
-
-You should gradually rely on this table more.
-
-Because later you'll want:
-
-- different hours per day
-- custom schedules
-- special cases
-
-Example:
-
-```
-Monday: 09-17
-Tuesday: 10-14
-Friday: 08-12
-```
-
-This table should become the source of truth for availability.
-
----
-
-### appointments
-
-Represents:
-
-```
-occupied time blocks
-```
-
-NOT slots.
-
-This distinction is critical.
-
----
-
-## Recommended Booking Architecture
-
-### Layer 1 — Schedule Engine
-
-Responsible for:
-
-- generating theoretical slots
-
-Input:
-
-```
-doctor
-date
-schedule
-duration
-```
-
-Output:
-
-```
-List<PotentialSlot>
-```
-
-Example:
-
-```
-09:00
-09:20
-09:40
-10:00
-```
-
-No appointment checking yet.
-
----
-
-### Layer 2 — Conflict Engine
-
-Responsible for:
-
-- removing occupied slots
-
-Input:
-
-```
-Potential slots
+```text
+Visual Calendar
 +
-Existing appointments
+Availability Engine
++
+Fast Booking UX
 ```
 
-Output:
+WITHOUT:
 
-```
-Available slots
+* visual slot calculations
+* stored slots
+* calendar-driven logic
+* leftover-space rendering
+
+---
+
+# CORE ARCHITECTURE RULES
+
+# RULE 1 — Calendar Is Presentation Only
+
+Syncfusion Calendar MUST ONLY:
+
+* render appointments
+* render durations visually
+* handle taps
+* navigate dates
+
+Syncfusion MUST NEVER:
+
+* calculate availability
+* generate slots
+* validate overlaps
+* compute remaining space
+* manage booking logic
+
+---
+
+# RULE 2 — Appointments Are Source Of Truth
+
+Database stores ONLY:
+
+* appointments
+* doctor schedules
+
+NEVER store:
+
+* generated slots
+* free slots
+* reserved slots
+* visual slot state
+
+---
+
+# RULE 3 — Availability Is Derived Dynamically
+
+Availability must always be computed from:
+
+```text
+working ranges
+-
+occupied ranges
+=
+free ranges
 ```
 
 ---
 
-### Layer 3 — Booking Engine
+# RULE 4 — Time Uses Integer Minutes
 
-Responsible for:
+ALL scheduling logic MUST use:
 
-- validating slot still free
-- inserting appointment
-- realtime sync
+```text
+minutes from midnight
+```
 
-This is where race conditions matter.
+Examples:
+
+```text
+09:00 → 540
+10:30 → 630
+17:00 → 1020
+```
+
+NEVER use:
+
+* formatted strings
+* DateFormat
+* widget times
+* visual grid positions
+
+for calculations.
 
 ---
 
-## Slot Generation Logic
+# RULE 5 — Slot Means Valid Start Time
 
-The generator should:
+A slot is:
 
-### Step 1
-
-Check:
-
-```
-manual_pause == false
-subscription_end > now()
+```text
+a valid starting minute where a duration fits
 ```
 
-If false:
+NOT:
 
-```
-no slots
+* visual cell
+* database object
+* scheduler block
+
+---
+
+# REQUIRED REFACTOR
+
+# REMOVE SLOT THINKING ENTIRELY
+
+DELETE:
+
+* scheduleSlots
+* slot occupancy
+* slot splitting
+* slot rendering logic
+* remaining-space visual calculations
+
+REPLACE WITH:
+
+* occupied ranges
+* free ranges
+* valid starts
+
+---
+
+# FILE STRUCTURE
+
+# Calendar Shell
+
+File:
+
+```text
+doctor_calendar_page.dart
 ```
 
 ---
 
-### Step 2
+## RESPONSIBILITIES
 
-Get schedule for requested day.
+ONLY:
+
+* page layout
+* navigation
+* toolbar
+* calendar callbacks
+* bottom sheet opening
+
+---
+
+## MUST NOT
+
+* calculate slots
+* calculate availability
+* map appointments
+* perform time calculations
+
+---
+
+# Calendar Widget
+
+File:
+
+```text
+doctor_calendar_widget.dart
+```
+
+---
+
+## RESPONSIBILITIES
+
+ONLY:
+
+* render Syncfusion Calendar
+* receive datasource
+* expose tap callbacks
+
+---
+
+## MUST NOT
+
+* know business logic
+* know schedules
+* know overlaps
+* know free ranges
+
+---
+
+# Calendar Mapper
+
+File:
+
+```text
+calendar_mapper.dart
+```
+
+---
+
+## RESPONSIBILITY
+
+Convert:
+
+```text
+AppointmentEntity
+→
+Syncfusion Appointment
+```
+
+---
+
+## MUST HANDLE
+
+* colors
+* subjects
+* status styles
+* duration rendering
+
+---
+
+## MUST NOT
+
+* calculate availability
+* calculate fitting
+* generate slots
+
+---
+
+# Availability Engine
+
+File:
+
+```text
+availability_service.dart
+```
+
+---
+
+# THIS IS THE SCHEDULING BRAIN
+
+ALL scheduling logic MUST live here.
+
+---
+
+## RESPONSIBILITIES
+
+* generate occupied ranges
+* generate free ranges
+* generate valid start times
+* validate duration fit
+* validate overlaps
+* compute availability
+
+---
+
+## INPUTS
+
+* doctor schedule
+* appointments
+* selected date
+* requested duration
+
+---
+
+## OUTPUTS
+
+### FreeRange
+
+```dart
+class FreeRange {
+  int startMinute;
+  int endMinute;
+}
+```
+
+---
+
+### ValidStart
+
+```dart
+class ValidStart {
+  int minute;
+  int duration;
+}
+```
+
+---
+
+## MUST NOT
+
+* know widgets
+* know calendar UI
+* know navigation
+
+---
+
+# Booking Bottom Sheet
+
+File:
+
+```text
+appointment_booking_sheet.dart
+```
+
+---
+
+## RESPONSIBILITIES
+
+* patient selection
+* appointment type selection
+* duration selection
+* valid start selection
+* booking confirmation
+
+---
+
+## MUST RECEIVE
+
+Already computed:
+
+* valid starts
+* duration presets
+
+---
+
+## MUST NOT
+
+* calculate free ranges
+* calculate overlaps
+* generate slots
+
+---
+
+# PROVIDER RULES
+
+# DoctorProvider MUST ONLY
+
+* fetch appointments
+* fetch schedules
+* expose state
+* subscribe realtime
+* trigger refreshes
+* call services/repositories
+
+---
+
+# DoctorProvider MUST NEVER
+
+* calculate slots
+* calculate free ranges
+* validate overlaps
+* generate availability
+
+Move all logic to:
+
+```text
+availability_service.dart
+```
+
+---
+
+# REMOVE THESE PATTERNS
+
+# DELETE
+
+```dart
+scheduleSlots
+```
+
+---
+
+# DELETE
+
+```dart
+getAvailableSlotsForDay()
+```
+
+---
+
+# DELETE
+
+Visual leftover calculations.
+
+---
+
+# DELETE
+
+Slot-based UI rendering.
+
+---
+
+# REMOVE MOCK DATA FROM UI
+
+MOVE:
+
+```dart
+_generateMockAppointments()
+```
+
+TO:
+
+```text
+dev/mock/mock_calendar_data.dart
+```
+
+---
+
+# TIME UTILITIES
+
+Create:
+
+```text
+time_utils.dart
+```
+
+---
+
+# REQUIRED HELPERS
+
+```dart
+timeToMinutes()
+minutesToTime()
+combineDateAndMinute()
+extractMinuteFromDate()
+formatMinute()
+```
+
+---
+
+# NEVER
+
+Repeat raw conversion logic in widgets.
+
+---
+
+# AVAILABILITY ENGINE FLOW
+
+# STEP 1 — Load Schedule
+
+Get:
+
+* opening minute
+* closing minute
+* break ranges
+
+---
+
+# STEP 2 — Load Appointments
+
+Fetch all active appointments for selected day.
+
+IGNORE:
+
+* cancelled
+* absent
+
+when computing occupied ranges.
+
+---
+
+# STEP 3 — Build Occupied Ranges
+
+Each appointment becomes:
+
+```text
+[startMinute, endMinute]
+```
+
+Breaks also become occupied ranges.
+
+---
+
+# STEP 4 — Sort Ranges
+
+Sort ascending by:
+
+```text
+startMinute
+```
+
+---
+
+# STEP 5 — Generate Free Ranges
 
 Example:
 
-```
-Tuesday
-09:00 → 17:00
-```
+Working range:
 
----
-
-### Step 3
-
-Determine slot duration.
-
-Example:
-
-```
-consultation ? consultation_duration : appointment_duration
+```text
+09:00–17:00
 ```
 
----
+Occupied:
 
-### Step 4
-
-Generate time intervals.
-
-Example:
-
-```
-09:00
-09:20
-09:40
-10:00
+```text
+09:00–09:40
+12:00–13:00
 ```
 
-until:
+Result:
 
-```
-closing_time - duration
+```text
+09:40–12:00
+13:00–17:00
 ```
 
 ---
 
-### Step 5
+# STEP 6 — Generate Valid Starts
 
-Exclude break period.
+Given:
 
-Example:
-
-```
-12:00 → 13:00
+```text
+duration = 20
 ```
 
-Remove overlapping generated slots.
+Generate starts every:
+
+```text
+10 minutes
+```
+
+ONLY if:
+
+```text
+start + duration <= freeRangeEnd
+```
 
 ---
 
-## Appointment Conflict Logic
+# OVERLAP VALIDATION
 
-Now fetch appointments for that day.
+# ONLY USE THIS RULE
 
-You already store:
+Conflict exists if:
 
-```
-scheduled_at
-duration
-```
-
-Perfect.
-
-Convert appointments into:
-
-```
-start → end ranges
-```
-
-Example:
-
-```
-10:00 → 10:20
-```
-
-Then compare generated slots.
-
----
-
-## Overlap Rule
-
-A slot is unavailable if:
-
-```
-slot_start < appointment_end
+```text
+newStart < existingEnd
 AND
-slot_end > appointment_start
+newEnd > existingStart
 ```
 
-This rule is the core of scheduling systems.
+Do NOT invent custom overlap logic.
 
 ---
 
-## Manual + Online Appointments
+# DURATION RULES
 
-Good news:
-your current structure already supports both perfectly.
+# Patients
 
-Because:
+Patients:
 
-```
-booking_type
-```
+* cannot choose arbitrary duration
+* cannot choose arbitrary times
 
-is metadata only.
+Use doctor defaults:
 
-The scheduler should NOT care whether appointment is:
-
-- manual
-- online
-
-Both simply:
-
-```
-occupy time
-```
-
-This is correct architecture.
+* appointment_duration
+* consultation_duration
 
 ---
 
-## Realtime Architecture
+# Doctors
 
-This is extremely important.
+Doctors MAY:
 
----
+* override duration
+* use preset durations
 
-### Realtime Goal
+BUT:
 
-When:
-
-- patient books
-- receptionist adds walk-in
-- doctor edits status
-
-The calendar should update instantly.
+* availability engine must validate fit
 
 ---
 
-### Recommended Realtime Structure
+# ALLOWED DOCTOR PRESETS
 
-#### Doctor Dashboard Subscribes To:
-
-```
-appointments
-```
-
-filtered by:
-
-```
-doctor_id
+```text
+10
+20
+30
+40
+60
 ```
 
-Listen for:
-
-- INSERT
-- UPDATE
-- DELETE
+Avoid arbitrary minute entry.
 
 ---
 
-#### Patient Booking Page Subscribes To:
+# CALENDAR UI RULES
 
-same doctor/day appointments.
+# Calendar ONLY SHOWS
 
-This allows:
-
-- live slot invalidation
-- instant UI updates
-
-Example:
-
-```
-slot disappears instantly after booking
-```
-
-Very important for avoiding double booking.
+* appointments
+* duration sizes
+* colors
+* statuses
 
 ---
 
-## Race Condition Protection
+# Calendar MUST NOT SHOW
 
-Critical.
-
-Realtime alone is NOT enough.
-
-Two patients may:
-
-- see same slot
-- click simultaneously
-
-You MUST validate server-side before insert.
+* remaining gaps
+* sub-slots
+* split slot visuals
+* calculated free fragments
 
 ---
 
-### Correct Flow
+# BOOKING UX RULES
 
-#### Client
+# Doctor Tap Flow
 
-Attempts booking.
+Doctor taps calendar:
+
+```text
+10:00 area
+```
+
+Bottom sheet opens:
+
+```text
+Available:
+10:00
+10:10
+10:20
+```
+
+Doctor selects one.
+
+DONE.
 
 ---
 
-#### Server Validation
+# DO NOT
 
-Check:
+Visually carve empty time space.
 
-```
-is slot still available?
-```
-
-using overlap logic.
+That complexity is unnecessary.
 
 ---
 
-#### If free
+# REALTIME RULES
 
-Insert appointment.
+Realtime MUST:
 
----
-
-#### If occupied
-
-Reject booking.
+* subscribe per doctor
+* refresh only visible days/range
 
 ---
 
-**Important**
+# AFTER REALTIME UPDATE
 
-This validation should ideally happen:
+Recompute:
 
-```
-inside postgres function / RPC
-```
+* occupied ranges
+* free ranges
+* valid starts
 
-NOT purely in Flutter.
+NOT:
 
-Because:
-
-```
-client validation is not safe
-```
+* visual slots
 
 ---
 
-### Recommended Realtime UX
+# PERFORMANCE RULES
 
-#### Doctor Dashboard
+# NEVER
 
-Realtime:
+Generate:
 
-- new appointments appear instantly
-- cancellations disappear
-- status updates sync live
-
----
-
-#### Patient Booking
-
-Realtime:
-
-- slot disappears instantly
-- unavailable state updates
-
-This creates:
-
-```
-live booking feel
-```
+* month-wide slots
+* yearly slots
 
 ---
 
-## Doctor Dashboard Calendar Flow
+# ONLY GENERATE
 
-Doctor opens week:
+* selected day
+  OR
+* visible week
 
+---
+
+# CACHE RULES
+
+Cache:
+
+```text
+DayAvailability
 ```
-Fetch appointments for week
+
+Invalidate ONLY when:
+
+* appointments change
+* schedules change
+
+---
+
+# FINAL SYSTEM FLOW
+
+```text
+Doctor Opens Calendar
         ↓
-Map into appointment blocks
+Syncfusion Renders Appointments
         ↓
-Render calendar grid
+Doctor Selects Day/Time
         ↓
-Realtime updates modify provider state
+Availability Service Computes:
+    - occupied ranges
+    - free ranges
+    - valid starts
         ↓
-UI rerenders affected blocks only
-```
-
----
-
-## Recommended Data Fetching Strategy
-
-Avoid:
-
-```
-fetch entire month constantly
-```
-
-Use:
-
-```
-visible date range only
-```
-
-Example:
-
-- current week
-- selected day
-
-This reduces:
-
-- Supabase reads
-- memory usage
-- rerenders
-
----
-
-### Suggested Provider Separation
-
-#### Availability Provider
-
-Responsible for:
-
-```
-available slots
-```
-
----
-
-#### Appointments Provider
-
-Responsible for:
-
-```
-existing appointments
-```
-
----
-
-#### Dashboard Provider
-
-Responsible for:
-
-```
-calendar UI state
-```
-
-This separation keeps the system clean.
-
----
-
-## Important Future-Proofing
-
-Your current structure already supports future features like:
-
-- vacations
-- custom holidays
-- schedule overrides
-- partner doctors
-- recurring schedules
-- receptionist multi-user support
-
-without major rewrites.
-
-That's good schema design.
-
----
-
-## Biggest Recommendation
-
-Move toward:
-
-```
-doctor_schedule
-```
-
-being the primary source of working hours.
-
-Right now you have duplicated logic:
-
-- working_days
-- opening_at
-- closing_at
-- doctor_schedule
-
-Long-term:
-
-```
-doctor_schedule should own scheduling
-```
-
-because it is more flexible and scalable.
-
----
-
-## Recommended Final Architecture
-
-### Database
-
-Stores:
-
-- schedules
-- appointments
-- doctor settings
-
----
-
-### Backend Logic
-
-Handles:
-
-- overlap validation
-- slot generation
-- availability calculation
-
----
-
-### Flutter
-
-Handles:
-
-- rendering
-- realtime updates
-- interactions
-- optimistic UI
-
-This separation is the correct scalable approach.
-
----
-
-# Implementation Plan
-
-## Phase 1: Clean Data Layer (Database)
-
-**Goal:** Consolidate to single source of truth for schedules
-
-| Task | Description |
-|---|---|
-| 1.1 | Make `doctor_schedule` the **primary source** — migrate all `working_days`, `opening_at`, `closing_at` data from `doctors` table into `doctor_schedule` rows |
-| 1.2 | Update `doctors` table to keep only **global config** (durations, subscription, pause) — remove day/time columns |
-| 1.3 | Add `break_start` / `break_end` columns to `doctor_schedule` (per-day breaks) instead of global in `doctors` |
-| 1.4 | Add SQL constraint that ensures only ONE active schedule row per `doctor_id + day_of_week` |
-| 1.5 | Remove `working_days` text[] from `doctors` — no longer needed |
-| 1.6 | Add `patients` table for patient profiles (name, phone, notes, etc.) |
-| 1.7 | Add `appointment_type` column to appointments (`standard`/`consultation`) |
-
----
-
-## Phase 2: Slot Generation Engine (Flutter)
-
-**Goal:** Build pure Dart slot generator — no SQL complexity
-
-| Task | Description |
-|---|---|
-| 2.1 | Create `SlotEngine` class — pure Dart, stateless, testable |
-| 2.2 | Layer 1 — `ScheduleEngine.generateSlots(date, scheduleSlots, duration)` → returns all possible time intervals |
-| 2.3 | Layer 2 — `ConflictEngine.filterOccupied(potentialSlots, appointments)` → removes booked times |
-| 2.4 | Add break time exclusion (per-day breaks from `doctor_schedule`) |
-| 2.5 | Add past-time exclusion (no slots in the past) |
-| 2.6 | Add overlap rule: `slot.start < apt.end && slot.end > apt.start` |
-| 2.7 | Support both `appointment_duration` and `consultation_duration` |
-| 2.8 | Handle multiple schedule rows per day (e.g., 09-12 and 14-17) |
-
----
-
-## Phase 3: Provider Separation
-
-**Goal:** Separate concerns into focused providers
-
-| Task | Description |
-|---|---|
-| 3.1 | Create `AvailabilityProvider` — manages slot generation only |
-| 3.2 | Create `AppointmentsProvider` — manages CRUD for appointments |
-| 3.3 | Refactor `DoctorProvider` to delegate scheduling to `SlotEngine` |
-| 3.4 | Patient-side: create `PatientBookingProvider` — generates slots for booking |
-| 3.5 | Expose `availableSlotsForDate(date)` method on provider |
-| 3.6 | Remove redundant `loadScheduleForDay()` — replaced by `SlotEngine` |
-
----
-
-## Phase 4: Real-time Sync
-
-**Goal:** Live calendar updates across all views
-
-| Task | Description |
-|---|---|
-| 4.1 | Realtime channel on `appointments` table (already exists) — verify it triggers slot refresh |
-| 4.2 | When realtime fires INSERT/UPDATE/DELETE → recompute available slots via `SlotEngine` |
-| 4.3 | Add realtime subscription for patient booking page |
-| 4.4 | Add optimistic UI — slot disappears immediately on booking, reappears if failed |
-| 4.5 | Add conflict check in `AppointmentsProvider.createAppointment()` before insert |
-
----
-
-## Phase 5: Booking Validation (Server-side)
-
-**Goal:** Prevent double-booking race conditions
-
-| Task | Description |
-|---|---|
-| 5.1 | Create PostgreSQL function `check_slot_availability(doctor_id, slot_time, duration)` using overlap rule |
-| 5.2 | `createAppointment()` in provider calls this function before inserting |
-| 5.3 | Handle race condition: if slot taken between UI click and DB insert, return clear error |
-| 5.4 | Patient booking flow also uses same validation |
-
----
-
-## Phase 6: UI Refactor
-
-**Goal:** Update UI to use new slot engine
-
-| Task | Description |
-|---|---|
-| 6.1 | Refactor `DoctorAddAppointmentDialog` — use `SlotEngine` instead of `_computeAvailableSlots` |
-| 6.2 | Refactor `DoctorCalendarPage` — use `SlotEngine` for `_isDayScheduled` |
-| 6.3 | Refactor patient `BookingPage` — use `SlotEngine` for slot display |
-| 6.4 | Refactor `DoctorSchedulePage` — CRUD on `doctor_schedule` table directly |
-| 6.5 | Refactor `DoctorPatientsPage` — use new `patients` table |
-| 6.6 | Add loading states during slot generation |
-| 6.7 | Update `_DayAppointmentsSheet` to show computed availability |
-
----
-
-## Phase 7: Testing & Polish
-
-**Goal:** Ensure reliability
-
-| Task | Description |
-|---|---|
-| 7.1 | Add unit tests for `SlotEngine` — test overlap logic, break times, multiple slots per day |
-| 7.2 | Test race condition: two simultaneous bookings |
-| 7.3 | Test realtime: slot disappears after other user books |
-| 7.4 | Verify all old SQL functions are removed or updated to use `doctor_schedule` |
-
----
-
-## Target Data Model
-
-### doctor_schedule (source of truth for availability)
-
-```sql
-id              uuid PK
-doctor_id       uuid FK (refs doctors)
-day_of_week     int (0=Sunday .. 6=Saturday)
-start_time      time
-end_time        time
-break_start     time (nullable) -- per-day break
-break_end       time (nullable)
-is_active       bool default true
-created_at      timestamptz
-updated_at      timestamptz
-
--- Unique constraint: one active schedule per doctor per day
-UNIQUE(doctor_id, day_of_week) WHERE is_active = true
-```
-
-### appointments (occupied time blocks)
-
-```sql
-id                  uuid PK
-doctor_id           uuid FK (refs doctors)
-patient_id          uuid FK (refs patients) nullable
-scheduled_at        timestamptz
-duration            int (minutes)
-status              text ('upcoming'/'completed'/'cancelled'/'absent')
-booking_type        text ('online'/'manual')
-is_consultation     bool default false
-patient_name_snapshot   text (fallback for manual)
-patient_phone_snapshot  text
-notes               text
-created_at          timestamptz
-updated_at          timestamptz
-```
-
-### patients (new table)
-
-```sql
-id          uuid PK (refs profiles)
-name        text
-phone       text
-email       text
-notes       text
-medical_history text
-created_at  timestamptz
-updated_at  timestamptz
-```
-
-### doctors (global config only — no day/time columns)
-
-```sql
-id                      uuid PK (refs profiles)
-specialty                text
-address                 text
-city                    text
-maps_link               text
-photo_url               text
-
-appointment_duration    int (default 20)
-consultation_duration   int (default 30)
-
-manual_pause            bool default false
-subscription_end        timestamptz
-
-created_at              timestamptz
-```
-
----
-
-## Final System Flow
-
-```
-User opens booking page
+Booking Bottom Sheet Opens
         ↓
-Provider fetches doctor_schedule (all rows for doctor)
+Doctor Chooses:
+    - patient
+    - type
+    - duration
+    - suggested start
         ↓
-SlotEngine.generate() → potential slots
+Collision Validation
         ↓
-Provider fetches appointments for that day
+Supabase Insert
         ↓
-SlotEngine.filter() → removes occupied
+Realtime Refresh
         ↓
-UI shows available slots
-        ↓
-User taps slot → booking request
-        ↓
-Provider checks server-side validation (overlap rule)
-        ↓
-Insert → success → realtime fires → all clients update
+Calendar Updates
 ```
-
----
-
-## Key Architecture Principles
-
-1. **Never store generated slots in DB** — compute dynamically
-2. **`doctor_schedule` is the single source of truth** for availability
-3. **`appointments` are occupied blocks only** — not pre-generated slots
-4. **Overlap rule is the core** — `slot_start < apt_end && slot_end > apt_start`
-5. **Server-side validation is mandatory** — client validation is not safe
-6. **Realtime keeps all clients in sync** — slot availability updates live
-7. **Separate concerns** — Availability vs Appointments vs Calendar UI
-8. **Pure Dart slot engine** — stateless, testable, no SQL dependency
