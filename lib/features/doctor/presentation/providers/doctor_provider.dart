@@ -67,6 +67,38 @@ class DoctorState {
     }).toList()..sort((a, b) => a.startTime.compareTo(b.startTime));
   }
 
+  // Per supabase_checklist: Single source list + computed getters (not stored independently)
+  int get todayAppointmentsCount {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    return allAppointments.where((apt) =>
+      apt.startTime.isAfter(startOfDay) &&
+      apt.startTime.isBefore(endOfDay) &&
+      apt.status == 'upcoming'
+    ).length;
+  }
+
+  int get weekAppointmentsCount {
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final endOfWeek = startOfWeekDay.add(const Duration(days: 7));
+    return allAppointments.where((apt) =>
+      apt.startTime.isAfter(startOfWeekDay) &&
+      apt.startTime.isBefore(endOfWeek) &&
+      apt.status == 'upcoming'
+    ).length;
+  }
+
+  List<AppointmentData> get upcomingAppointmentsList {
+    final now = DateTime.now();
+    return allAppointments
+        .where((apt) => apt.startTime.isAfter(now) && apt.status == 'upcoming')
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+  }
+
   DoctorState copyWith({
     String? userId,
     String? name,

@@ -272,9 +272,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
 
   Widget _buildCardsRow(DoctorState doctorState) {
     final now = DateTime.now();
-    final upcomingList = doctorState.upcomingAppointments;
+    // Per supabase_checklist: Use computed getters instead of stored derived lists
+    final upcomingList = doctorState.upcomingAppointmentsList;
     
-    final weekCount = doctorState.weekAppointments;
+    final weekCount = doctorState.weekAppointmentsCount;
     final onlineCount = upcomingList
         .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
         .length;
@@ -695,7 +696,8 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   Widget _buildScheduleView(DoctorState state) {
-    final upcoming = state.upcomingAppointments;
+    // Per supabase_checklist: Use computed getter instead of stored derived list
+    final upcoming = state.upcomingAppointmentsList;
     if (upcoming.isEmpty) {
       return Center(
         child: Column(
