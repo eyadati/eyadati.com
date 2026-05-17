@@ -466,6 +466,8 @@ final now = DateTime.now();
     String? phone,
     String? mapsLink,
     String? photoUrl,
+    int? breakStart,
+    int? breakEnd,
   }) async {
     state = state.copyWith(isLoading: true);
     try {
@@ -503,6 +505,8 @@ final now = DateTime.now();
         'photo_url': photoUrl,
         'consultation_duration': consultationDuration,
         'appointment_duration': appointmentDuration,
+        if (breakStart != null) 'break_start': breakStart,
+        if (breakEnd != null) 'break_end': breakEnd,
       };
 
       await _client.from('doctors').upsert(doctorData, onConflict: 'id');

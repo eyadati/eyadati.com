@@ -81,6 +81,10 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:00';
   }
 
+  int _timeToMinutes(TimeOfDay time) {
+    return time.hour * 60 + time.minute;
+  }
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800, imageQuality: 80);
@@ -146,6 +150,8 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
         address: _addressController.text.trim(),
         mapsLink: _mapsLinkController.text.trim().isEmpty ? null : _mapsLinkController.text.trim(),
         photoUrl: _photoUrl,
+        breakStart: _breakStart != null ? _timeToMinutes(_breakStart!) : null,
+        breakEnd: _breakEnd != null ? _timeToMinutes(_breakEnd!) : null,
       );
 
       print('[DoctorSetupPage] Setup saved, checking state...');
