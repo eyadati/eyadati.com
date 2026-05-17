@@ -197,20 +197,24 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 final now = DateTime.now();
       final allAppointments = result.map((a) {
         final start = DateTime.parse(a['scheduled_at'] as String);
-        final duration = a['duration'] as int? ?? 30;
+        
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback appointment duration
+        final durationValue = a['duration'];
+        if (durationValue == null) {
+          throw Exception('Appointment ${a['id']} missing duration from database');
+        }
+        final duration = durationValue as int;
         
         // Debug logging for patient name
         final patientNameSnapshot = a['patient_name_snapshot'] as String?;
         final patientData = a['patient'] as Map<String, dynamic>?;
         final patientFullName = patientData?['full_name'] as String?;
         
-        print('[DEBUG] Appointment ${a['id']}:');
-        print('  patient_name_snapshot: $patientNameSnapshot');
-        print('  patient.full_name: $patientFullName');
-        print('  patient data: $patientData');
-        
-        final resolvedName = patientNameSnapshot ?? patientFullName ?? 'Patient';
-        print('  resolved name: $resolvedName');
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
+        final resolvedName = patientNameSnapshot ?? patientFullName;
+        if (resolvedName == null) {
+          throw Exception('Appointment ${a['id']} has no patient name (snapshot or profile)');
+        }
         
         return AppointmentData(
           id: a['id'] as String,
@@ -321,16 +325,27 @@ final now = DateTime.now();
 
       final allAppointments = allApptsData.map((a) {
         final start = DateTime.parse(a['scheduled_at'] as String);
-        final duration = a['duration'] as int? ?? 30;
+        
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback appointment duration
+        final durationValue = a['duration'];
+        if (durationValue == null) {
+          throw Exception('Appointment ${a['id']} missing duration from database');
+        }
+        final duration = durationValue as int;
+        
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
+        final patientNameSnapshot = a['patient_name_snapshot'] as String?;
+        final patientProfile = (a['patient'] as Map<String, dynamic>?)?['full_name'] as String?;
+        final resolvedName = patientNameSnapshot ?? patientProfile;
+        if (resolvedName == null) {
+          throw Exception('Appointment ${a['id']} has no patient name (snapshot or profile)');
+        }
+        
         return AppointmentData(
           id: a['id'] as String,
           startTime: start,
           endTime: start.add(Duration(minutes: duration)),
-          patientName:
-              (a['patient_name_snapshot'] as String?) ??
-              ((a['patient'] as Map<String, dynamic>?)?['full_name']
-                  as String?) ??
-              'Patient',
+          patientName: resolvedName,
           patientAvatar:
               (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
           patientPhone: a['patient_phone_snapshot'] as String?,
@@ -380,8 +395,10 @@ final now = DateTime.now();
         city: doctorData['city'] as String? ?? '',
         phone: profile?['phone'] as String? ?? '',
         address: doctorData['address'] as String? ?? '',
-        consultationDuration: doctorData['consultation_duration'] as int? ?? 30,
-        appointmentDuration: doctorData['appointment_duration'] as int? ?? 20,
+        
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback doctor duration
+        consultationDuration: _requireInt(doctorData['consultation_duration'], 'consultation_duration'),
+        appointmentDuration: _requireInt(doctorData['appointment_duration'], 'appointment_duration'),
         avatarUrl:
             profile?['avatar_url'] as String? ??
             doctorData['photo_url'] as String? ??
@@ -610,9 +627,15 @@ final now = DateTime.now();
       final Map<String, PatientVisitData> patientMap = {};
 
       for (final row in result as List) {
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
         final pid = row['patient_id'] as String?;
-        final key = pid ?? row['patient_name_snapshot'] as String? ?? 'unknown';
-        final name = row['patient_name_snapshot'] as String? ?? 'Patient';
+        final patientNameSnapshot = row['patient_name_snapshot'] as String?;
+        if (patientNameSnapshot == null && pid == null) {
+          // Skip appointments with no patient identification
+          continue;
+        }
+        final key = pid ?? patientNameSnapshot ?? 'unknown';
+        final name = patientNameSnapshot ?? 'Unknown Patient';
         final phone = row['patient_phone_snapshot'] as String?;
         final scheduledAt = DateTime.parse(row['scheduled_at'] as String);
 
@@ -897,5 +920,15 @@ final now = DateTime.now();
 
   void clearError() {
     state = state.copyWith(errorMessage: null);
+  }
+
+  int _requireInt(dynamic value, String fieldName) {
+    if (value == null) {
+      throw Exception('Doctor profile missing $fieldName from database');
+    }
+    if (value is! int) {
+      throw Exception('Doctor profile has invalid $fieldName type: ${value.runtimeType}');
+    }
+    return value;
   }
 }
