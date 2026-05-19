@@ -362,6 +362,7 @@ class DoctorRepository {
       
       return DoctorResult.success(Doctor(
         id: doctorId,
+        name: 'Docteur',
         specialty: '',
         address: '',
         manualPause: pause,

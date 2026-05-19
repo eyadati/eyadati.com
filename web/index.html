@@ -19,6 +19,10 @@
 
   <title>Eyadati - حجز مواعيد الأطباء</title>
   <link rel="manifest" href="manifest.json">
+  
+  <!-- Preload core assets -->
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
+  <link rel="preload" href="favicon.png" as="image">
 
   <style>
     body {
@@ -67,6 +71,12 @@
     window.addEventListener('flutter-first-frame', function() {
       document.getElementById('loading').style.display = 'none';
     });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('service-worker.js');
+      });
+    }
   </script>
   
   <script src="flutter_bootstrap.js" async></script>

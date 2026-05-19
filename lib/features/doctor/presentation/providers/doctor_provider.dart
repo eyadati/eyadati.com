@@ -175,11 +175,19 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   SupabaseClient get _client => _ref.read(supabaseClientProvider);
   RealtimeChannel? _appointmentsChannel;
   RealtimeChannel? _scheduleChannel;
+  Timer? _debounceTimer;
 
   DoctorNotifier(this._ref) : super(const DoctorState()) {
     _subscribeToAppointments();
     _subscribeToSchedule();
     loadDoctorData();
+  }
+
+  void _debouncedLoadDoctorData() {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      loadDoctorData();
+    });
   }
 
   void _subscribeToAppointments() {
@@ -192,9 +200,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'appointments',
-          callback: (payload) {
-            loadDoctorData();
-          },
+          callback: (payload) => _debouncedLoadDoctorData(),
         )
         .subscribe();
   }
@@ -209,9 +215,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'doctor_schedule',
-          callback: (payload) {
-            loadDoctorData();
-          },
+          callback: (payload) => _debouncedLoadDoctorData(),
         )
         .subscribe();
   }

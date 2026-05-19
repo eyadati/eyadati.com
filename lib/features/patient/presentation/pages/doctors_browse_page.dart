@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/widgets/inputs/app_search_field.dart';
 import '../../../../core/widgets/cards/empty_state_card.dart';
+import '../../../../models/doctor.dart' as doc_model;
 import '../providers/providers.dart';
 
 class DoctorsBrowsePage extends ConsumerStatefulWidget {
@@ -43,75 +45,56 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
     final doctorsState = ref.watch(doctorsProvider);
     final favoritesState = ref.watch(favoritesProvider);
 
-    final filteredDoctors = doctorsState.doctors.where((d) {
-      final query = doctorsState.searchQuery.toLowerCase();
-      if (query.isEmpty) return true;
-      return d.name.toLowerCase().contains(query) ||
-          d.specialty.toLowerCase().contains(query) ||
-          (d.location?.toLowerCase().contains(query) ?? false);
-    }).toList();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Tous les médecins'),
+        title: const Text('Docteurs'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        elevation: 0,
       ),
       body: Column(
         children: [
           Container(
-            color: AppColors.primary,
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              0,
-              AppSpacing.md,
-              AppSpacing.md,
-            ),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: AppSearchField(
-              hint: 'Spécialité, nom du médecin...',
+              hint: 'Rechercher par nom, spécialité, ville...',
               controller: _searchController,
-              onChanged: (value) {
-                ref.read(doctorsProvider.notifier).searchDoctors(value);
-              },
+              onChanged: (value) => ref.read(doctorsProvider.notifier).searchDoctors(value),
             ),
           ),
           Expanded(
-            child: doctorsState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredDoctors.isEmpty
-                    ? Center(
-                        child: EmptyStateCard(
-                          icon: Icons.search_off,
-                          title: 'Aucun médecin trouvé',
-                          message: 'Essayez une autre recherche',
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _refresh,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          itemCount: filteredDoctors.length,
-                          itemBuilder: (context, index) {
-                            final doctor = filteredDoctors[index];
-                            final isFav = favoritesState.favoriteDoctorIds.contains(doctor.id);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                              child: _DoctorListCard(
-                                doctor: doctor,
-                                isFavorite: isFav,
-                                onTap: () => context.push(
-                                  '/patient/doctors/${doctor.id}',
-                                ),
-                                onFavoriteToggle: () => ref
-                                    .read(favoritesProvider.notifier)
-                                    .toggleFavorite(doctor.id),
-                              ),
-                            );
-                          },
-                        ),
+            child: Skeletonizer(
+              enabled: doctorsState.isLoading,
+              child: doctorsState.doctors.isEmpty && !doctorsState.isLoading
+                  ? const Center(
+                      child: EmptyStateCard(
+                        icon: Icons.search_off,
+                        title: 'Aucun médecin trouvé',
+                        message: 'Essayez une autre recherche',
                       ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _refresh,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        itemCount: doctorsState.doctors.length,
+                        itemBuilder: (context, index) {
+                          final doctor = doctorsState.doctors[index];
+                          final isFav = favoritesState.favoriteDoctorIds.contains(doctor.id);
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                            child: _DoctorListCard(
+                              doctor: doctor as doc_model.Doctor,
+                              isFavorite: isFav,
+                              onTap: () => context.push('/patient/doctors/${(doctor as doc_model.Doctor).id}'),
+                              onFavoriteToggle: () => ref.read(favoritesProvider.notifier).toggleFavorite((doctor as doc_model.Doctor).id),
+
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+            ),
           ),
         ],
       ),
@@ -155,7 +138,7 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
 }
 
 class _DoctorListCard extends StatelessWidget {
-  final Doctor doctor;
+  final doc_model.Doctor doctor;
   final bool isFavorite;
   final VoidCallback onTap;
   final VoidCallback onFavoriteToggle;
@@ -174,7 +157,7 @@ class _DoctorListCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -183,7 +166,7 @@ class _DoctorListCard extends StatelessWidget {
               radius: 25,
               backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               child: Text(
-                doctor.name.length > 4 ? doctor.name.substring(4, 6) : 'DR',
+                doctor.name.isNotEmpty ? doctor.name[0].toUpperCase() : 'D',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -211,31 +194,6 @@ class _DoctorListCard extends StatelessWidget {
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
-                      const SizedBox(width: 4),
-                      Text(
-                        doctor.rating.toStringAsFixed(1),
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '(${doctor.reviewCount})',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                      ),
-                      if (doctor.location != null) ...[
-                        const SizedBox(width: 8),
-                        const Icon(Icons.location_on, size: 12, color: AppColors.textHint),
-                        const SizedBox(width: 2),
-                        Text(
-                          doctor.location!,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -247,14 +205,6 @@ class _DoctorListCard extends StatelessWidget {
                   icon: Icon(
                     isFavorite ? Icons.favorite : Icons.favorite_border,
                     color: isFavorite ? AppColors.error : AppColors.textSecondary,
-                  ),
-                ),
-                Text(
-                  '${doctor.consultationFee.toInt()} MAD',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
                   ),
                 ),
               ],

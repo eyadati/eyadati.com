@@ -7,6 +7,7 @@ part 'doctor.g.dart';
 class Doctor with _$Doctor {
   const factory Doctor({
     required String id,
+    required String name,
     required String specialty,
     required String address,
     String? city,
@@ -32,6 +33,7 @@ class Doctor with _$Doctor {
   factory Doctor.fromDatabase(Map<String, dynamic> json) {
     return Doctor(
       id: json['id'] as String,
+      name: json['name'] as String? ?? 'Docteur',
       specialty: json['specialty'] as String? ?? '',
       address: json['address'] as String? ?? '',
       city: json['city'] as String?,

@@ -22,6 +22,7 @@ Doctor _$DoctorFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$Doctor {
   String get id => throw _privateConstructorUsedError;
+  String get name => throw _privateConstructorUsedError;
   String get specialty => throw _privateConstructorUsedError;
   String get address => throw _privateConstructorUsedError;
   String? get city => throw _privateConstructorUsedError;
@@ -57,6 +58,7 @@ abstract class $DoctorCopyWith<$Res> {
   @useResult
   $Res call({
     String id,
+    String name,
     String specialty,
     String address,
     String? city,
@@ -94,6 +96,7 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
   @override
   $Res call({
     Object? id = null,
+    Object? name = null,
     Object? specialty = null,
     Object? address = null,
     Object? city = freezed,
@@ -118,6 +121,10 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
             id: null == id
                 ? _value.id
                 : id // ignore: cast_nullable_to_non_nullable
+                      as String,
+            name: null == name
+                ? _value.name
+                : name // ignore: cast_nullable_to_non_nullable
                       as String,
             specialty: null == specialty
                 ? _value.specialty
@@ -207,6 +214,7 @@ abstract class _$$DoctorImplCopyWith<$Res> implements $DoctorCopyWith<$Res> {
   @useResult
   $Res call({
     String id,
+    String name,
     String specialty,
     String address,
     String? city,
@@ -243,6 +251,7 @@ class __$$DoctorImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? id = null,
+    Object? name = null,
     Object? specialty = null,
     Object? address = null,
     Object? city = freezed,
@@ -267,6 +276,10 @@ class __$$DoctorImplCopyWithImpl<$Res>
         id: null == id
             ? _value.id
             : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        name: null == name
+            ? _value.name
+            : name // ignore: cast_nullable_to_non_nullable
                   as String,
         specialty: null == specialty
             ? _value.specialty
@@ -350,6 +363,7 @@ class __$$DoctorImplCopyWithImpl<$Res>
 class _$DoctorImpl implements _Doctor {
   const _$DoctorImpl({
     required this.id,
+    required this.name,
     required this.specialty,
     required this.address,
     this.city,
@@ -375,6 +389,8 @@ class _$DoctorImpl implements _Doctor {
 
   @override
   final String id;
+  @override
+  final String name;
   @override
   final String specialty;
   @override
@@ -426,7 +442,7 @@ class _$DoctorImpl implements _Doctor {
 
   @override
   String toString() {
-    return 'Doctor(id: $id, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, openingAt: $openingAt, closingAt: $closingAt, breakStart: $breakStart, breakEnd: $breakEnd, workingDays: $workingDays, manualPause: $manualPause, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
+    return 'Doctor(id: $id, name: $name, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, openingAt: $openingAt, closingAt: $closingAt, breakStart: $breakStart, breakEnd: $breakEnd, workingDays: $workingDays, manualPause: $manualPause, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
   }
 
   @override
@@ -435,6 +451,7 @@ class _$DoctorImpl implements _Doctor {
         (other.runtimeType == runtimeType &&
             other is _$DoctorImpl &&
             (identical(other.id, id) || other.id == id) &&
+            (identical(other.name, name) || other.name == name) &&
             (identical(other.specialty, specialty) ||
                 other.specialty == specialty) &&
             (identical(other.address, address) || other.address == address) &&
@@ -477,6 +494,7 @@ class _$DoctorImpl implements _Doctor {
   int get hashCode => Object.hashAll([
     runtimeType,
     id,
+    name,
     specialty,
     address,
     city,
@@ -514,6 +532,7 @@ class _$DoctorImpl implements _Doctor {
 abstract class _Doctor implements Doctor {
   const factory _Doctor({
     required final String id,
+    required final String name,
     required final String specialty,
     required final String address,
     final String? city,
@@ -538,6 +557,8 @@ abstract class _Doctor implements Doctor {
 
   @override
   String get id;
+  @override
+  String get name;
   @override
   String get specialty;
   @override
