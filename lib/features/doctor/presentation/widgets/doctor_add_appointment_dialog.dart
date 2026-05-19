@@ -8,6 +8,7 @@ import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
+import 'package:eyadati/core/engine/availability_service.dart';
 import '../../../../models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 
@@ -36,6 +37,8 @@ class _DoctorAddAppointmentDialogState
   int? _selectedDuration;
   bool _isConsultation = false;
 
+  List<ValidStart> _availableStarts = [];
+
   @override
   void initState() {
     super.initState();
@@ -44,12 +47,34 @@ class _DoctorAddAppointmentDialogState
       widget.initialDate.month,
       widget.initialDate.day,
     );
-    if (widget.initialTime != null) {
-      _selectedSlot = TimeOfDay(
-        hour: widget.initialTime!.hour,
-        minute: widget.initialTime!.minute,
-      );
-    }
+    _loadSlots();
+  }
+
+  Future<void> _loadSlots() async {
+    final doctorState = ref.read(doctorProvider);
+    final starts = doctorState.availabilityService.getValidStarts(
+      _selectedDate,
+      doctorState.allAppointments,
+      isConsultation: _isConsultation,
+    );
+    setState(() {
+      _availableStarts = starts;
+      if (starts.isNotEmpty) {
+        // Auto-select the first available slot
+        final start = starts.first;
+        _selectedSlot = TimeOfDay(hour: start.minute ~/ 60, minute: start.minute % 60);
+        _selectedDuration = start.duration;
+      } else {
+        _selectedSlot = null;
+      }
+    });
+  }
+
+  void _toggleConsultation(bool val) {
+    setState(() {
+      _isConsultation = val;
+      _loadSlots();
+    });
   }
 
   @override
@@ -376,63 +401,77 @@ class _DoctorAddAppointmentDialogState
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: _isConsultation 
-                        ? AppColors.consultationColor.withValues(alpha: 0.1)
-                        : AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _isConsultation 
-                          ? AppColors.consultationColor 
-                          : AppColors.border,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Switch(
-                        value: _isConsultation,
-                        onChanged: (value) {
-                          setState(() {
-                            _isConsultation = value;
-                            if (value) {
-                              _selectedDuration = doctorState.consultationDuration;
-                            } else {
-                              _selectedDuration = doctorState.appointmentDuration;
-                            }
-                          });
-                        },
-                        activeColor: AppColors.consultationColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Consultation',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: _isConsultation 
-                                    ? AppColors.consultationColor 
-                                    : AppColors.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              'Durée: ${doctorState.consultationDuration} min',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _toggleConsultation(false),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: !_isConsultation ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: !_isConsultation ? AppColors.primary : AppColors.border),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(LucideIcons.user, color: !_isConsultation ? AppColors.primary : AppColors.textSecondary),
+                              const SizedBox(height: 4),
+                              Text('RDV', style: TextStyle(fontWeight: FontWeight.w600, color: !_isConsultation ? AppColors.primary : AppColors.textSecondary)),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _toggleConsultation(true),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _isConsultation ? AppColors.consultationColor.withValues(alpha: 0.1) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _isConsultation ? AppColors.consultationColor : AppColors.border),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(LucideIcons.video, color: _isConsultation ? AppColors.consultationColor : AppColors.textSecondary),
+                              const SizedBox(height: 4),
+                              Text('Visio', style: TextStyle(fontWeight: FontWeight.w600, color: _isConsultation ? AppColors.consultationColor : AppColors.textSecondary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: AppSpacing.md),
+                const Text('Créneaux disponibles', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                if (_availableStarts.isEmpty)
+                  const Text('Aucun créneau disponible', style: TextStyle(color: AppColors.error))
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _availableStarts.map((slot) {
+                      final time = TimeOfDay(hour: slot.minute ~/ 60, minute: slot.minute % 60);
+                      final isSelected = _selectedSlot == time;
+                      return ChoiceChip(
+                        label: Text('${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedSlot = time;
+                            _selectedDuration = slot.duration;
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                const SizedBox(height: AppSpacing.md),
                 const SizedBox(height: AppSpacing.lg),
                 if (_selectedSlot != null) ...[
                   Text(

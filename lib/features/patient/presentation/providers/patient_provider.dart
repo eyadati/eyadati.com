@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PatientState {
   final String name;
@@ -51,7 +52,8 @@ class PatientState {
       favoritesCount: favoritesCount ?? this.favoritesCount,
       upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
       pastAppointments: pastAppointments ?? this.pastAppointments,
-      cancelledAppointments: cancelledAppointments ?? this.cancelledAppointments,
+      cancelledAppointments:
+          cancelledAppointments ?? this.cancelledAppointments,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
     );
@@ -87,7 +89,14 @@ class Appointment {
     this.notes,
   });
 
-  factory Appointment.fromMap(Map<String, dynamic> map, String doctorName, String doctorSpecialty, String? doctorAvatar, String? doctorAddress, String? mapsLink) {
+  factory Appointment.fromMap(
+    Map<String, dynamic> map,
+    String doctorName,
+    String doctorSpecialty,
+    String? doctorAvatar,
+    String? doctorAddress,
+    String? mapsLink,
+  ) {
     return Appointment(
       id: map['id'] as String,
       doctorId: map['doctor_id'] as String,
@@ -98,21 +107,54 @@ class Appointment {
       mapsLink: mapsLink,
       dateTime: DateTime.parse(map['scheduled_at'] as String),
       duration: map['duration'] as int? ?? 30,
-      status: map['status'] as String? ?? 'pending',
+      status: map['status'] as String? ?? 'upcoming',
       isConsultation: map['appointment_type'] == 'consultation',
       notes: map['notes'] as String?,
     );
   }
 }
 
-final patientProvider = StateNotifierProvider<PatientNotifier, PatientState>((ref) {
+final patientProvider = StateNotifierProvider<PatientNotifier, PatientState>((
+  ref,
+) {
   return PatientNotifier(ref);
 });
 
 class PatientNotifier extends StateNotifier<PatientState> {
   final Ref _ref;
+  final SupabaseClient _client = SupabaseInitializer.client;
+  RealtimeChannel? _appointmentsChannel;
 
-  PatientNotifier(this._ref) : super(const PatientState());
+  PatientNotifier(this._ref) : super(const PatientState()) {
+    _subscribeToAppointments();
+    loadPatientData();
+  }
+
+  void _subscribeToAppointments() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _appointmentsChannel = _client
+        .channel('patient_appointments_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'patient_id',
+            value: user.id,
+          ),
+          callback: (payload) => loadPatientData(),
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    super.dispose();
+  }
 
   Future<void> loadPatientData() async {
     state = state.copyWith(isLoading: true);
@@ -133,7 +175,9 @@ class PatientNotifier extends StateNotifier<PatientState> {
       final now = DateTime.now();
       final appointmentsResult = await SupabaseInitializer.client
           .from('appointments')
-          .select('id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(full_name, specialty, avatar_url, address, maps_link)')
+          .select(
+            'id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(full_name, specialty, avatar_url, address, maps_link)',
+          )
           .eq('patient_id', userId)
           .order('scheduled_at', ascending: false)
           .limit(50);
@@ -165,7 +209,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
           mapsLink: mapsLink,
           dateTime: DateTime.parse(row['scheduled_at'] as String),
           duration: row['duration'] as int? ?? 30,
-          status: row['status'] as String? ?? 'pending',
+          status: row['status'] as String? ?? 'upcoming',
           isConsultation: row['appointment_type'] == 'consultation',
           notes: row['notes'] as String?,
         );
@@ -192,10 +236,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
         cancelledAppointments: cancelled,
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 

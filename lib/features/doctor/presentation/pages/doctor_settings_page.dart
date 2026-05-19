@@ -166,9 +166,7 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
             title: "Conditions d'utilisation",
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const DoctorTermsPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const DoctorTermsPage()),
             ),
           ),
           _buildMenuItem(
@@ -242,9 +240,15 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildDurationChip('RDV: ${state.appointmentDuration}min', LucideIcons.timer),
+              _buildDurationChip(
+                'RDV: ${state.appointmentDuration}min',
+                LucideIcons.timer,
+              ),
               const SizedBox(width: 8),
-              _buildDurationChip('Consult: ${state.consultationDuration}min', LucideIcons.stethoscope),
+              _buildDurationChip(
+                'Consult: ${state.consultationDuration}min',
+                LucideIcons.stethoscope,
+              ),
             ],
           ),
         ],
@@ -264,7 +268,10 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
         children: [
           Icon(icon, size: 12, color: AppColors.primary),
           const SizedBox(width: 4),
-          Text(label, style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary)),
+          Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
+          ),
         ],
       ),
     );

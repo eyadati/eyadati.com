@@ -510,12 +510,18 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                 startHour: 8,
                 endHour: 20,
                 timeInterval: const Duration(hours: 1),
-                timeIntervalHeight: 100,
+                timeIntervalHeight: 120,
                 timeFormat: 'H a',
                 timeRulerSize: 60,
                 dayFormat: 'EEE',
                 dateFormat: 'd',
               ),
+              selectionDecoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                border: Border.all(color: AppColors.primary, width: 2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+
               viewHeaderStyle: ViewHeaderStyle(
                 dayTextStyle: AppTextStyles.labelMedium.copyWith(
                   color: AppColors.textHint,

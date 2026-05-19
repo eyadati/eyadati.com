@@ -9,6 +9,9 @@ import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/features/patient/presentation/providers/doctors_provider.dart';
 import 'package:eyadati/features/patient/presentation/providers/patient_provider.dart';
+import 'package:eyadati/core/engine/availability_service.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/models/appointment_data.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
   final String doctorId;
@@ -26,25 +29,92 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   final _notesController = TextEditingController();
   bool _isLoading = false;
 
-  final List<TimeOfDay> _availableTimes = [
-    const TimeOfDay(hour: 9, minute: 0),
-    const TimeOfDay(hour: 9, minute: 30),
-    const TimeOfDay(hour: 10, minute: 0),
-    const TimeOfDay(hour: 10, minute: 30),
-    const TimeOfDay(hour: 11, minute: 0),
-    const TimeOfDay(hour: 11, minute: 30),
-    const TimeOfDay(hour: 14, minute: 0),
-    const TimeOfDay(hour: 14, minute: 30),
-    const TimeOfDay(hour: 15, minute: 0),
-    const TimeOfDay(hour: 15, minute: 30),
-    const TimeOfDay(hour: 16, minute: 0),
-    const TimeOfDay(hour: 16, minute: 30),
-  ];
+  // ... other imports ...
+
+  // Inside _BookingPageState
+  List<ValidStart> _availableSlots = [];
+
+  Future<void> _loadAvailability() async {
+    setState(() => _isLoading = true);
+    try {
+      // 1. Fetch appointments for _selectedDate
+      final appointmentsData = await SupabaseInitializer.client
+          .from('appointments')
+          .select('''
+            id, scheduled_at, duration, status, appointment_type, booking_type, notes,
+            patient_name_snapshot, patient_phone_snapshot
+          ''')
+          .eq('doctor_id', widget.doctorId)
+          .gte(
+            'scheduled_at',
+            DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+            ).toIso8601String(),
+          )
+          .lt(
+            'scheduled_at',
+            DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+            ).add(const Duration(days: 1)).toIso8601String(),
+          );
+
+      final List<AppointmentData> appointments = (appointmentsData as List).map(
+        (a) {
+          final start = DateTime.parse(a['scheduled_at'] as String);
+          final dur = a['duration'] as int;
+          return AppointmentData(
+            id: a['id'] as String,
+            startTime: start,
+            endTime: start.add(Duration(minutes: dur)),
+            patientName: a['patient_name_snapshot'] as String? ?? 'Patient',
+            status: a['status'] as String,
+            isConsultation: a['appointment_type'] == 'consultation',
+            duration: dur,
+            bookingType: a['booking_type'] as String? ?? 'online',
+          );
+        },
+      ).toList();
+
+      // 2. Fetch schedule
+      final scheduleData = await SupabaseInitializer.client
+          .from('doctor_schedule')
+          .select()
+          .eq('doctor_id', widget.doctorId)
+          .eq('is_active', true);
+
+      final List<ScheduleSlot> scheduleSlots = (scheduleData as List)
+          .map((s) => ScheduleSlot.fromDbMap(s))
+          .toList();
+
+      // 3. Calculate slots
+      final availabilityService = AvailabilityService(
+        scheduleSlots: scheduleSlots,
+        appointmentDuration: _appointmentType == 'consultation'
+            ? 30
+            : 20, // Simplified for now
+      );
+
+      setState(() {
+        _availableSlots = availabilityService.getValidStarts(
+          _selectedDate,
+          appointments,
+        );
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      // Handle error
+    }
+  }
 
   @override
-  void dispose() {
-    _notesController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadAvailability();
   }
 
   Future<void> _selectDate() async {
@@ -56,7 +126,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     );
     if (picked != null) {
       setState(() => _selectedDate = picked);
+      _loadAvailability();
     }
+  }
+
+  @override
+  void dispose() {
+    _notesController.dispose();
+    super.dispose();
   }
 
   Future<void> _confirmBooking() async {
@@ -92,7 +169,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       final doctorsState = ref.read(doctorsProvider);
       final doctor = doctorsState.doctors.firstWhere(
         (d) => d.id == widget.doctorId,
-        orElse: () => Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité'),
+        orElse: () => Doctor(
+          id: widget.doctorId,
+          name: 'Docteur',
+          specialty: 'Spécialité',
+        ),
       );
       final duration = _appointmentType == 'consultation'
           ? doctor.consultationDuration
@@ -115,7 +196,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -125,7 +208,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   color: Color(0xFFE8F5E9),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check, size: 48, color: AppColors.secondary),
+                child: const Icon(
+                  Icons.check,
+                  size: 48,
+                  color: AppColors.secondary,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -156,9 +243,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
     }
   }
 
@@ -167,7 +254,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final doctorsState = ref.watch(doctorsProvider);
     final doctor = doctorsState.doctors.firstWhere(
       (d) => d.id == widget.doctorId,
-      orElse: () => Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité'),
+      orElse: () =>
+          Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité'),
     );
 
     return Scaffold(
@@ -194,7 +282,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     radius: 25,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                     child: Text(
-                      doctor.name.length > 4 ? doctor.name.substring(4, 6) : 'DR',
+                      doctor.name.length > 4
+                          ? doctor.name.substring(4, 6)
+                          : 'DR',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -230,10 +320,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             const SizedBox(height: AppSpacing.lg),
             const Text(
               'Type de rendez-vous',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             Row(
@@ -250,7 +337,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   child: _TypeChip(
                     label: 'Consultation',
                     isSelected: _appointmentType == 'consultation',
-                    onTap: () => setState(() => _appointmentType = 'consultation'),
+                    onTap: () =>
+                        setState(() => _appointmentType = 'consultation'),
                   ),
                 ),
               ],
@@ -258,10 +346,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             const SizedBox(height: AppSpacing.lg),
             const Text(
               'Choisir une date',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             GestureDetector(
@@ -293,17 +378,20 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             const SizedBox(height: AppSpacing.lg),
             const Text(
               'Choisir une heure',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
-              children: _availableTimes.map((time) {
-                final isSelected = _selectedTime == time;
+              children: _availableSlots.map((slot) {
+                final isSelected =
+                    _selectedTime?.hour == (slot.minute ~/ 60) &&
+                    _selectedTime?.minute == (slot.minute % 60);
+                final time = TimeOfDay(
+                  hour: slot.minute ~/ 60,
+                  minute: slot.minute % 60,
+                );
                 return GestureDetector(
                   onTap: () => setState(() => _selectedTime = time),
                   child: Container(
@@ -315,7 +403,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       color: isSelected ? AppColors.primary : AppColors.card,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isSelected ? AppColors.primary : AppColors.border,
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.border,
                       ),
                     ),
                     child: Text(
@@ -323,20 +413,20 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        color: isSelected
+                            ? Colors.white
+                            : AppColors.textPrimary,
                       ),
                     ),
                   ),
                 );
               }).toList(),
             ),
+
             const SizedBox(height: AppSpacing.lg),
             const Text(
               'Notes (optionnel)',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
@@ -397,7 +487,9 @@ class _TypeChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : AppColors.card,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : AppColors.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,

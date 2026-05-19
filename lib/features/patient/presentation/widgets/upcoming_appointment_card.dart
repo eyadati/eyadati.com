@@ -188,10 +188,9 @@ class UpcomingAppointmentCard extends StatelessWidget {
         return 'À venir';
       case 'confirmed':
         return 'Confirmé';
-      case 'pending':
-        return 'En attente';
       case 'cancelled':
         return 'Annulé';
+
       case 'completed':
         return 'Terminé';
       default:

@@ -369,11 +369,6 @@ class _StatusBadge extends StatelessWidget {
         textColor = AppColors.secondary;
         label = 'Confirmé';
         break;
-      case 'pending':
-        bgColor = const Color(0xFFFFF3E0);
-        textColor = const Color(0xFFFF9800);
-        label = 'En attente';
-        break;
       case 'cancelled':
         bgColor = const Color(0xFFFFEBEE);
         textColor = AppColors.error;

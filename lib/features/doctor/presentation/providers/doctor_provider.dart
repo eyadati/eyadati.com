@@ -174,9 +174,11 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   final Ref _ref;
   SupabaseClient get _client => _ref.read(supabaseClientProvider);
   RealtimeChannel? _appointmentsChannel;
+  RealtimeChannel? _scheduleChannel;
 
   DoctorNotifier(this._ref) : super(const DoctorState()) {
     _subscribeToAppointments();
+    _subscribeToSchedule();
     loadDoctorData();
   }
 
@@ -191,12 +193,24 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           schema: 'public',
           table: 'appointments',
           callback: (payload) {
-            final newRecord = payload.newRecord;
-            final oldRecord = payload.oldRecord;
-            if (newRecord['doctor_id'] == user.id ||
-                oldRecord['doctor_id'] == user.id) {
-              _refreshAppointments();
-            }
+            loadDoctorData();
+          },
+        )
+        .subscribe();
+  }
+
+  void _subscribeToSchedule() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _scheduleChannel = _client
+        .channel('doctor_schedule_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'doctor_schedule',
+          callback: (payload) {
+            loadDoctorData();
           },
         )
         .subscribe();
@@ -279,6 +293,7 @@ final now = DateTime.now();
   @override
   void dispose() {
     _appointmentsChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
     super.dispose();
   }
 
