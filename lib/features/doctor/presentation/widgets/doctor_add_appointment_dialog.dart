@@ -37,8 +37,6 @@ class _DoctorAddAppointmentDialogState
   int? _selectedDuration;
   bool _isConsultation = false;
 
-  List<ValidStart> _availableStarts = [];
-
   @override
   void initState() {
     super.initState();
@@ -47,33 +45,32 @@ class _DoctorAddAppointmentDialogState
       widget.initialDate.month,
       widget.initialDate.day,
     );
-    _loadSlots();
+    _selectedDuration = 20;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoSelectFirstSlot();
+    });
   }
 
-  Future<void> _loadSlots() async {
+  void _autoSelectFirstSlot() {
     final doctorState = ref.read(doctorProvider);
-    final starts = doctorState.availabilityService.getValidStarts(
+    final validStarts = doctorState.availabilityService.getValidStarts(
       _selectedDate,
       doctorState.allAppointments,
+      duration: _selectedDuration,
       isConsultation: _isConsultation,
     );
-    setState(() {
-      _availableStarts = starts;
-      if (starts.isNotEmpty) {
-        // Auto-select the first available slot
-        final start = starts.first;
-        _selectedSlot = TimeOfDay(hour: start.minute ~/ 60, minute: start.minute % 60);
-        _selectedDuration = start.duration;
-      } else {
-        _selectedSlot = null;
-      }
-    });
+    if (validStarts.isNotEmpty) {
+      final firstSlot = validStarts.first;
+      setState(() {
+        _selectedSlot = TimeOfDay(hour: firstSlot.minute ~/ 60, minute: firstSlot.minute % 60);
+        _selectedDuration = firstSlot.duration;
+      });
+    }
   }
 
   void _toggleConsultation(bool val) {
     setState(() {
       _isConsultation = val;
-      _loadSlots();
     });
   }
 
@@ -447,31 +444,6 @@ class _DoctorAddAppointmentDialogState
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
-                const Text('Créneaux disponibles', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                if (_availableStarts.isEmpty)
-                  const Text('Aucun créneau disponible', style: TextStyle(color: AppColors.error))
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _availableStarts.map((slot) {
-                      final time = TimeOfDay(hour: slot.minute ~/ 60, minute: slot.minute % 60);
-                      final isSelected = _selectedSlot == time;
-                      return ChoiceChip(
-                        label: Text('${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedSlot = time;
-                            _selectedDuration = slot.duration;
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                const SizedBox(height: AppSpacing.md),
                 const SizedBox(height: AppSpacing.lg),
                 if (_selectedSlot != null) ...[
                   Text(
@@ -613,7 +585,7 @@ class _DoctorAddAppointmentDialogState
       duration: _selectedDuration,
       isConsultation: _isConsultation,
     );
-    
+
     if (validStarts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.md),

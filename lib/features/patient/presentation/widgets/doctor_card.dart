@@ -109,7 +109,7 @@ class DoctorCard extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Prochain créneau: 09:30',
+                      'Voir disponibilité',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,

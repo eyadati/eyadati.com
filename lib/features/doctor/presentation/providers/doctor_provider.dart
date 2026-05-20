@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 import 'package:eyadati/models/appointment_data.dart';
@@ -72,23 +74,33 @@ class DoctorState {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
-    return allAppointments.where((apt) =>
-      apt.startTime.isAfter(startOfDay) &&
-      apt.startTime.isBefore(endOfDay) &&
-      apt.status == 'upcoming'
-    ).length;
+    return allAppointments
+        .where(
+          (apt) =>
+              apt.startTime.isAfter(startOfDay) &&
+              apt.startTime.isBefore(endOfDay) &&
+              apt.status == 'upcoming',
+        )
+        .length;
   }
 
   int get weekAppointmentsCount {
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final startOfWeekDay = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
     final endOfWeek = startOfWeekDay.add(const Duration(days: 7));
-    return allAppointments.where((apt) =>
-      apt.startTime.isAfter(startOfWeekDay) &&
-      apt.startTime.isBefore(endOfWeek) &&
-      apt.status == 'upcoming'
-    ).length;
+    return allAppointments
+        .where(
+          (apt) =>
+              apt.startTime.isAfter(startOfWeekDay) &&
+              apt.startTime.isBefore(endOfWeek) &&
+              apt.status == 'upcoming',
+        )
+        .length;
   }
 
   List<AppointmentData> get upcomingAppointmentsList {
@@ -244,28 +256,32 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .eq('doctor_id', state.userId!)
           .order('scheduled_at', ascending: false);
 
-final now = DateTime.now();
+      final now = DateTime.now();
       final allAppointments = result.map((a) {
         final start = DateTime.parse(a['scheduled_at'] as String);
-        
+
         // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback appointment duration
         final durationValue = a['duration'];
         if (durationValue == null) {
-          throw Exception('Appointment ${a['id']} missing duration from database');
+          throw Exception(
+            'Appointment ${a['id']} missing duration from database',
+          );
         }
         final duration = durationValue as int;
-        
+
         // Debug logging for patient name
         final patientNameSnapshot = a['patient_name_snapshot'] as String?;
         final patientData = a['patient'] as Map<String, dynamic>?;
         final patientFullName = patientData?['full_name'] as String?;
-        
+
         // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
         final resolvedName = patientNameSnapshot ?? patientFullName;
         if (resolvedName == null) {
-          throw Exception('Appointment ${a['id']} has no patient name (snapshot or profile)');
+          throw Exception(
+            'Appointment ${a['id']} has no patient name (snapshot or profile)',
+          );
         }
-        
+
         return AppointmentData(
           id: a['id'] as String,
           startTime: start,
@@ -313,7 +329,9 @@ final now = DateTime.now();
       // Per supabase_checklist: Use explicit column selection to ensure data is fetched
       final doctorData = await _client
           .from('doctors')
-          .select('specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration')
+          .select(
+            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration',
+          )
           .eq('id', user.id)
           .maybeSingle();
 
@@ -381,22 +399,27 @@ final now = DateTime.now();
 
       final allAppointments = allApptsData.map((a) {
         final start = DateTime.parse(a['scheduled_at'] as String);
-        
+
         // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback appointment duration
         final durationValue = a['duration'];
         if (durationValue == null) {
-          throw Exception('Appointment ${a['id']} missing duration from database');
+          throw Exception(
+            'Appointment ${a['id']} missing duration from database',
+          );
         }
         final duration = durationValue as int;
-        
+
         // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
         final patientNameSnapshot = a['patient_name_snapshot'] as String?;
-        final patientProfile = (a['patient'] as Map<String, dynamic>?)?['full_name'] as String?;
+        final patientProfile =
+            (a['patient'] as Map<String, dynamic>?)?['full_name'] as String?;
         final resolvedName = patientNameSnapshot ?? patientProfile;
         if (resolvedName == null) {
-          throw Exception('Appointment ${a['id']} has no patient name (snapshot or profile)');
+          throw Exception(
+            'Appointment ${a['id']} has no patient name (snapshot or profile)',
+          );
         }
-        
+
         return AppointmentData(
           id: a['id'] as String,
           startTime: start,
@@ -451,10 +474,16 @@ final now = DateTime.now();
         city: doctorData['city'] as String? ?? '',
         phone: profile?['phone'] as String? ?? '',
         address: doctorData['address'] as String? ?? '',
-        
+
         // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback doctor duration
-        consultationDuration: _requireInt(doctorData['consultation_duration'], 'consultation_duration'),
-        appointmentDuration: _requireInt(doctorData['appointment_duration'], 'appointment_duration'),
+        consultationDuration: _requireInt(
+          doctorData['consultation_duration'],
+          'consultation_duration',
+        ),
+        appointmentDuration: _requireInt(
+          doctorData['appointment_duration'],
+          'appointment_duration',
+        ),
         avatarUrl:
             profile?['avatar_url'] as String? ??
             doctorData['photo_url'] as String? ??
@@ -762,10 +791,12 @@ final now = DateTime.now();
     bool isConsultation = false,
   }) async {
     try {
-      final effectiveDuration = duration ?? (isConsultation 
-          ? state.consultationDuration 
-          : state.appointmentDuration);
-      
+      final effectiveDuration =
+          duration ??
+          (isConsultation
+              ? state.consultationDuration
+              : state.appointmentDuration);
+
       final insertData = <String, dynamic>{
         'doctor_id': state.userId,
         'scheduled_at': scheduledAt.toIso8601String(),
@@ -840,7 +871,7 @@ final now = DateTime.now();
           .from('appointments')
           .update({'status': status})
           .eq('id', appointmentId);
-      
+
       // Update upcoming appointments
       final updatedUpcoming = state.upcomingAppointments.map((a) {
         if (a.id == appointmentId) {
@@ -861,7 +892,7 @@ final now = DateTime.now();
         }
         return a;
       }).toList();
-      
+
       // Update ALL appointments (for calendar view)
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
@@ -882,7 +913,7 @@ final now = DateTime.now();
         }
         return a;
       }).toList();
-      
+
       state = state.copyWith(
         upcomingAppointments: updatedUpcoming,
         allAppointments: updatedAll,
@@ -905,21 +936,39 @@ final now = DateTime.now();
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
           return AppointmentData(
-            id: a.id, startTime: a.startTime, endTime: a.endTime,
-            patientName: a.patientName, patientAvatar: a.patientAvatar,
-            patientPhone: a.patientPhone, status: 'upcoming',
-            isConsultation: a.isConsultation, notes: a.notes,
-            duration: a.duration, patientId: a.patientId,
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: 'upcoming',
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
             bookingType: a.bookingType,
           );
         }
         return a;
       }).toList();
 
-      final updatedUpcoming = state.upcomingAppointments.where((a) => a.id != appointmentId).toList()
-        ..addAll(updatedAll.where((a) => a.status == 'upcoming' && a.startTime.isAfter(DateTime.now())));
+      final updatedUpcoming =
+          state.upcomingAppointments
+              .where((a) => a.id != appointmentId)
+              .toList()
+            ..addAll(
+              updatedAll.where(
+                (a) =>
+                    a.status == 'upcoming' &&
+                    a.startTime.isAfter(DateTime.now()),
+              ),
+            );
 
-      state = state.copyWith(allAppointments: updatedAll, upcomingAppointments: updatedUpcoming);
+      state = state.copyWith(
+        allAppointments: updatedAll,
+        upcomingAppointments: updatedUpcoming,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -937,20 +986,31 @@ final now = DateTime.now();
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
           return AppointmentData(
-            id: a.id, startTime: a.startTime, endTime: a.endTime,
-            patientName: a.patientName, patientAvatar: a.patientAvatar,
-            patientPhone: a.patientPhone, status: 'cancelled',
-            isConsultation: a.isConsultation, notes: a.notes,
-            duration: a.duration, patientId: a.patientId,
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: 'cancelled',
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
             bookingType: a.bookingType,
           );
         }
         return a;
       }).toList();
 
-      final updatedUpcoming = state.upcomingAppointments.where((a) => a.id != appointmentId).toList();
+      final updatedUpcoming = state.upcomingAppointments
+          .where((a) => a.id != appointmentId)
+          .toList();
 
-      state = state.copyWith(allAppointments: updatedAll, upcomingAppointments: updatedUpcoming);
+      state = state.copyWith(
+        allAppointments: updatedAll,
+        upcomingAppointments: updatedUpcoming,
+      );
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -987,7 +1047,9 @@ final now = DateTime.now();
       throw Exception('Doctor profile missing $fieldName from database');
     }
     if (value is! int) {
-      throw Exception('Doctor profile has invalid $fieldName type: ${value.runtimeType}');
+      throw Exception(
+        'Doctor profile has invalid $fieldName type: ${value.runtimeType}',
+      );
     }
     return value;
   }

@@ -90,12 +90,21 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           .map((s) => ScheduleSlot.fromDbMap(s))
           .toList();
 
-      // 3. Calculate slots
+      // 3. Get doctor durations from database
+      final doctorData = await SupabaseInitializer.client
+          .from('doctors')
+          .select('consultation_duration, appointment_duration')
+          .eq('id', widget.doctorId)
+          .single();
+      
+      final effectiveDuration = _appointmentType == 'consultation'
+          ? (doctorData['consultation_duration'] as int? ?? 30)
+          : (doctorData['appointment_duration'] as int? ?? 20);
+
+      // 4. Calculate slots
       final availabilityService = AvailabilityService(
         scheduleSlots: scheduleSlots,
-        appointmentDuration: _appointmentType == 'consultation'
-            ? 30
-            : 20, // Simplified for now
+        appointmentDuration: effectiveDuration,
       );
 
       setState(() {
@@ -134,6 +143,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   void dispose() {
     _notesController.dispose();
     super.dispose();
+  }
+
+  String _getInitials(String name) {
+    if (name.isEmpty || name.length < 2) return 'DR';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   }
 
   Future<void> _confirmBooking() async {
@@ -282,9 +300,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     radius: 25,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                     child: Text(
-                      doctor.name.length > 4
-                          ? doctor.name.substring(4, 6)
-                          : 'DR',
+                      _getInitials(doctor.name),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

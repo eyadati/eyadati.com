@@ -1,4 +1,3 @@
-import 'package:eyadati/features/doctor/presentation/widgets/doctor_add_appointment_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
@@ -6,7 +5,6 @@ import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/features/doctor/presentation/pages/doctor_calendar_page.dart';
 import 'package:eyadati/features/doctor/presentation/pages/doctor_settings_page.dart';
 import 'package:eyadati/features/doctor/presentation/providers/doctor_provider.dart';
-import 'package:eyadati/features/doctor/presentation/widgets/doctor_add_appointment_dialog.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -66,8 +64,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
                   children: [
                     _buildStatsSection(doctorState),
                     const SizedBox(height: 24),
-                    _buildQuickActions(context),
-                    const SizedBox(height: 24),
                     SizedBox(
                       height: 600,
                       child: Container(
@@ -89,68 +85,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    return Row(
-      children: [
-        _buildQuickActionItem(
-          'Nouveau RDV',
-          LucideIcons.plusCircle,
-          AppColors.primary,
-          () {
-            showDialog(
-              context: context,
-              builder: (ctx) =>
-                  DoctorAddAppointmentDialog(initialDate: DateTime.now()),
-            );
-          },
-        ),
-        const SizedBox(width: 16),
-        _buildQuickActionItem(
-          'Gérer l\'agenda',
-          LucideIcons.calendarDays,
-          AppColors.secondary,
-          () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const DoctorSettingsPage()),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActionItem(
-    String label,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: color),
-              const SizedBox(width: 12),
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTopBar(DoctorState doctorState) {
     final pending = doctorState.allAppointments
-        .where((a) => a.status == 'upcoming' && a.bookingType == 'manual')
+        .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
         .toList();
     return Container(
       height: 70,
@@ -219,8 +156,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       final dateStr = '${nextApt.startTime.day}/${nextApt.startTime.month}';
       final timeStr =
           '${nextApt.startTime.hour}:${nextApt.startTime.minute.toString().padLeft(2, '0')}';
-      final type = nextApt.isConsultation ? 'Consultation' : 'RDV';
-      nextAptInfo = '$type\n$dateStr à $timeStr';
+      final patientName = nextApt.patientName ?? 'Patient';
+      nextAptInfo = '$patientName\n$dateStr à $timeStr';
     }
 
     return LayoutBuilder(
