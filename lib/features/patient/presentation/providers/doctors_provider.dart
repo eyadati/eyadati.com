@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/models/doctor.dart';
+
+const _sentinel = Object();
 
 class DoctorsState {
-  final List<Doctor> doctors;
-  final List<Doctor> allDoctors;
+  final List<Doctor> allDoctors; // Source of truth
+  final List<Doctor> doctors; // Filtered/computed list
   final String searchQuery;
   final String selectedSpecialty;
   final String? selectedCity;
@@ -11,8 +14,8 @@ class DoctorsState {
   final String? errorMessage;
 
   const DoctorsState({
-    this.doctors = const [],
     this.allDoctors = const [],
+    this.doctors = const [],
     this.searchQuery = '',
     this.selectedSpecialty = '',
     this.selectedCity,
@@ -21,80 +24,22 @@ class DoctorsState {
   });
 
   DoctorsState copyWith({
-    List<Doctor>? doctors,
     List<Doctor>? allDoctors,
+    List<Doctor>? doctors,
     String? searchQuery,
     String? selectedSpecialty,
-    String? selectedCity,
+    Object? selectedCity = _sentinel,
     bool? isLoading,
-    String? errorMessage,
+    Object? errorMessage = _sentinel,
   }) {
     return DoctorsState(
-      doctors: doctors ?? this.doctors,
       allDoctors: allDoctors ?? this.allDoctors,
+      doctors: doctors ?? this.doctors,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedSpecialty: selectedSpecialty ?? this.selectedSpecialty,
-      selectedCity: selectedCity ?? this.selectedCity,
+      selectedCity: selectedCity == _sentinel ? this.selectedCity : selectedCity as String?,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
-    );
-  }
-}
-
-class Doctor {
-  final String id;
-  final String name;
-  final String specialty;
-  final String? avatarUrl;
-  final double rating;
-  final int reviewCount;
-  final int experienceYears;
-  final String? location;
-  final String? bio;
-  final double consultationFee;
-  final List<String> availableDays;
-  final String? startTime;
-  final String? endTime;
-  final int appointmentDuration;
-  final int consultationDuration;
-
-  Doctor({
-    required this.id,
-    required this.name,
-    required this.specialty,
-    this.avatarUrl,
-    this.rating = 4.5,
-    this.reviewCount = 0,
-    this.experienceYears = 0,
-    this.location,
-    this.bio,
-    this.consultationFee = 0,
-    this.availableDays = const [],
-    this.startTime,
-    this.endTime,
-    this.appointmentDuration = 20,
-    this.consultationDuration = 30,
-  });
-
-  factory Doctor.fromMap(Map<String, dynamic> map) {
-    final profile = map['profiles'] as Map<String, dynamic>?;
-    final days = (map['available_days'] as String?)?.split(',').where((d) => d.isNotEmpty).toList() ?? [];
-    return Doctor(
-      id: map['id'] as String,
-      name: profile?['full_name'] as String? ?? 'Docteur',
-      specialty: map['specialty'] as String? ?? 'Médecine générale',
-      avatarUrl: profile?['avatar_url'] as String?,
-      rating: (map['rating'] as num?)?.toDouble() ?? 4.5,
-      reviewCount: map['review_count'] as int? ?? 0,
-      experienceYears: map['experience_years'] as int? ?? 0,
-      location: profile?['city'] as String?,
-      bio: map['bio'] as String?,
-      consultationFee: (map['consultation_fee'] as num?)?.toDouble() ?? 0,
-      availableDays: days,
-      startTime: map['opening_at'] as String?,
-      endTime: map['closing_at'] as String?,
-      appointmentDuration: map['appointment_duration'] as int? ?? 20,
-      consultationDuration: map['consultation_duration'] as int? ?? 30,
+      errorMessage: errorMessage == _sentinel ? this.errorMessage : errorMessage as String?,
     );
   }
 }
@@ -111,95 +56,86 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
   Future<void> loadDoctors() async {
     state = state.copyWith(isLoading: true);
     try {
+      final now = DateTime.now().toIso8601String();
       final result = await SupabaseInitializer.client
           .from('doctors')
-          .select('id, specialty, consultation_fee, experience_years, bio, opening_at, closing_at, rating, review_count, profiles(full_name, avatar_url, city)')
-          .order('rating', ascending: false)
+          .select('id, specialty, city, bio, manual_pause, subscription_end, appointment_duration, consultation_duration, profiles(full_name, avatar_url, city)')
+          .eq('manual_pause', false)
+          .gt('subscription_end', now)
+          .order('created_at', ascending: false)
           .limit(50);
 
-      final doctors = (result as List).map((row) => Doctor.fromMap(row as Map<String, dynamic>)).toList();
+      final fetchedDoctors = (result as List).map((row) {
+        final profile = row['profiles'] as Map<String, dynamic>?;
+        final doctor = Doctor.fromDatabase(row as Map<String, dynamic>);
+        return doctor.copyWith(
+          name: profile?['full_name'] as String? ?? 'Docteur',
+          photoUrl: profile?['avatar_url'] as String?,
+          city: (row['city'] as String?) ?? (profile?['city'] as String?),
+        );
+      }).toList();
 
       state = state.copyWith(
         isLoading: false,
-        doctors: doctors,
-        allDoctors: doctors,
+        allDoctors: fetchedDoctors,
       );
+      _applyFilters();
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 
-  void searchDoctors(String query) {
+  void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
-    _filterDoctors();
+    _applyFilters();
   }
 
-  void filterBySpecialty(String specialty) {
+  void setSpecialty(String specialty) {
     state = state.copyWith(selectedSpecialty: specialty);
-    _filterDoctors();
+    _applyFilters();
   }
 
-  void filterDoctors({String? city, String? specialty}) {
-    final allDoctors = state.allDoctors.isEmpty ? state.doctors : state.allDoctors;
-    
-    final filtered = allDoctors.where((d) {
-      final matchesCity = city == null || city.isEmpty || d.location == city;
-      final matchesSpecialty = specialty == null || specialty.isEmpty || d.specialty == specialty;
-      return matchesCity && matchesSpecialty;
-    }).toList();
-
-    state = state.copyWith(
-      doctors: filtered,
-      selectedCity: city,
-      selectedSpecialty: specialty,
-    );
+  void setCity(String? city) {
+    state = state.copyWith(selectedCity: city);
+    _applyFilters();
   }
 
-  Future<void> _filterDoctors() async {
-    final query = state.searchQuery.toLowerCase();
-    final specialty = state.selectedSpecialty;
-    final allDoctors = state.allDoctors.isEmpty ? state.doctors : state.allDoctors;
-
-    final filtered = allDoctors.where((d) {
-      final matchesQuery = query.isEmpty ||
-          d.name.toLowerCase().contains(query) ||
-          d.specialty.toLowerCase().contains(query) ||
-          (d.location?.toLowerCase().contains(query) ?? false);
-      final matchesSpecialty = specialty.isEmpty || d.specialty == specialty;
-      return matchesQuery && matchesSpecialty;
-    }).toList();
-
-    state = state.copyWith(doctors: filtered);
+  void clearSearch() {
+    state = state.copyWith(searchQuery: '');
+    _applyFilters();
   }
 
-  Future<void> refresh() async {
+  void clearFilters() {
     state = state.copyWith(
       searchQuery: '',
       selectedSpecialty: '',
       selectedCity: null,
     );
+    _applyFilters();
+  }
+
+  Future<void> refresh() async {
     await loadDoctors();
   }
 
-  Doctor? getDoctorById(String id) {
-    try {
-      return state.doctors.firstWhere((d) => d.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  void _applyFilters() {
+    final query = state.searchQuery.toLowerCase();
+    final specialty = state.selectedSpecialty.toLowerCase();
+    final city = state.selectedCity?.toLowerCase();
 
-  void clearError() {
-    state = DoctorsState(
-      doctors: state.doctors,
-      allDoctors: state.allDoctors,
-      searchQuery: state.searchQuery,
-      selectedSpecialty: state.selectedSpecialty,
-      selectedCity: state.selectedCity,
-      isLoading: state.isLoading,
-    );
+    final filtered = state.allDoctors.where((d) {
+      final matchesQuery = query.isEmpty ||
+          d.name.toLowerCase().contains(query) ||
+          d.specialty.toLowerCase().contains(query) ||
+          (d.city?.toLowerCase().contains(query) ?? false);
+      
+      final matchesSpecialty = specialty.isEmpty || d.specialty.toLowerCase() == specialty;
+      
+      final matchesCity = city == null || city.isEmpty || (d.city?.toLowerCase() == city);
+
+      return matchesQuery && matchesSpecialty && matchesCity;
+    }).toList();
+
+    state = state.copyWith(doctors: filtered);
   }
 }

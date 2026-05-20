@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -9,6 +11,7 @@ import '../../../../core/widgets/inputs/app_search_field.dart';
 import '../../../../core/widgets/cards/empty_state_card.dart';
 import '../../../../models/doctor.dart' as doc_model;
 import '../providers/providers.dart';
+import '../widgets/search_filter_dialog.dart';
 
 class DoctorsBrowsePage extends ConsumerStatefulWidget {
   const DoctorsBrowsePage({super.key});
@@ -19,6 +22,7 @@ class DoctorsBrowsePage extends ConsumerStatefulWidget {
 
 class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
   final _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -32,7 +36,15 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(doctorsProvider.notifier).setSearchQuery(value);
+    });
   }
 
   Future<void> _refresh() async {
@@ -51,6 +63,15 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
         title: const Text('Docteurs'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.filter),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (ctx) => const SearchFilterDialog(),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -59,7 +80,8 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
             child: AppSearchField(
               hint: 'Rechercher par nom, spécialité, ville...',
               controller: _searchController,
-              onChanged: (value) => ref.read(doctorsProvider.notifier).searchDoctors(value),
+              onChanged: _onSearchChanged,
+              onClear: () => ref.read(doctorsProvider.notifier).clearSearch(),
             ),
           ),
           Expanded(

@@ -9,6 +9,7 @@ import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/features/patient/presentation/providers/doctors_provider.dart';
 import 'package:eyadati/features/patient/presentation/providers/patient_provider.dart';
+import 'package:eyadati/models/doctor.dart';
 import 'package:eyadati/core/engine/availability_service.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 import 'package:eyadati/models/appointment_data.dart';
@@ -154,6 +155,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return name.substring(0, 2).toUpperCase();
   }
 
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
   Future<void> _confirmBooking() async {
     if (_selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -191,6 +197,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           id: widget.doctorId,
           name: 'Docteur',
           specialty: 'Spécialité',
+          address: '',
         ),
       );
       final duration = _appointmentType == 'consultation'
@@ -273,7 +280,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final doctor = doctorsState.doctors.firstWhere(
       (d) => d.id == widget.doctorId,
       orElse: () =>
-          Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité'),
+          Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité', address: ''),
     );
 
     return Scaffold(
@@ -372,19 +379,44 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(
+                    color: _isToday(_selectedDate) ? AppColors.primary : AppColors.border,
+                    width: _isToday(_selectedDate) ? 2 : 1,
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today, color: AppColors.primary),
+                    Icon(
+                      Icons.calendar_today,
+                      color: _isToday(_selectedDate) ? AppColors.primary : AppColors.primary,
+                    ),
                     const SizedBox(width: AppSpacing.md),
                     Text(
                       '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
+                        color: _isToday(_selectedDate) ? AppColors.primary : AppColors.textPrimary,
                       ),
                     ),
+                    if (_isToday(_selectedDate)) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Aujourd\'hui',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     const Icon(Icons.arrow_drop_down),
                   ],
@@ -397,7 +429,37 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
-            Wrap(
+            if (_availableSlots.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isToday(_selectedDate) ? Icons.access_time : Icons.event_busy,
+                      color: AppColors.textHint,
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        _isToday(_selectedDate)
+                            ? 'Aucun créneau disponible aujourd\'hui (délai minimum 30min)'
+                            : 'Aucun créneau disponible pour cette date',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Wrap(
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: _availableSlots.map((slot) {

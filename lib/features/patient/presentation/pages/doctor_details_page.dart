@@ -20,7 +20,9 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(favoritesProvider.notifier).loadFavorites());
+    Future.microtask(
+      () => ref.read(favoritesProvider.notifier).loadFavorites(),
+    );
   }
 
   @override
@@ -29,9 +31,12 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
     final favoritesState = ref.watch(favoritesProvider);
     final doctor = doctorsState.doctors.firstWhere(
       (d) => d.id == widget.doctorId,
-      orElse: () => Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité'),
+      orElse: () =>
+          Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité', address: ''),
     );
-    final isFavorite = favoritesState.favoriteDoctorIds.contains(widget.doctorId);
+    final isFavorite = favoritesState.favoriteDoctorIds.contains(
+      widget.doctorId,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -52,7 +57,9 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                       radius: 50,
                       backgroundColor: AppColors.white,
                       child: Text(
-                        doctor.name.length > 4 ? doctor.name.substring(4, 6) : 'DR',
+                        doctor.name.isNotEmpty
+                            ? doctor.name[0].toUpperCase()
+                            : 'D',
                         style: const TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w600,
@@ -82,7 +89,9 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
             ),
             actions: [
               IconButton(
-                onPressed: () => ref.read(favoritesProvider.notifier).toggleFavorite(widget.doctorId),
+                onPressed: () => ref
+                    .read(favoritesProvider.notifier)
+                    .toggleFavorite(widget.doctorId),
                 icon: Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
                   color: isFavorite ? AppColors.error : Colors.white,
@@ -100,22 +109,10 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _StatItem(
-                        icon: Icons.star,
-                        value: doctor.rating.toStringAsFixed(1),
-                        label: 'Note',
-                        iconColor: const Color(0xFFFFC107),
-                      ),
-                      _StatItem(
-                        icon: Icons.people,
-                        value: '${doctor.reviewCount}',
-                        label: 'Avis',
-                        iconColor: AppColors.primary,
-                      ),
-                      _StatItem(
                         icon: Icons.work,
-                        value: '${doctor.experienceYears}',
-                        label: 'Ans exp.',
-                        iconColor: AppColors.secondary,
+                        value: doctor.specialty,
+                        label: 'Spécialité',
+                        iconColor: AppColors.primary,
                       ),
                     ],
                   ),
@@ -130,7 +127,7 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
-                    doctor.bio ?? 'Docteur qualifié avec ${doctor.experienceYears} années d\'expérience.',
+                    doctor.bio ?? 'Docteur.',
                     style: const TextStyle(
                       fontSize: 14,
                       color: AppColors.textSecondary,
@@ -147,27 +144,13 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  InfoCard(
-                    title: 'Frais de consultation',
-                    value: '${doctor.consultationFee.toInt()} MAD',
-                    icon: Icons.attach_money,
-                    iconColor: AppColors.secondary,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (doctor.location != null)
+                  if (doctor.city != null)
                     InfoCard(
                       title: 'Ville',
-                      value: doctor.location!,
+                      value: doctor.city!,
                       icon: Icons.location_on,
                       iconColor: AppColors.primary,
                     ),
-                  const SizedBox(height: AppSpacing.sm),
-                  InfoCard(
-                    title: 'Jours disponibles',
-                    value: doctor.availableDays.join(', '),
-                    icon: Icons.calendar_today,
-                    iconColor: AppColors.info,
-                  ),
                   const SizedBox(height: AppSpacing.xxl),
                 ],
               ),
@@ -191,32 +174,10 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
           child: Row(
             children: [
               Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Prix de consultation',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    Text(
-                      '${doctor.consultationFee.toInt()} MAD',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
                 child: PrimaryButton(
                   label: 'Prendre rendez-vous',
-                  onPressed: () => context.push('/patient/doctors/${widget.doctorId}/book'),
+                  onPressed: () =>
+                      context.push('/patient/doctors/${widget.doctorId}/book'),
                 ),
               ),
             ],
@@ -256,10 +217,7 @@ class _StatItem extends StatelessWidget {
         ),
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
       ],
     );

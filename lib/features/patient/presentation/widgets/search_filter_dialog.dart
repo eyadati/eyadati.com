@@ -63,10 +63,8 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
 
     setState(() => _isLoading = true);
 
-    ref.read(doctorsProvider.notifier).filterDoctors(
-          city: _selectedCity,
-          specialty: _selectedSpecialty,
-        );
+    ref.read(doctorsProvider.notifier).setCity(_selectedCity);
+    ref.read(doctorsProvider.notifier).setSpecialty(_selectedSpecialty ?? '');
 
     Navigator.pop(context);
 

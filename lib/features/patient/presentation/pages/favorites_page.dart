@@ -161,18 +161,11 @@ class _FavoriteDoctorCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Row(
                     children: [
-                      const Icon(Icons.star, size: 14, color: Color(0xFFFFC107)),
-                      const SizedBox(width: 4),
-                      Text(
-                        doctor.rating.toStringAsFixed(1),
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(width: 8),
-                      if (doctor.location != null) ...[
+                      if (doctor.city != null) ...[
                         const Icon(Icons.location_on, size: 14, color: AppColors.textHint),
                         const SizedBox(width: 4),
                         Text(
-                          doctor.location!,
+                          doctor.city!,
                           style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ],

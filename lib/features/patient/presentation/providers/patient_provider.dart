@@ -176,7 +176,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
       final appointmentsResult = await SupabaseInitializer.client
           .from('appointments')
           .select(
-            'id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(full_name, specialty, avatar_url, address, maps_link)',
+            'id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(address, maps_link, profiles(full_name, specialty, avatar_url))',
           )
           .eq('patient_id', userId)
           .order('scheduled_at', ascending: false)
@@ -193,9 +193,11 @@ class PatientNotifier extends StateNotifier<PatientState> {
 
       for (final row in appointmentsResult) {
         final docMap = row['doctors'] as Map<String, dynamic>?;
-        final doctorName = docMap?['full_name'] as String? ?? 'Docteur';
-        final doctorSpecialty = docMap?['specialty'] as String? ?? '';
-        final doctorAvatar = docMap?['avatar_url'] as String?;
+        final profileMap = docMap?['profiles'] as Map<String, dynamic>?;
+        
+        final doctorName = profileMap?['full_name'] as String? ?? 'Docteur';
+        final doctorSpecialty = profileMap?['specialty'] as String? ?? '';
+        final doctorAvatar = profileMap?['avatar_url'] as String?;
         final doctorAddress = docMap?['address'] as String?;
         final mapsLink = docMap?['maps_link'] as String?;
 

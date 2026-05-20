@@ -78,7 +78,7 @@ class DoctorCard extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  if (doctor.location != null) ...[
+                  if (doctor.city != null) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -90,7 +90,7 @@ class DoctorCard extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            doctor.location!,
+                            doctor.city!,
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textHint,
@@ -102,18 +102,21 @@ class DoctorCard extends ConsumerWidget {
                     ),
                   ],
                   const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'Voir disponibilité',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                  GestureDetector(
+                    onTap: onBookNow,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Voir disponibilité',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ),
@@ -178,11 +181,11 @@ class DoctorCard extends ConsumerWidget {
   }
 
   Widget _buildAvatar() {
-    if (doctor.avatarUrl != null && doctor.avatarUrl!.isNotEmpty) {
+    if (doctor.photoUrl != null && doctor.photoUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: CachedNetworkImage(
-          imageUrl: doctor.avatarUrl!,
+          imageUrl: doctor.photoUrl!,
           width: 56,
           height: 56,
           fit: BoxFit.cover,

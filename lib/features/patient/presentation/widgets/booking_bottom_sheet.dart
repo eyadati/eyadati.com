@@ -8,6 +8,7 @@ import '../../../../core/constants/app_radius.dart';
 import '../../../../core/widgets/buttons/primary_button.dart';
 import '../../../../core/utils/supabase_client.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:eyadati/models/doctor.dart';
 import '../providers/doctors_provider.dart';
 import '../providers/patient_provider.dart';
 

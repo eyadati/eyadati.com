@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -313,6 +314,30 @@ class _AppointmentCard extends StatelessWidget {
                 '${appointment.duration} min',
                 style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
+              if (appointment.mapsLink != null && appointment.mapsLink!.isNotEmpty) ...[
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => launchUrl(Uri.parse(appointment.mapsLink!), mode: LaunchMode.externalApplication),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.location_on, size: 14, color: AppColors.secondary),
+                        SizedBox(width: 4),
+                        Text(
+                          'Ouvrir',
+                          style: TextStyle(fontSize: 12, color: AppColors.secondary, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           if (appointment.isConsultation) ...[

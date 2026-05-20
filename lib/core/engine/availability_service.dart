@@ -43,12 +43,16 @@ class AvailabilityService {
   final int appointmentDuration;
   final int consultationDuration;
   final int baseInterval;
+  final int minimumLeadTimeMinutes;
+  final int bufferMinutes;
 
   const AvailabilityService({
     required this.scheduleSlots,
     this.appointmentDuration = 20,
     this.consultationDuration = 30,
     this.baseInterval = 10,
+    this.minimumLeadTimeMinutes = 30,
+    this.bufferMinutes = 15,
   });
 
   int _getDayOfWeek(DateTime date) => date.weekday % 7;
@@ -133,7 +137,7 @@ class AvailabilityService {
     return freeRanges;
   }
 
-  List<ValidStart> getValidStarts(
+List<ValidStart> getValidStarts(
     DateTime date,
     List<AppointmentData> appointments, {
     int? duration,
@@ -146,10 +150,16 @@ class AvailabilityService {
     final now = DateTime.now();
     final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
     final nowMinutes = TimeUtils.extractMinuteFromDate(now);
+    final leadTimeThreshold = nowMinutes + minimumLeadTimeMinutes;
 
     for (final range in freeRanges) {
       for (int m = range.startMinute; m + effectiveDuration <= range.endMinute; m += baseInterval) {
-        if (isToday && m <= nowMinutes) continue;
+        if (isToday) {
+          final slotEndMinute = m + effectiveDuration;
+          final currentMinuteWithBuffer = nowMinutes + bufferMinutes;
+          if (m < leadTimeThreshold) continue;
+          if (slotEndMinute <= currentMinuteWithBuffer) continue;
+        }
         starts.add(ValidStart(m, effectiveDuration));
       }
     }
