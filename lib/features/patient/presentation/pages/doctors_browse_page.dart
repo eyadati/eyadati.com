@@ -9,7 +9,6 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/widgets/inputs/app_search_field.dart';
 import '../../../../core/widgets/cards/empty_state_card.dart';
-import '../../../../models/doctor.dart' as doc_model;
 import '../providers/providers.dart';
 import '../widgets/search_filter_dialog.dart';
 
@@ -87,14 +86,37 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
           Expanded(
             child: Skeletonizer(
               enabled: doctorsState.isLoading,
-              child: doctorsState.doctors.isEmpty && !doctorsState.isLoading
-                  ? const Center(
-                      child: EmptyStateCard(
-                        icon: Icons.search_off,
-                        title: 'Aucun médecin trouvé',
-                        message: 'Essayez une autre recherche',
+              child: doctorsState.errorMessage != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              doctorsState.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: AppColors.error),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            ElevatedButton(
+                              onPressed: () => ref.read(doctorsProvider.notifier).loadDoctors(),
+                              child: const Text('Réessayer'),
+                            ),
+                          ],
+                        ),
                       ),
                     )
+                  : doctorsState.doctors.isEmpty && !doctorsState.isLoading
+                      ? const Center(
+                          child: EmptyStateCard(
+                            icon: Icons.search_off,
+                            title: 'Aucun médecin trouvé',
+                            message: 'Essayez une autre recherche',
+                          ),
+                        )
                   : RefreshIndicator(
                       onRefresh: _refresh,
                       child: ListView.builder(
@@ -106,10 +128,10 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                             child: _DoctorListCard(
-                              doctor: doctor as doc_model.Doctor,
+                              doctor: doctor,
                               isFavorite: isFav,
-                              onTap: () => context.push('/patient/doctors/${(doctor as doc_model.Doctor).id}'),
-                              onFavoriteToggle: () => ref.read(favoritesProvider.notifier).toggleFavorite((doctor as doc_model.Doctor).id),
+                              onTap: () => context.push('/patient/doctors/${doctor.id}'),
+                              onFavoriteToggle: () => ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id),
 
                             ),
                           );
@@ -160,7 +182,7 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
 }
 
 class _DoctorListCard extends StatelessWidget {
-  final doc_model.Doctor doctor;
+  final Doctor doctor;
   final bool isFavorite;
   final VoidCallback onTap;
   final VoidCallback onFavoriteToggle;

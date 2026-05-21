@@ -173,6 +173,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     try {
       final authState = ref.read(authProvider);
       final userId = authState.userId;
+      final patientName = authState.userName;
       if (userId == null) {
         setState(() => _isLoading = false);
         if (!mounted) return;
@@ -210,7 +211,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         'scheduled_at': scheduledAt.toIso8601String(),
         'duration': duration,
         'status': 'upcoming',
-        'appointment_type': _appointmentType,
+        'booking_type': 'online',
+        'appointment_type': _appointmentType == 'regular' ? 'standard' : _appointmentType,
+        'is_consultation': _appointmentType == 'consultation',
+        'patient_name_snapshot': patientName ?? 'Patient',
         'notes': _notesController.text.isEmpty ? null : _notesController.text,
       });
 
@@ -352,7 +356,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   child: _TypeChip(
                     label: 'Visite régulière',
                     isSelected: _appointmentType == 'regular',
-                    onTap: () => setState(() => _appointmentType = 'regular'),
+                    onTap: () {
+                      setState(() => _appointmentType = 'regular');
+                      _loadAvailability();
+                    },
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -360,8 +367,10 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   child: _TypeChip(
                     label: 'Consultation',
                     isSelected: _appointmentType == 'consultation',
-                    onTap: () =>
-                        setState(() => _appointmentType = 'consultation'),
+                    onTap: () {
+                      setState(() => _appointmentType = 'consultation');
+                      _loadAvailability();
+                    },
                   ),
                 ),
               ],
@@ -429,7 +438,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
-            if (_availableSlots.isEmpty)
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_availableSlots.isEmpty)
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(

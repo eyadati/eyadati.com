@@ -23,8 +23,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       final result = await _repository.signIn(email: email, password: password);
       if (result.isSuccess) {
         final user = result.user!;
-        // Per auth_checklist: Role must come from profiles table, not userMetadata
         final role = await _fetchRoleFromProfile(user.id);
+        final userName = await _fetchUserName(user.id);
         final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
         state = state.copyWith(
           isAuthenticated: true,
@@ -35,6 +35,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: email,
           role: role,
           isDoctor: role == 'doctor',
+          userName: userName,
         );
         return true;
       }
@@ -67,6 +68,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         password: password,
         fullName: name,
         role: role,
+        phone: phone,
       );
       if (result.isSuccess) {
         final setupCompleted = role == 'patient' ? true : false;
@@ -79,6 +81,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: email,
           role: role,
           isDoctor: role == 'doctor',
+          userName: name,
         );
         return true;
       }
@@ -131,27 +134,33 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       if (profile != null && profile['role'] != null) {
         return profile['role'] as String;
       }
-      // If no profile, fallback to patient but log warning
-      print('[AuthProvider] WARNING: No profile found for user $userId, defaulting to patient');
       return 'patient';
     } catch (e) {
-      print('[AuthProvider] ERROR fetching role from profile: $e');
       return 'patient';
+    }
+  }
+
+  Future<String?> _fetchUserName(String userId) async {
+    try {
+      final profile = await SupabaseInitializer.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle();
+      return profile?['full_name'] as String?;
+    } catch (e) {
+      return null;
     }
   }
 
   Future<void> checkAuthStatus() async {
     state = state.copyWith(isLoading: true);
-    print('[AuthProvider] checkAuthStatus called');
     try {
       final user = _repository.currentUser;
-      print('[AuthProvider] currentUser: ${user?.id ?? "null"}, email: ${user?.email ?? "null"}');
       if (user != null) {
-        // Per auth_checklist: Role from profiles table, not userMetadata
         final role = await _fetchRoleFromProfile(user.id);
-        print('[AuthProvider] user role from profile: $role');
+        final userName = await _fetchUserName(user.id);
         final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
-        print('[AuthProvider] doctor setup completed: $setupCompleted');
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
@@ -161,8 +170,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: user.email,
           role: role,
           isDoctor: role == 'doctor',
+          userName: userName,
         );
-        print('[AuthProvider] State updated - isAuthenticated: true, isInitialized: true, setupCompleted: $setupCompleted');
       } else {
         print('[AuthProvider] No user found - setting isInitialized only');
         state = state.copyWith(
@@ -196,6 +205,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       email: state.email,
       role: state.role,
       setupCompleted: state.setupCompleted,
+      userName: state.userName,
     );
   }
 
@@ -214,6 +224,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: state.email,
           role: state.role,
           setupCompleted: state.setupCompleted,
+          userName: state.userName,
         );
       }
       return result.isSuccess;

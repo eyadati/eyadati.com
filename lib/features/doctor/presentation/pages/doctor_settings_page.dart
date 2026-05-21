@@ -149,6 +149,8 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               ),
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          _buildPauseToggle(doctorState),
           const SizedBox(height: AppSpacing.lg),
           _buildSectionTitle('Langue'),
           const SizedBox(height: AppSpacing.sm),
@@ -271,6 +273,56 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           Text(
             label,
             style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPauseToggle(DoctorState state) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(LucideIcons.pauseCircle, size: 20, color: AppColors.warning),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Pause des rendez-vous', style: AppTextStyles.bodyMedium),
+                Text(
+                  state.isPaused ? 'Vous êtes en pause' : 'Vous êtes visible',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: state.isPaused ? AppColors.warning : AppColors.success,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: state.isPaused,
+            onChanged: (value) async {
+              final success = await ref.read(doctorProvider.notifier).togglePause(value);
+              if (success) {
+                await ref.read(doctorProvider.notifier).refresh();
+              }
+            },
+            activeColor: AppColors.warning,
           ),
         ],
       ),

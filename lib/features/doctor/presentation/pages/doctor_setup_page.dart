@@ -33,8 +33,8 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);
   TimeOfDay? _breakStart;
   TimeOfDay? _breakEnd;
-  int _consultationDuration = 30;
-  int _appointmentDuration = 20;
+  int _consultationDuration = 20;
+  int _appointmentDuration = 30;
   String? _specialty;
   String? _city;
   final _addressController = TextEditingController();
@@ -53,6 +53,10 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
     'Ophtalmologue',
     'Dentiste',
     'Psychiatre',
+    'Urologue',
+    'Otorhinolaryngologue',
+    'Radiologue',
+    'Anesthésiste',
     'Autres',
   ];
 
@@ -140,14 +144,14 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
       print('[DoctorSetupPage] Starting setup submission...');
       
       await ref.read(doctorProvider.notifier).saveSetup(
-        workingDays: _selectedDays.toList(),
-        startTime: _formatTimeForDb(_startTime),
-        endTime: _formatTimeForDb(_endTime),
+        startTime: _timeToMinutes(_startTime),
+        endTime: _timeToMinutes(_endTime),
         consultationDuration: _consultationDuration,
         appointmentDuration: _appointmentDuration,
         specialty: _specialty!,
         city: _city!,
         address: _addressController.text.trim(),
+        workingDays: _selectedDays.toList(),
         mapsLink: _mapsLinkController.text.trim().isEmpty ? null : _mapsLinkController.text.trim(),
         photoUrl: _photoUrl,
         breakStart: _breakStart != null ? _timeToMinutes(_breakStart!) : null,
@@ -268,20 +272,20 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildSectionLabel('Durée des consultations'),
-                              const SizedBox(height: AppSpacing.sm),
-                              _buildDurationSelector(
-                                options: [15, 20, 30, 45, 60],
-                                selected: _consultationDuration,
-                                onChanged: (v) => setState(() => _consultationDuration = v),
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
                               _buildSectionLabel('Durée des rendez-vous'),
                               const SizedBox(height: AppSpacing.sm),
                               _buildDurationSelector(
-                                options: [10, 15, 20, 30],
+                                options: [15, 20, 30, 45, 60],
                                 selected: _appointmentDuration,
                                 onChanged: (v) => setState(() => _appointmentDuration = v),
+                              ),
+                              const SizedBox(height: AppSpacing.lg),
+                              _buildSectionLabel('Durée des consultations'),
+                              const SizedBox(height: AppSpacing.sm),
+                              _buildDurationSelector(
+                                options: [10, 15, 20, 30],
+                                selected: _consultationDuration,
+                                onChanged: (v) => setState(() => _consultationDuration = v),
                                 isSecondary: true,
                               ),
                             ],
@@ -332,14 +336,24 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xl),
-                        SizedBox(
-                          width: double.infinity,
-                          child: PrimaryButton(
-                            label: 'Terminer la configuration',
-                            isLoading: _isLoading,
-                            onPressed: _handleSubmit,
+                          SizedBox(
+                            width: double.infinity,
+                            child: PrimaryButton(
+                              label: 'Terminer la configuration',
+                              isLoading: _isLoading,
+                              onPressed: _handleSubmit,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: AppSpacing.md),
+                          Center(
+                            child: Text(
+                              'Vous pourrez modifier ces informations plus tard',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textHint,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: AppSpacing.xl),
                       ],
                     ),
@@ -356,21 +370,56 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   Widget _buildHeader() {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(
-          bottom: BorderSide(color: AppColors.border, width: 1),
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.md),
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + AppSpacing.md,
+        bottom: AppSpacing.lg,
+        left: AppSpacing.md,
+        right: AppSpacing.md,
+      ),
       child: Row(
         children: [
           IconButton(
-            icon: Icon(LucideIcons.arrowLeft),
+            icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
             onPressed: () => _showExitDialog(),
-            color: AppColors.textSecondary,
           ),
-          const SizedBox(width: AppSpacing.md),
-          Text('Configuration du cabinet', style: AppTextStyles.titleLarge),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Configuration du cabinet',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Étape 1 sur 1',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(LucideIcons.stethoscope, color: Colors.white, size: 24),
+          ),
         ],
       ),
     );
@@ -381,13 +430,26 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(LucideIcons.info, color: AppColors.primary, size: 20),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(LucideIcons.info, color: AppColors.primary, size: 18),
+          ),
           const SizedBox(width: AppSpacing.sm),
-Expanded(child: Text('Complétez votre profil pour commencer à recevoir des patients.', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary))),
+          Expanded(
+            child: Text(
+              'Complétez votre profil pour commencer à recevoir des patients.',
+              style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary),
+            ),
+          ),
         ],
       ),
     );
@@ -401,30 +463,40 @@ Expanded(child: Text('Complétez votre profil pour commencer à recevoir des pat
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: AppColors.primary, size: 18),
+                  child: Icon(icon, color: Colors.white, size: 18),
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: AppSpacing.md),
                 Text(title, style: AppTextStyles.cardTitle),
               ],
             ),
           ),
-          Divider(height: 1, color: AppColors.border),
+          Divider(height: 1, color: AppColors.border.withValues(alpha: 0.5)),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: child,

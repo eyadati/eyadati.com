@@ -71,11 +71,6 @@ class ProfileRepository {
     String? bio,
     int? appointmentDuration,
     int? consultationDuration,
-    int? openingAt,
-    int? closingAt,
-    int? breakStart,
-    int? breakEnd,
-    List<String>? workingDays,
     bool? manualPause,
   }) async {
     try {
@@ -91,11 +86,6 @@ class ProfileRepository {
       if (consultationDuration != null) {
         updates['consultation_duration'] = consultationDuration;
       }
-      if (openingAt != null) updates['opening_at'] = openingAt;
-      if (closingAt != null) updates['closing_at'] = closingAt;
-      if (breakStart != null) updates['break_start'] = breakStart;
-      if (breakEnd != null) updates['break_end'] = breakEnd;
-      if (workingDays != null) updates['working_days'] = workingDays;
       if (manualPause != null) updates['manual_pause'] = manualPause;
 
       if (updates.isEmpty) {
@@ -113,7 +103,7 @@ class ProfileRepository {
         return ProfileResult.failure('Failed to update doctor profile');
       }
 
-      return ProfileResult.success(Profile.fromDatabase(response));
+      return ProfileResult.success(null);
     } catch (e) {
       return ProfileResult.failure('Failed to update doctor profile');
     }
@@ -131,7 +121,7 @@ class ProfileResult {
     this.error,
   });
 
-  factory ProfileResult.success(Profile profile) {
+  factory ProfileResult.success(Profile? profile) {
     return ProfileResult._(isSuccess: true, profile: profile);
   }
 

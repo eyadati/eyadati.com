@@ -33,11 +33,6 @@ mixin _$Doctor {
   String? get photoUrl => throw _privateConstructorUsedError;
   int get appointmentDuration => throw _privateConstructorUsedError;
   int get consultationDuration => throw _privateConstructorUsedError;
-  String get openingAt => throw _privateConstructorUsedError;
-  String get closingAt => throw _privateConstructorUsedError;
-  int? get breakStart => throw _privateConstructorUsedError;
-  int? get breakEnd => throw _privateConstructorUsedError;
-  List<String> get workingDays => throw _privateConstructorUsedError;
   bool get manualPause => throw _privateConstructorUsedError;
   DateTime? get subscriptionEnd => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
@@ -69,11 +64,6 @@ abstract class $DoctorCopyWith<$Res> {
     String? photoUrl,
     int appointmentDuration,
     int consultationDuration,
-    String openingAt,
-    String closingAt,
-    int? breakStart,
-    int? breakEnd,
-    List<String> workingDays,
     bool manualPause,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
@@ -107,11 +97,6 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
     Object? photoUrl = freezed,
     Object? appointmentDuration = null,
     Object? consultationDuration = null,
-    Object? openingAt = null,
-    Object? closingAt = null,
-    Object? breakStart = freezed,
-    Object? breakEnd = freezed,
-    Object? workingDays = null,
     Object? manualPause = null,
     Object? subscriptionEnd = freezed,
     Object? createdAt = freezed,
@@ -166,26 +151,6 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
                 ? _value.consultationDuration
                 : consultationDuration // ignore: cast_nullable_to_non_nullable
                       as int,
-            openingAt: null == openingAt
-                ? _value.openingAt
-                : openingAt // ignore: cast_nullable_to_non_nullable
-                      as String,
-            closingAt: null == closingAt
-                ? _value.closingAt
-                : closingAt // ignore: cast_nullable_to_non_nullable
-                      as String,
-            breakStart: freezed == breakStart
-                ? _value.breakStart
-                : breakStart // ignore: cast_nullable_to_non_nullable
-                      as int?,
-            breakEnd: freezed == breakEnd
-                ? _value.breakEnd
-                : breakEnd // ignore: cast_nullable_to_non_nullable
-                      as int?,
-            workingDays: null == workingDays
-                ? _value.workingDays
-                : workingDays // ignore: cast_nullable_to_non_nullable
-                      as List<String>,
             manualPause: null == manualPause
                 ? _value.manualPause
                 : manualPause // ignore: cast_nullable_to_non_nullable
@@ -225,11 +190,6 @@ abstract class _$$DoctorImplCopyWith<$Res> implements $DoctorCopyWith<$Res> {
     String? photoUrl,
     int appointmentDuration,
     int consultationDuration,
-    String openingAt,
-    String closingAt,
-    int? breakStart,
-    int? breakEnd,
-    List<String> workingDays,
     bool manualPause,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
@@ -262,11 +222,6 @@ class __$$DoctorImplCopyWithImpl<$Res>
     Object? photoUrl = freezed,
     Object? appointmentDuration = null,
     Object? consultationDuration = null,
-    Object? openingAt = null,
-    Object? closingAt = null,
-    Object? breakStart = freezed,
-    Object? breakEnd = freezed,
-    Object? workingDays = null,
     Object? manualPause = null,
     Object? subscriptionEnd = freezed,
     Object? createdAt = freezed,
@@ -321,26 +276,6 @@ class __$$DoctorImplCopyWithImpl<$Res>
             ? _value.consultationDuration
             : consultationDuration // ignore: cast_nullable_to_non_nullable
                   as int,
-        openingAt: null == openingAt
-            ? _value.openingAt
-            : openingAt // ignore: cast_nullable_to_non_nullable
-                  as String,
-        closingAt: null == closingAt
-            ? _value.closingAt
-            : closingAt // ignore: cast_nullable_to_non_nullable
-                  as String,
-        breakStart: freezed == breakStart
-            ? _value.breakStart
-            : breakStart // ignore: cast_nullable_to_non_nullable
-                  as int?,
-        breakEnd: freezed == breakEnd
-            ? _value.breakEnd
-            : breakEnd // ignore: cast_nullable_to_non_nullable
-                  as int?,
-        workingDays: null == workingDays
-            ? _value._workingDays
-            : workingDays // ignore: cast_nullable_to_non_nullable
-                  as List<String>,
         manualPause: null == manualPause
             ? _value.manualPause
             : manualPause // ignore: cast_nullable_to_non_nullable
@@ -374,15 +309,10 @@ class _$DoctorImpl implements _Doctor {
     this.photoUrl,
     this.appointmentDuration = 20,
     this.consultationDuration = 40,
-    this.openingAt = '09:00:00',
-    this.closingAt = '17:00:00',
-    this.breakStart,
-    this.breakEnd,
-    final List<String> workingDays = const [],
     this.manualPause = false,
     this.subscriptionEnd,
     this.createdAt,
-  }) : _workingDays = workingDays;
+  });
 
   factory _$DoctorImpl.fromJson(Map<String, dynamic> json) =>
       _$$DoctorImplFromJson(json);
@@ -415,25 +345,6 @@ class _$DoctorImpl implements _Doctor {
   final int consultationDuration;
   @override
   @JsonKey()
-  final String openingAt;
-  @override
-  @JsonKey()
-  final String closingAt;
-  @override
-  final int? breakStart;
-  @override
-  final int? breakEnd;
-  final List<String> _workingDays;
-  @override
-  @JsonKey()
-  List<String> get workingDays {
-    if (_workingDays is EqualUnmodifiableListView) return _workingDays;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_workingDays);
-  }
-
-  @override
-  @JsonKey()
   final bool manualPause;
   @override
   final DateTime? subscriptionEnd;
@@ -442,7 +353,7 @@ class _$DoctorImpl implements _Doctor {
 
   @override
   String toString() {
-    return 'Doctor(id: $id, name: $name, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, openingAt: $openingAt, closingAt: $closingAt, breakStart: $breakStart, breakEnd: $breakEnd, workingDays: $workingDays, manualPause: $manualPause, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
+    return 'Doctor(id: $id, name: $name, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, manualPause: $manualPause, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
   }
 
   @override
@@ -469,18 +380,6 @@ class _$DoctorImpl implements _Doctor {
                 other.appointmentDuration == appointmentDuration) &&
             (identical(other.consultationDuration, consultationDuration) ||
                 other.consultationDuration == consultationDuration) &&
-            (identical(other.openingAt, openingAt) ||
-                other.openingAt == openingAt) &&
-            (identical(other.closingAt, closingAt) ||
-                other.closingAt == closingAt) &&
-            (identical(other.breakStart, breakStart) ||
-                other.breakStart == breakStart) &&
-            (identical(other.breakEnd, breakEnd) ||
-                other.breakEnd == breakEnd) &&
-            const DeepCollectionEquality().equals(
-              other._workingDays,
-              _workingDays,
-            ) &&
             (identical(other.manualPause, manualPause) ||
                 other.manualPause == manualPause) &&
             (identical(other.subscriptionEnd, subscriptionEnd) ||
@@ -491,7 +390,7 @@ class _$DoctorImpl implements _Doctor {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hashAll([
+  int get hashCode => Object.hash(
     runtimeType,
     id,
     name,
@@ -505,15 +404,10 @@ class _$DoctorImpl implements _Doctor {
     photoUrl,
     appointmentDuration,
     consultationDuration,
-    openingAt,
-    closingAt,
-    breakStart,
-    breakEnd,
-    const DeepCollectionEquality().hash(_workingDays),
     manualPause,
     subscriptionEnd,
     createdAt,
-  ]);
+  );
 
   /// Create a copy of Doctor
   /// with the given fields replaced by the non-null parameter values.
@@ -543,11 +437,6 @@ abstract class _Doctor implements Doctor {
     final String? photoUrl,
     final int appointmentDuration,
     final int consultationDuration,
-    final String openingAt,
-    final String closingAt,
-    final int? breakStart,
-    final int? breakEnd,
-    final List<String> workingDays,
     final bool manualPause,
     final DateTime? subscriptionEnd,
     final DateTime? createdAt,
@@ -579,16 +468,6 @@ abstract class _Doctor implements Doctor {
   int get appointmentDuration;
   @override
   int get consultationDuration;
-  @override
-  String get openingAt;
-  @override
-  String get closingAt;
-  @override
-  int? get breakStart;
-  @override
-  int? get breakEnd;
-  @override
-  List<String> get workingDays;
   @override
   bool get manualPause;
   @override

@@ -140,11 +140,6 @@ class DoctorRepository {
     String? bio,
     int appointmentDuration = 20,
     int consultationDuration = 40,
-    String openingAt = '09:00',
-    String closingAt = '17:00',
-    int? breakStart,
-    int? breakEnd,
-    List<String> workingDays = const ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
   }) async {
     try {
       if (!SecurityValidator.isValidUuid(userId)) {
@@ -180,11 +175,6 @@ class DoctorRepository {
         'bio': bio?.trim(),
         'appointment_duration': appointmentDuration,
         'consultation_duration': consultationDuration,
-        'opening_at': openingAt,
-        'closing_at': closingAt,
-        'break_start': breakStart,
-        'break_end': breakEnd,
-        'working_days': workingDays,
         'subscription_end': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
       };
 
@@ -219,11 +209,6 @@ class DoctorRepository {
     String? photoUrl,
     int? appointmentDuration,
     int? consultationDuration,
-    String? openingAt,
-    String? closingAt,
-    int? breakStart,
-    int? breakEnd,
-    List<String>? workingDays,
     bool? manualPause,
   }) async {
     try {
@@ -301,21 +286,6 @@ class DoctorRepository {
         updates['consultation_duration'] = consultationDuration;
       }
       
-      if (openingAt != null || closingAt != null) {
-        final hoursError = InputValidator.validateWorkingHoursString(
-          openingAt ?? '09:00',
-          closingAt ?? '17:00',
-        );
-        if (hoursError != null) {
-          return DoctorResult.failure(hoursError);
-        }
-        if (openingAt != null) updates['opening_at'] = openingAt;
-        if (closingAt != null) updates['closing_at'] = closingAt;
-      }
-      
-      if (breakStart != null) updates['break_start'] = breakStart;
-      if (breakEnd != null) updates['break_end'] = breakEnd;
-      if (workingDays != null) updates['working_days'] = workingDays;
       if (manualPause != null) updates['manual_pause'] = manualPause;
 
       if (updates.isEmpty) {

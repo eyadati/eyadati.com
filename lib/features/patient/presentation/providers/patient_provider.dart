@@ -1,18 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
+import 'package:eyadati/repositories/profile_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PatientState {
   final String name;
   final String email;
   final String phone;
+  final String city;
   final String avatarUrl;
   final int upcomingCount;
   final int favoritesCount;
-  final List<Appointment> upcomingAppointments;
-  final List<Appointment> pastAppointments;
-  final List<Appointment> cancelledAppointments;
+  final List<PatientAppointmentViewModel> upcomingAppointments;
+  final List<PatientAppointmentViewModel> pastAppointments;
+  final List<PatientAppointmentViewModel> cancelledAppointments;
   final bool isLoading;
   final String? errorMessage;
 
@@ -20,6 +22,7 @@ class PatientState {
     this.name = '',
     this.email = '',
     this.phone = '',
+    this.city = '',
     this.avatarUrl = '',
     this.upcomingCount = 0,
     this.favoritesCount = 0,
@@ -34,12 +37,13 @@ class PatientState {
     String? name,
     String? email,
     String? phone,
+    String? city,
     String? avatarUrl,
     int? upcomingCount,
     int? favoritesCount,
-    List<Appointment>? upcomingAppointments,
-    List<Appointment>? pastAppointments,
-    List<Appointment>? cancelledAppointments,
+    List<PatientAppointmentViewModel>? upcomingAppointments,
+    List<PatientAppointmentViewModel>? pastAppointments,
+    List<PatientAppointmentViewModel>? cancelledAppointments,
     bool? isLoading,
     String? errorMessage,
   }) {
@@ -47,6 +51,7 @@ class PatientState {
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      city: city ?? this.city,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       upcomingCount: upcomingCount ?? this.upcomingCount,
       favoritesCount: favoritesCount ?? this.favoritesCount,
@@ -60,7 +65,7 @@ class PatientState {
   }
 }
 
-class Appointment {
+class PatientAppointmentViewModel {
   final String id;
   final String doctorId;
   final String doctorName;
@@ -74,7 +79,7 @@ class Appointment {
   final bool isConsultation;
   final String? notes;
 
-  Appointment({
+  PatientAppointmentViewModel({
     required this.id,
     required this.doctorId,
     required this.doctorName,
@@ -89,7 +94,7 @@ class Appointment {
     this.notes,
   });
 
-  factory Appointment.fromMap(
+  factory PatientAppointmentViewModel.fromMap(
     Map<String, dynamic> map,
     String doctorName,
     String doctorSpecialty,
@@ -97,7 +102,7 @@ class Appointment {
     String? doctorAddress,
     String? mapsLink,
   ) {
-    return Appointment(
+    return PatientAppointmentViewModel(
       id: map['id'] as String,
       doctorId: map['doctor_id'] as String,
       doctorName: doctorName,
@@ -168,7 +173,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
 
       final profileResult = await SupabaseInitializer.client
           .from('profiles')
-          .select('full_name, email, phone, avatar_url')
+          .select('full_name, email, phone, city, avatar_url')
           .eq('id', userId)
           .maybeSingle();
 
@@ -176,7 +181,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
       final appointmentsResult = await SupabaseInitializer.client
           .from('appointments')
           .select(
-            'id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(address, maps_link, profiles(full_name, specialty, avatar_url))',
+            'id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(specialty, address, maps_link, photo_url)',
           )
           .eq('patient_id', userId)
           .order('scheduled_at', ascending: false)
@@ -184,24 +189,54 @@ class PatientNotifier extends StateNotifier<PatientState> {
 
       final favoritesResult = await SupabaseInitializer.client
           .from('favorites')
-          .select('id')
+          .select('doctor_id')
           .eq('patient_id', userId);
 
-      List<Appointment> upcoming = [];
-      List<Appointment> past = [];
-      List<Appointment> cancelled = [];
+      final doctorIds = appointmentsResult
+          .map((r) => r['doctor_id'] as String)
+          .toSet()
+          .toList();
+
+      final Map<String, Map<String, dynamic>> doctorProfileMap = {};
+      if (doctorIds.isNotEmpty) {
+        try {
+          final profiles = await SupabaseInitializer.client
+              .rpc('get_doctor_profiles', params: {'doctor_ids': doctorIds});
+          for (final p in profiles) {
+            doctorProfileMap[p['id'] as String] = p as Map<String, dynamic>;
+          }
+        } catch (e) {
+          try {
+            final profiles = await SupabaseInitializer.client
+                .from('profiles')
+                .select('id, full_name, avatar_url')
+                .inFilter('id', doctorIds);
+            for (final p in profiles) {
+              doctorProfileMap[p['id'] as String] = p as Map<String, dynamic>;
+            }
+          } catch (_) {
+            // Both RPC and direct query failed; names will fall back to 'Docteur'
+          }
+        }
+      }
+
+      List<PatientAppointmentViewModel> upcoming = [];
+      List<PatientAppointmentViewModel> past = [];
+      List<PatientAppointmentViewModel> cancelled = [];
 
       for (final row in appointmentsResult) {
         final docMap = row['doctors'] as Map<String, dynamic>?;
-        final profileMap = docMap?['profiles'] as Map<String, dynamic>?;
+        final doctorId = row['doctor_id'] as String;
+        final profileData = doctorProfileMap[doctorId];
         
-        final doctorName = profileMap?['full_name'] as String? ?? 'Docteur';
-        final doctorSpecialty = profileMap?['specialty'] as String? ?? '';
-        final doctorAvatar = profileMap?['avatar_url'] as String?;
+        final doctorName = profileData?['full_name'] as String? ?? 'Docteur';
+        final doctorSpecialty = docMap?['specialty'] as String? ?? '';
+        final doctorAvatar = profileData?['avatar_url'] as String? ??
+            docMap?['photo_url'] as String?;
         final doctorAddress = docMap?['address'] as String?;
         final mapsLink = docMap?['maps_link'] as String?;
 
-        final apt = Appointment(
+        final apt = PatientAppointmentViewModel(
           id: row['id'] as String,
           doctorId: row['doctor_id'] as String,
           doctorName: doctorName,
@@ -230,6 +265,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
         name: profileResult?['full_name'] as String? ?? '',
         email: profileResult?['email'] as String? ?? '',
         phone: profileResult?['phone'] as String? ?? '',
+        city: profileResult?['city'] as String? ?? '',
         avatarUrl: profileResult?['avatar_url'] as String? ?? '',
         upcomingCount: upcoming.length,
         favoritesCount: (favoritesResult as List).length,
@@ -257,6 +293,33 @@ class PatientNotifier extends StateNotifier<PatientState> {
 
   Future<void> refreshAppointments() async {
     await loadPatientData();
+  }
+
+  Future<bool> updateProfile({
+    required String fullName,
+    required String phone,
+    required String city,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final repo = ProfileRepository(_client);
+      final result = await repo.updateProfile(
+        userId: userId,
+        fullName: fullName,
+        phone: phone,
+        city: city,
+      );
+
+      if (result.isSuccess) {
+        await loadPatientData();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
   }
 
   void clearError() {

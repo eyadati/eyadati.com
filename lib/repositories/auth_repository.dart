@@ -52,6 +52,7 @@ class AuthRepository {
     required String password,
     required String fullName,
     required String role,
+    String? phone,
   }) async {
     final emailError = InputValidator.validateEmail(email);
     if (emailError != null) {
@@ -75,13 +76,18 @@ class AuthRepository {
     try {
       final sanitizedName = SecurityValidator.sanitizeHtml(fullName.trim());
 
+      final metadata = <String, dynamic>{
+        'full_name': sanitizedName,
+        'role': role,
+      };
+      if (phone != null && phone.trim().isNotEmpty) {
+        metadata['phone'] = phone.trim();
+      }
+
       final response = await _client.auth.signUp(
         email: email.trim().toLowerCase(),
         password: password,
-        data: {
-          'full_name': sanitizedName,
-          'role': role,
-        },
+        data: metadata,
       );
 
       if (response.user == null) {

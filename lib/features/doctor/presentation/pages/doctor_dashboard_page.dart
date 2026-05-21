@@ -30,7 +30,7 @@ class _NotificationSheet extends StatelessWidget {
           if (appointments.isEmpty)
             const Text('Aucune notification.')
           else
-            ...appointments.map((a) => ListTile(title: Text(a.patientName ?? 'Patient inconnu'))),
+            ...appointments.map((a) => ListTile(title: Text(a.patientName.isNotEmpty ? a.patientName : 'Patient inconnu'))),
         ],
       ),
     );
@@ -56,31 +56,71 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         children: [
           _buildTopBar(doctorState),
           Expanded(
-            child: Skeletonizer(
-              enabled: doctorState.isLoading,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    _buildStatsSection(doctorState),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      height: 600,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: const DoctorCalendarPage(),
+            child: doctorState.errorMessage != null
+                ? _buildErrorView(doctorState)
+                : Skeletonizer(
+                    enabled: doctorState.isLoading,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          _buildStatsSection(doctorState),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: 600,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: const DoctorCalendarPage(),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorView(DoctorState doctorState) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.alertCircle, size: 48, color: AppColors.error),
+            const SizedBox(height: 16),
+            Text(
+              'Erreur de chargement',
+              style: AppTextStyles.titleMedium.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              doctorState.errorMessage ?? '',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textHint,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                ref.read(doctorProvider.notifier).clearError();
+                ref.read(doctorProvider.notifier).refresh();
+              },
+              icon: const Icon(LucideIcons.refreshCw),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -147,16 +187,15 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
         .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
         .length;
 
-    final nextApt = doctorState.upcomingAppointments.isNotEmpty
-        ? doctorState.upcomingAppointments.first
-        : null;
+    final nextAptList = doctorState.upcomingAppointmentsList;
+    final nextApt = nextAptList.isNotEmpty ? nextAptList.first : null;
 
     String nextAptInfo = 'Aucun';
     if (nextApt != null) {
       final dateStr = '${nextApt.startTime.day}/${nextApt.startTime.month}';
       final timeStr =
           '${nextApt.startTime.hour}:${nextApt.startTime.minute.toString().padLeft(2, '0')}';
-      final patientName = nextApt.patientName ?? 'Patient';
+      final patientName = nextApt.patientName.isNotEmpty ? nextApt.patientName : 'Patient';
       nextAptInfo = '$patientName\n$dateStr à $timeStr';
     }
 

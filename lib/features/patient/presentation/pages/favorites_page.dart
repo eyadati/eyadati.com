@@ -114,6 +114,15 @@ class _FavoriteDoctorCard extends StatelessWidget {
     required this.onRemove,
   });
 
+  String _getInitials(String name) {
+    if (name.isEmpty || name.length < 2) return 'DR';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -130,7 +139,7 @@ class _FavoriteDoctorCard extends StatelessWidget {
               radius: 25,
               backgroundColor: AppColors.primary.withValues(alpha: 0.1),
               child: Text(
-                doctor.name.length > 4 ? doctor.name.substring(4, 6) : 'DR',
+                _getInitials(doctor.name),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

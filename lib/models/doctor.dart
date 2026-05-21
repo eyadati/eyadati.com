@@ -18,11 +18,6 @@ class Doctor with _$Doctor {
     String? photoUrl,
     @Default(20) int appointmentDuration,
     @Default(40) int consultationDuration,
-    @Default('09:00:00') String openingAt,
-    @Default('17:00:00') String closingAt,
-    int? breakStart,
-    int? breakEnd,
-    @Default([]) List<String> workingDays,
     @Default(false) bool manualPause,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
@@ -44,14 +39,6 @@ class Doctor with _$Doctor {
       photoUrl: json['photo_url'] as String?,
       appointmentDuration: json['appointment_duration'] as int? ?? 20,
       consultationDuration: json['consultation_duration'] as int? ?? 40,
-      openingAt: json['opening_at'] as String? ?? '09:00:00',
-      closingAt: json['closing_at'] as String? ?? '17:00:00',
-      breakStart: json['break_start'] as int?,
-      breakEnd: json['break_end'] as int?,
-      workingDays: (json['working_days'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
       manualPause: json['manual_pause'] as bool? ?? false,
       subscriptionEnd: json['subscription_end'] != null
           ? DateTime.parse(json['subscription_end'] as String)

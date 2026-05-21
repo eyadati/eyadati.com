@@ -109,7 +109,7 @@ class _DoctorResultsSheetState extends ConsumerState<DoctorResultsSheet> {
                           onChanged: (value) {
                             setState(() => _showFavoritesOnly = value);
                           },
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                         ),
                       ],
                     ),

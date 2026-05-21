@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/models/doctor.dart';
 import 'package:eyadati/models/appointment_data.dart';
-import 'package:eyadati/services/providers.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/core/engine/availability_service.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/core/utils/maps_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eyadati/core/engine/availability_service.dart';
-import 'package:eyadati/core/utils/time_utils.dart';
 
 class DoctorState {
   final String? userId;
@@ -20,6 +22,7 @@ class DoctorState {
   final int appointmentDuration;
   final String avatarUrl;
   final String? mapsLink;
+  final bool isPaused;
   final int todayAppointments;
   final int weekAppointments;
   final int totalPatients;
@@ -43,6 +46,7 @@ class DoctorState {
     this.appointmentDuration = 20,
     this.avatarUrl = '',
     this.mapsLink,
+    this.isPaused = false,
     this.todayAppointments = 0,
     this.weekAppointments = 0,
     this.totalPatients = 0,
@@ -123,6 +127,7 @@ class DoctorState {
     int? appointmentDuration,
     String? avatarUrl,
     String? mapsLink,
+    bool? isPaused,
     int? todayAppointments,
     int? weekAppointments,
     int? totalPatients,
@@ -146,6 +151,7 @@ class DoctorState {
       appointmentDuration: appointmentDuration ?? this.appointmentDuration,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       mapsLink: mapsLink ?? this.mapsLink,
+      isPaused: isPaused ?? this.isPaused,
       todayAppointments: todayAppointments ?? this.todayAppointments,
       weekAppointments: weekAppointments ?? this.weekAppointments,
       totalPatients: totalPatients ?? this.totalPatients,
@@ -184,7 +190,7 @@ final doctorProvider = StateNotifierProvider<DoctorNotifier, DoctorState>((
 
 class DoctorNotifier extends StateNotifier<DoctorState> {
   final Ref _ref;
-  SupabaseClient get _client => _ref.read(supabaseClientProvider);
+  SupabaseClient get _client => SupabaseInitializer.client;
   RealtimeChannel? _appointmentsChannel;
   RealtimeChannel? _scheduleChannel;
   Timer? _debounceTimer;
@@ -195,11 +201,12 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     loadDoctorData();
   }
 
-  void _debouncedLoadDoctorData() {
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      loadDoctorData();
-    });
+  @override
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   void _subscribeToAppointments() {
@@ -212,7 +219,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'appointments',
-          callback: (payload) => _debouncedLoadDoctorData(),
+          callback: (payload) => _silentRefresh(),
         )
         .subscribe();
   }
@@ -227,98 +234,59 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'doctor_schedule',
-          callback: (payload) => _debouncedLoadDoctorData(),
+          callback: (payload) => _silentRefresh(),
         )
         .subscribe();
   }
 
-  Future<void> _refreshAppointments() async {
-    if (state.userId == null) return;
-    try {
-      final result = await _client
-          .from('appointments')
-          .select('''
-            id,
-            scheduled_at,
-            duration,
-            status,
-            appointment_type,
-            booking_type,
-            notes,
-            patient_name_snapshot,
-            patient_phone_snapshot,
-            patient:profiles!patient_id (
-              id,
-              full_name,
-              avatar_url
-            )
-          ''')
-          .eq('doctor_id', state.userId!)
-          .order('scheduled_at', ascending: false);
+  void _silentRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      loadDoctorData(silent: true);
+    });
+  }
 
-      final now = DateTime.now();
-      final allAppointments = result.map((a) {
-        final start = DateTime.parse(a['scheduled_at'] as String);
+  AppointmentData _parseAppointmentRow(Map<String, dynamic> a) {
+    final start = DateTime.parse(a['scheduled_at'] as String);
 
-        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback appointment duration
-        final durationValue = a['duration'];
-        if (durationValue == null) {
-          throw Exception(
-            'Appointment ${a['id']} missing duration from database',
-          );
-        }
-        final duration = durationValue as int;
+    final durationValue = a['duration'];
+    if (durationValue == null) {
+      throw Exception('Appointment ${a['id']} missing duration from database');
+    }
+    final duration = durationValue as int;
 
-        // Debug logging for patient name
-        final patientNameSnapshot = a['patient_name_snapshot'] as String?;
-        final patientData = a['patient'] as Map<String, dynamic>?;
-        final patientFullName = patientData?['full_name'] as String?;
+    final patientNameSnapshot = a['patient_name_snapshot'] as String?;
+    final patientData = a['patient'] as Map<String, dynamic>?;
+    final patientFullName = patientData?['full_name'] as String?;
 
-        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
-        final resolvedName = patientNameSnapshot ?? patientFullName;
-        if (resolvedName == null) {
-          throw Exception(
-            'Appointment ${a['id']} has no patient name (snapshot or profile)',
-          );
-        }
-
-        return AppointmentData(
-          id: a['id'] as String,
-          startTime: start,
-          endTime: start.add(Duration(minutes: duration)),
-          patientName: resolvedName,
-          patientAvatar:
-              (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
-          patientPhone: a['patient_phone_snapshot'] as String?,
-          status: a['status'] as String,
-          isConsultation: a['appointment_type'] == 'consultation',
-          notes: a['notes'] as String?,
-          duration: duration,
-          patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
-          bookingType: a['booking_type'] as String? ?? 'online',
-        );
-      }).toList();
-
-      final upcoming =
-          allAppointments.where((a) => a.startTime.isAfter(now)).toList()
-            ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-      state = state.copyWith(
-        allAppointments: allAppointments,
-        upcomingAppointments: upcoming,
+    final resolvedName = patientNameSnapshot ?? patientFullName;
+    if (resolvedName == null) {
+      throw Exception(
+        'Appointment ${a['id']} has no patient name (snapshot or profile)',
       );
-    } catch (_) {}
+    }
+
+    return AppointmentData(
+      id: a['id'] as String,
+      startTime: start,
+      endTime: start.add(Duration(minutes: duration)),
+      patientName: resolvedName,
+      patientAvatar:
+          (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
+      patientPhone: a['patient_phone_snapshot'] as String?,
+      status: a['status'] as String,
+      isConsultation: a['appointment_type'] == 'consultation',
+      notes: a['notes'] as String?,
+      duration: duration,
+      patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
+      bookingType: a['booking_type'] as String? ?? 'online',
+    );
   }
 
-  @override
-  void dispose() {
-    _appointmentsChannel?.unsubscribe();
-    _scheduleChannel?.unsubscribe();
-    super.dispose();
-  }
-
-  Future<void> loadDoctorData() async {
-    state = state.copyWith(isLoading: true);
+  Future<void> loadDoctorData({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true);
+    }
     try {
       final user = _client.auth.currentUser;
       if (user == null) {
@@ -330,7 +298,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       final doctorData = await _client
           .from('doctors')
           .select(
-            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration',
+            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration, manual_pause',
           )
           .eq('id', user.id)
           .maybeSingle();
@@ -397,45 +365,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .eq('doctor_id', user.id)
           .order('scheduled_at', ascending: false);
 
-      final allAppointments = allApptsData.map((a) {
-        final start = DateTime.parse(a['scheduled_at'] as String);
-
-        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback appointment duration
-        final durationValue = a['duration'];
-        if (durationValue == null) {
-          throw Exception(
-            'Appointment ${a['id']} missing duration from database',
-          );
-        }
-        final duration = durationValue as int;
-
-        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
-        final patientNameSnapshot = a['patient_name_snapshot'] as String?;
-        final patientProfile =
-            (a['patient'] as Map<String, dynamic>?)?['full_name'] as String?;
-        final resolvedName = patientNameSnapshot ?? patientProfile;
-        if (resolvedName == null) {
-          throw Exception(
-            'Appointment ${a['id']} has no patient name (snapshot or profile)',
-          );
-        }
-
-        return AppointmentData(
-          id: a['id'] as String,
-          startTime: start,
-          endTime: start.add(Duration(minutes: duration)),
-          patientName: resolvedName,
-          patientAvatar:
-              (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
-          patientPhone: a['patient_phone_snapshot'] as String?,
-          status: a['status'] as String,
-          isConsultation: a['appointment_type'] == 'consultation',
-          notes: a['notes'] as String?,
-          duration: duration,
-          patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
-          bookingType: a['booking_type'] as String? ?? 'online',
-        );
-      }).toList();
+      final allAppointments = allApptsData.map(_parseAppointmentRow).toList();
 
       final upcomingAppointments =
           allAppointments.where((a) => a.startTime.isAfter(now)).toList()
@@ -448,21 +378,11 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .eq('is_active', true)
           .order('day_of_week');
 
-      print(
-        '[DoctorNotifier] Loaded ${scheduleSlots.length} schedule slots from Supabase.',
-      );
-      for (var s in scheduleSlots) {
-        print(
-          '[DoctorNotifier] Slot: Day ${s['day_of_week']}, Time ${s['start_time']} - ${s['end_time']}',
-        );
-      }
-
       final schedule = scheduleSlots
           .map((s) => ScheduleSlot.fromDbMap(s))
           .toList();
 
       state = state.copyWith(
-        isLoading: false,
         setupCompleted: true,
         userId: user.id,
         name:
@@ -475,7 +395,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         phone: profile?['phone'] as String? ?? '',
         address: doctorData['address'] as String? ?? '',
 
-        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback doctor duration
         consultationDuration: _requireInt(
           doctorData['consultation_duration'],
           'consultation_duration',
@@ -489,28 +408,32 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             doctorData['photo_url'] as String? ??
             '',
         mapsLink: doctorData['maps_link'] as String?,
+        isPaused: doctorData['manual_pause'] as bool? ?? false,
         todayAppointments: todayAppts.count,
         weekAppointments: weekAppts.count,
         totalPatients: 0,
         allAppointments: allAppointments,
         upcomingAppointments: upcomingAppointments,
         scheduleSlots: schedule,
+        isLoading: false,
       );
-      await loadPatients();
+      if (!silent) {
+        await loadPatients();
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 
   Future<void> saveSetup({
-    required List<String> workingDays,
-    required String startTime,
-    required String endTime,
+    required int startTime,
+    required int endTime,
     required int consultationDuration,
     required int appointmentDuration,
     required String specialty,
     required String city,
     required String address,
+    required List<String> workingDays,
     String? phone,
     String? mapsLink,
     String? photoUrl,
@@ -534,6 +457,29 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         'avatar_url': photoUrl,
       }, onConflict: 'id');
 
+      double? latitude;
+      double? longitude;
+      if (mapsLink != null && mapsLink.isNotEmpty) {
+        final coords = parseGoogleMapsLink(mapsLink);
+        latitude = coords.lat;
+        longitude = coords.lng;
+      }
+
+      await _client.from('doctors').upsert({
+        'id': user.id,
+        'specialty': specialty,
+        'address': address,
+        'city': city,
+        'maps_link': mapsLink,
+        'photo_url': photoUrl,
+        'latitude': latitude,
+        'longitude': longitude,
+        'consultation_duration': consultationDuration,
+        'appointment_duration': appointmentDuration,
+      }, onConflict: 'id');
+
+      await _client.from('doctor_schedule').delete().eq('doctor_id', user.id);
+
       final dayMapping = {
         'lundi': 1,
         'mardi': 2,
@@ -544,23 +490,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         'dimanche': 0,
       };
 
-      final doctorData = {
-        'id': user.id,
-        'specialty': specialty,
-        'address': address,
-        'city': city,
-        'maps_link': mapsLink,
-        'photo_url': photoUrl,
-        'consultation_duration': consultationDuration,
-        'appointment_duration': appointmentDuration,
-        if (breakStart != null) 'break_start': breakStart,
-        if (breakEnd != null) 'break_end': breakEnd,
-      };
-
-      await _client.from('doctors').upsert(doctorData, onConflict: 'id');
-
-      await _client.from('doctor_schedule').delete().eq('doctor_id', user.id);
-
       for (final day in workingDays) {
         final dayOfWeek = dayMapping[day] ?? 1;
         await _client.from('doctor_schedule').insert({
@@ -568,11 +497,11 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           'day_of_week': dayOfWeek,
           'start_time': startTime,
           'end_time': endTime,
+          if (breakStart != null) 'break_start': breakStart,
+          if (breakEnd != null) 'break_end': breakEnd,
           'is_active': true,
         });
       }
-
-      print('[DoctorNotifier] Setup completed successfully');
 
       state = state.copyWith(
         isLoading: false,
@@ -627,12 +556,10 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .insert({
             'doctor_id': state.userId,
             'day_of_week': dayOfWeek,
-            'start_time': TimeUtils.minutesToString(startTime),
-            'end_time': TimeUtils.minutesToString(endTime),
-            if (breakStart != null)
-              'break_start': TimeUtils.minutesToString(breakStart),
-            if (breakEnd != null)
-              'break_end': TimeUtils.minutesToString(breakEnd),
+            'start_time': startTime,
+            'end_time': endTime,
+            if (breakStart != null) 'break_start': breakStart,
+            if (breakEnd != null) 'break_end': breakEnd,
             'is_active': true,
           })
           .select()
@@ -659,14 +586,10 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   }) async {
     try {
       final updates = <String, dynamic>{};
-      if (startTime != null)
-        updates['start_time'] = TimeUtils.minutesToString(startTime);
-      if (endTime != null)
-        updates['end_time'] = TimeUtils.minutesToString(endTime);
-      if (breakStart != null)
-        updates['break_start'] = TimeUtils.minutesToString(breakStart);
-      if (breakEnd != null)
-        updates['break_end'] = TimeUtils.minutesToString(breakEnd);
+      if (startTime != null) updates['start_time'] = startTime;
+      if (endTime != null) updates['end_time'] = endTime;
+      if (breakStart != null) updates['break_start'] = breakStart;
+      if (breakEnd != null) updates['break_end'] = breakEnd;
       if (isActive != null) updates['is_active'] = isActive;
 
       await _client.from('doctor_schedule').update(updates).eq('id', slotId);
@@ -842,7 +765,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           patientPhone:
               patientPhone ?? result['patient_phone_snapshot'] as String?,
           status: 'upcoming',
-          isConsultation: false,
+          isConsultation: isConsultation,
           duration: dur,
           patientId: patientId,
           bookingType: patientId != null ? 'online' : 'manual',
@@ -872,28 +795,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .update({'status': status})
           .eq('id', appointmentId);
 
-      // Update upcoming appointments
-      final updatedUpcoming = state.upcomingAppointments.map((a) {
-        if (a.id == appointmentId) {
-          return AppointmentData(
-            id: a.id,
-            startTime: a.startTime,
-            endTime: a.endTime,
-            patientName: a.patientName,
-            patientAvatar: a.patientAvatar,
-            status: status,
-            isConsultation: a.isConsultation,
-            notes: a.notes,
-            duration: a.duration,
-            patientId: a.patientId,
-            patientPhone: a.patientPhone,
-            bookingType: a.bookingType,
-          );
-        }
-        return a;
-      }).toList();
-
-      // Update ALL appointments (for calendar view)
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
           return AppointmentData(
@@ -913,6 +814,33 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         }
         return a;
       }).toList();
+
+      List<AppointmentData> updatedUpcoming;
+      if (status == 'cancelled' || status == 'completed') {
+        updatedUpcoming = state.upcomingAppointmentsList
+            .where((a) => a.id != appointmentId)
+            .toList();
+      } else {
+        updatedUpcoming = state.upcomingAppointmentsList.map((a) {
+          if (a.id == appointmentId) {
+            return AppointmentData(
+              id: a.id,
+              startTime: a.startTime,
+              endTime: a.endTime,
+              patientName: a.patientName,
+              patientAvatar: a.patientAvatar,
+              patientPhone: a.patientPhone,
+              status: status,
+              isConsultation: a.isConsultation,
+              notes: a.notes,
+              duration: a.duration,
+              patientId: a.patientId,
+              bookingType: a.bookingType,
+            );
+          }
+          return a;
+        }).toList();
+      }
 
       state = state.copyWith(
         upcomingAppointments: updatedUpcoming,
@@ -977,39 +905,21 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   }
 
   Future<bool> cancelAppointmentStatus(String appointmentId) async {
+    return updateAppointmentStatus(appointmentId, 'cancelled');
+  }
+
+  Future<bool> deleteAppointment(String appointmentId) async {
     try {
-      await _client
-          .from('appointments')
-          .update({'status': 'cancelled'})
-          .eq('id', appointmentId);
-
-      final updatedAll = state.allAppointments.map((a) {
-        if (a.id == appointmentId) {
-          return AppointmentData(
-            id: a.id,
-            startTime: a.startTime,
-            endTime: a.endTime,
-            patientName: a.patientName,
-            patientAvatar: a.patientAvatar,
-            patientPhone: a.patientPhone,
-            status: 'cancelled',
-            isConsultation: a.isConsultation,
-            notes: a.notes,
-            duration: a.duration,
-            patientId: a.patientId,
-            bookingType: a.bookingType,
-          );
-        }
-        return a;
-      }).toList();
-
+      await _client.from('appointments').delete().eq('id', appointmentId);
       final updatedUpcoming = state.upcomingAppointments
           .where((a) => a.id != appointmentId)
           .toList();
-
+      final updatedAll = state.allAppointments
+          .where((a) => a.id != appointmentId)
+          .toList();
       state = state.copyWith(
-        allAppointments: updatedAll,
         upcomingAppointments: updatedUpcoming,
+        allAppointments: updatedAll,
       );
       return true;
     } catch (e) {
@@ -1018,17 +928,14 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     }
   }
 
-  Future<bool> deleteAppointment(String appointmentId) async {
+  Future<bool> togglePause(bool paused) async {
     try {
-      await _client.from('appointments').delete().eq('id', appointmentId);
-      final updated = state.upcomingAppointments
-          .where((a) => a.id != appointmentId)
-          .toList();
-      state = state.copyWith(upcomingAppointments: updated);
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      await _client.from('doctors').update({'manual_pause': paused}).eq('id', userId);
       return true;
     } catch (e) {
-      print('[DoctorNotifier] Error in createAppointment: $e');
-      state = state.copyWith(errorMessage: e.toString());
       return false;
     }
   }

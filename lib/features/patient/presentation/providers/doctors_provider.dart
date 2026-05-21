@@ -37,14 +37,20 @@ class DoctorsState {
       doctors: doctors ?? this.doctors,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedSpecialty: selectedSpecialty ?? this.selectedSpecialty,
-      selectedCity: selectedCity == _sentinel ? this.selectedCity : selectedCity as String?,
+      selectedCity: selectedCity == _sentinel
+          ? this.selectedCity
+          : selectedCity as String?,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage == _sentinel ? this.errorMessage : errorMessage as String?,
+      errorMessage: errorMessage == _sentinel
+          ? this.errorMessage
+          : errorMessage as String?,
     );
   }
 }
 
-final doctorsProvider = StateNotifierProvider<DoctorsNotifier, DoctorsState>((ref) {
+final doctorsProvider = StateNotifierProvider<DoctorsNotifier, DoctorsState>((
+  ref,
+) {
   return DoctorsNotifier();
 });
 
@@ -59,26 +65,40 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
       final now = DateTime.now().toIso8601String();
       final result = await SupabaseInitializer.client
           .from('doctors')
-          .select('id, specialty, city, bio, manual_pause, subscription_end, appointment_duration, consultation_duration, profiles(full_name, avatar_url, city)')
+          .select(
+            'id, specialty, address, city, bio, photo_url, maps_link, latitude, longitude, manual_pause, subscription_end, appointment_duration, consultation_duration, created_at',
+          )
           .eq('manual_pause', false)
           .gt('subscription_end', now)
           .order('created_at', ascending: false)
           .limit(50);
 
+      final doctorIds = result.map((r) => r['id'] as String).toList();
+
+      final Map<String, Map<String, dynamic>> profileMap = {};
+      if (doctorIds.isNotEmpty) {
+        try {
+          final profiles = await SupabaseInitializer.client
+              .rpc('get_doctor_profiles', params: {'doctor_ids': doctorIds});
+          for (final p in profiles) {
+            profileMap[p['id'] as String] = p as Map<String, dynamic>;
+          }
+        } catch (_) {
+          // RPC may not exist yet; fall back gracefully
+        }
+      }
+
       final fetchedDoctors = (result as List).map((row) {
-        final profile = row['profiles'] as Map<String, dynamic>?;
+        final doctorId = row['id'] as String;
+        final profile = profileMap[doctorId];
         final doctor = Doctor.fromDatabase(row as Map<String, dynamic>);
         return doctor.copyWith(
           name: profile?['full_name'] as String? ?? 'Docteur',
           photoUrl: profile?['avatar_url'] as String?,
-          city: (row['city'] as String?) ?? (profile?['city'] as String?),
         );
       }).toList();
 
-      state = state.copyWith(
-        isLoading: false,
-        allDoctors: fetchedDoctors,
-      );
+      state = state.copyWith(isLoading: false, allDoctors: fetchedDoctors);
       _applyFilters();
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
@@ -124,14 +144,17 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
     final city = state.selectedCity?.toLowerCase();
 
     final filtered = state.allDoctors.where((d) {
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           d.name.toLowerCase().contains(query) ||
           d.specialty.toLowerCase().contains(query) ||
           (d.city?.toLowerCase().contains(query) ?? false);
-      
-      final matchesSpecialty = specialty.isEmpty || d.specialty.toLowerCase() == specialty;
-      
-      final matchesCity = city == null || city.isEmpty || (d.city?.toLowerCase() == city);
+
+      final matchesSpecialty =
+          specialty.isEmpty || d.specialty.toLowerCase() == specialty;
+
+      final matchesCity =
+          city == null || city.isEmpty || (d.city?.toLowerCase() == city);
 
       return matchesQuery && matchesSpecialty && matchesCity;
     }).toList();

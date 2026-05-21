@@ -4,11 +4,9 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
-import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/utils/time_utils.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
-import 'package:eyadati/core/engine/availability_service.dart';
 import '../../../../models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
 

@@ -8,6 +8,7 @@ class AppAuthState {
   final String? userId;
   final String? email;
   final String? role;
+  final String? userName;
 
   const AppAuthState({
     this.isAuthenticated = false,
@@ -19,6 +20,7 @@ class AppAuthState {
     this.userId,
     this.email,
     this.role,
+    this.userName,
   });
 
   AppAuthState copyWith({
@@ -31,6 +33,7 @@ class AppAuthState {
     String? userId,
     String? email,
     String? role,
+    String? userName,
   }) {
     return AppAuthState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -42,6 +45,7 @@ class AppAuthState {
       userId: userId ?? this.userId,
       email: email ?? this.email,
       role: role ?? this.role,
+      userName: userName ?? this.userName,
     );
   }
 }

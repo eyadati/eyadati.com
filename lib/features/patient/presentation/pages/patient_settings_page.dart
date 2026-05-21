@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../core/routing/route_names.dart';
 import '../../../../core/widgets/buttons/danger_button.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -170,6 +172,11 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                               ],
                             ],
                           ),
+                        ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.pencil, size: 18),
+                          color: AppColors.primary,
+                          onPressed: () => context.push(RouteNames.patientEditProfile),
                         ),
                       ],
                     ),

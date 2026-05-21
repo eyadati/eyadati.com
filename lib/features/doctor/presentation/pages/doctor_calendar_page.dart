@@ -10,7 +10,6 @@ import 'package:eyadati/models/schedule_slot_model.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
-import 'doctor_settings_page.dart';
 
 class DoctorCalendarPage extends ConsumerStatefulWidget {
   const DoctorCalendarPage({super.key});
@@ -24,8 +23,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   final CalendarController _calendarController = CalendarController();
   final _CalendarDataSource _dataSource = _CalendarDataSource([]);
   CalendarView _currentView = CalendarView.week;
-  int _appointmentCount = -1;
-  bool _initialSyncDone = false;
+  String _lastUpdateIds = '';
 
   @override
   void initState() {
@@ -33,7 +31,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _updateDataSource(ref.read(doctorProvider));
-      _initialSyncDone = true;
     });
   }
 
@@ -145,7 +142,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   void _updateDataSource(DoctorState doctorState) {
-    _appointmentCount = doctorState.allAppointments.length;
     final appointments = doctorState.allAppointments
         .map(
           (apt) => _AppointmentWrapper(
@@ -458,16 +454,12 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
 
-    if (doctorState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     final screenWidth = MediaQuery.of(context).size.width;
-    final intervalHeight = _getTimeIntervalHeight(screenWidth);
     final (startHour, endHour) = _getVisibleHours(doctorState);
 
-    if (_appointmentCount == -1 ||
-        doctorState.allAppointments.length != _appointmentCount) {
+    final currentIds = doctorState.allAppointments.map((a) => a.id).join(',');
+    if (currentIds != _lastUpdateIds) {
+      _lastUpdateIds = currentIds;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _updateDataSource(doctorState);
@@ -507,8 +499,8 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
               todayHighlightColor: AppColors.primary,
               specialRegions: breakRegions,
               timeSlotViewSettings: TimeSlotViewSettings(
-                startHour: 8,
-                endHour: 20,
+                startHour: startHour.toDouble(),
+                endHour: endHour.toDouble(),
                 timeInterval: const Duration(hours: 1),
                 timeIntervalHeight: 120,
                 timeFormat: 'H a',
@@ -1062,11 +1054,28 @@ class _NotificationItem extends ConsumerWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    ref
+                  onPressed: () async {
+                    final ok = await ref
                         .read(doctorProvider.notifier)
                         .cancelAppointmentStatus(appointment.id);
-                    Navigator.pop(context);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      if (ok) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Rendez-vous annulé'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Erreur lors de l\'annulation'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
+                    }
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.error,
@@ -1079,11 +1088,21 @@ class _NotificationItem extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    ref
+                  onPressed: () async {
+                    final ok = await ref
                         .read(doctorProvider.notifier)
                         .confirmAppointment(appointment.id);
-                    Navigator.pop(context);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      if (ok) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Rendez-vous confirmé'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,

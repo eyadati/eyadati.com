@@ -7,9 +7,11 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/widgets/buttons/primary_button.dart';
 import '../../../../core/utils/supabase_client.dart';
+import '../../../../core/engine/availability_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/models/doctor.dart';
-import '../providers/doctors_provider.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/models/appointment_data.dart';
 import '../providers/patient_provider.dart';
 
 class BookingBottomSheet extends ConsumerStatefulWidget {
@@ -25,6 +27,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedSlot;
   bool _isLoading = false;
+  List<ValidStart> _availableSlots = [];
 
   List<DateTime> get _next14Days {
     final today = DateTime.now();
@@ -34,23 +37,67 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
     );
   }
 
-  List<TimeOfDay> get _availableSlots {
-    return [
-      const TimeOfDay(hour: 9, minute: 0),
-      const TimeOfDay(hour: 9, minute: 30),
-      const TimeOfDay(hour: 10, minute: 0),
-      const TimeOfDay(hour: 10, minute: 30),
-      const TimeOfDay(hour: 11, minute: 0),
-      const TimeOfDay(hour: 11, minute: 30),
-      const TimeOfDay(hour: 14, minute: 0),
-      const TimeOfDay(hour: 14, minute: 30),
-      const TimeOfDay(hour: 15, minute: 0),
-      const TimeOfDay(hour: 15, minute: 30),
-      const TimeOfDay(hour: 16, minute: 0),
-      const TimeOfDay(hour: 16, minute: 30),
-      const TimeOfDay(hour: 17, minute: 0),
-      const TimeOfDay(hour: 17, minute: 30),
-    ];
+  Future<void> _loadSlotsForDate(DateTime date) async {
+    setState(() => _isLoading = true);
+    try {
+      final appointmentsData = await SupabaseInitializer.client
+          .from('appointments')
+          .select('''
+            id, scheduled_at, duration, status, appointment_type, booking_type, notes,
+            patient_name_snapshot, patient_phone_snapshot
+          ''')
+          .eq('doctor_id', widget.doctor.id)
+          .gte('scheduled_at', DateTime(date.year, date.month, date.day).toIso8601String())
+          .lt('scheduled_at', DateTime(date.year, date.month, date.day).add(const Duration(days: 1)).toIso8601String());
+
+      final List<AppointmentData> appointments = (appointmentsData as List).map((a) {
+        final start = DateTime.parse(a['scheduled_at'] as String);
+        final dur = a['duration'] as int;
+        return AppointmentData(
+          id: a['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: dur)),
+          patientName: a['patient_name_snapshot'] as String? ?? 'Patient',
+          status: a['status'] as String,
+          isConsultation: a['appointment_type'] == 'consultation',
+          duration: dur,
+          bookingType: a['booking_type'] as String? ?? 'online',
+        );
+      }).toList();
+
+      final scheduleData = await SupabaseInitializer.client
+          .from('doctor_schedule')
+          .select()
+          .eq('doctor_id', widget.doctor.id)
+          .eq('is_active', true);
+
+      final List<ScheduleSlot> scheduleSlots = (scheduleData as List)
+          .map((s) => ScheduleSlot.fromDbMap(s))
+          .toList();
+
+      final doctorData = await SupabaseInitializer.client
+          .from('doctors')
+          .select('consultation_duration, appointment_duration')
+          .eq('id', widget.doctor.id)
+          .single();
+
+      final effectiveDuration = (doctorData['appointment_duration'] as int? ?? 20);
+
+      final availabilityService = AvailabilityService(
+        scheduleSlots: scheduleSlots,
+        appointmentDuration: effectiveDuration,
+      );
+
+      setState(() {
+        _availableSlots = availabilityService.getValidStarts(date, appointments);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _availableSlots = [];
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _confirmBooking() async {
@@ -69,6 +116,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
     try {
       final authState = ref.read(authProvider);
       final userId = authState.userId;
+      final patientName = authState.userName;
 
       if (userId == null) {
         throw Exception('Utilisateur non connecté');
@@ -90,7 +138,8 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
         'scheduled_at': scheduledAt.toIso8601String(),
         'duration': duration,
         'status': 'upcoming',
-        'appointment_type': 'regular',
+        'booking_type': 'online',
+        'patient_name_snapshot': (patientName?.isNotEmpty == true) ? patientName! : 'Patient',
       });
 
       ref.invalidate(patientProvider);
@@ -278,7 +327,13 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                           date.day == _selectedDate!.day;
 
                       return GestureDetector(
-                        onTap: () => setState(() => _selectedDate = date),
+                        onTap: () {
+                          setState(() {
+                            _selectedDate = date;
+                            _selectedSlot = null;
+                          });
+                          _loadSlotsForDate(date);
+                        },
                         child: Container(
                           width: 56,
                           margin: const EdgeInsets.only(right: AppSpacing.sm),
@@ -353,48 +408,63 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Expanded(
-                      child: GridView.builder(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          childAspectRatio: 2,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                        ),
-                        itemCount: _availableSlots.length,
-                        itemBuilder: (context, index) {
-                          final slot = _availableSlots[index];
-                          final isSelected = _selectedSlot == slot;
-
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedSlot = slot),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : AppColors.background,
-                                borderRadius: BorderRadius.circular(AppRadius.md),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : AppColors.border,
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '${slot.hour.toString().padLeft(2, '0')}:${slot.minute.toString().padLeft(2, '0')}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: isSelected
-                                        ? AppColors.white
-                                        : AppColors.textPrimary,
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : _availableSlots.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'Aucun créneau disponible',
+                                    style: TextStyle(color: AppColors.textHint),
                                   ),
+                                )
+                              : GridView.builder(
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 4,
+                                    childAspectRatio: 2,
+                                    crossAxisSpacing: 8,
+                                    mainAxisSpacing: 8,
+                                  ),
+                                  itemCount: _availableSlots.length,
+                                  itemBuilder: (context, index) {
+                                    final slot = _availableSlots[index];
+                                    final slotTime = TimeOfDay(
+                                      hour: slot.minute ~/ 60,
+                                      minute: slot.minute % 60,
+                                    );
+                                    final isSelected = _selectedSlot != null &&
+                                        _selectedSlot!.hour == slotTime.hour &&
+                                        _selectedSlot!.minute == slotTime.minute;
+
+                                    return GestureDetector(
+                                      onTap: () => setState(() => _selectedSlot = slotTime),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? AppColors.primary
+                                              : AppColors.background,
+                                          borderRadius: BorderRadius.circular(AppRadius.md),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? AppColors.primary
+                                                : AppColors.border,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${slotTime.hour.toString().padLeft(2, '0')}:${slotTime.minute.toString().padLeft(2, '0')}',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: isSelected
+                                                  ? AppColors.white
+                                                  : AppColors.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
                     ),
                   ],
                 ),

@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:eyadati/core/utils/supabase_client.dart';
-import '../../../../core/routing/route_names.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacing.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import 'package:eyadati/core/routing/route_names.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_spacing.dart';
 import '../providers/providers.dart';
 
 class PatientAppointmentsPage extends ConsumerStatefulWidget {
@@ -18,41 +15,10 @@ class PatientAppointmentsPage extends ConsumerStatefulWidget {
 }
 
 class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPage> {
-  RealtimeChannel? _appointmentsChannel;
-
   @override
   void initState() {
     super.initState();
     Future.microtask(() => ref.read(patientProvider.notifier).loadPatientData());
-    _subscribeToAppointments();
-  }
-
-  void _subscribeToAppointments() {
-    final authState = ref.read(authProvider);
-    final userId = authState.userId;
-    if (userId == null) return;
-
-    _appointmentsChannel = SupabaseInitializer.client
-        .channel('patient_appointments_$userId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'appointments',
-          callback: (payload) {
-            final newRecord = payload.newRecord;
-            final oldRecord = payload.oldRecord;
-            if (newRecord['patient_id'] == userId || (oldRecord != null && oldRecord['patient_id'] == userId)) {
-              ref.read(patientProvider.notifier).loadPatientData();
-            }
-          },
-        )
-        .subscribe();
-  }
-
-  @override
-  void dispose() {
-    _appointmentsChannel?.unsubscribe();
-    super.dispose();
   }
 
   @override
@@ -111,7 +77,7 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
   }
 
   Widget _buildAppointmentsList(
-    List<Appointment> appointments,
+    List<PatientAppointmentViewModel> appointments,
     String emptyMessage,
     BuildContext context,
     WidgetRef ref, {
@@ -141,7 +107,7 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
     );
   }
 
-  Future<void> _showCancelDialog(BuildContext context, WidgetRef ref, Appointment appointment) async {
+  Future<void> _showCancelDialog(BuildContext context, WidgetRef ref, PatientAppointmentViewModel appointment) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -231,7 +197,7 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
 }
 
 class _AppointmentCard extends StatelessWidget {
-  final Appointment appointment;
+  final PatientAppointmentViewModel appointment;
   final bool showCancel;
   final VoidCallback onCancel;
 
@@ -240,6 +206,15 @@ class _AppointmentCard extends StatelessWidget {
     required this.showCancel,
     required this.onCancel,
   });
+
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'DR';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, name.length >= 2 ? 2 : name.length).toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +233,7 @@ class _AppointmentCard extends StatelessWidget {
                 radius: 20,
                 backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 child: Text(
-                  appointment.doctorName.length > 4 ? appointment.doctorName.substring(4, 6) : 'DR',
+                  _getInitials(appointment.doctorName),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -389,15 +364,25 @@ class _StatusBadge extends StatelessWidget {
     String label;
 
     switch (status) {
-      case 'confirmed':
+      case 'upcoming':
+        bgColor = const Color(0xFFE3F2FD);
+        textColor = AppColors.primary;
+        label = 'À venir';
+        break;
+      case 'completed':
         bgColor = const Color(0xFFE8F5E9);
         textColor = AppColors.secondary;
-        label = 'Confirmé';
+        label = 'Terminé';
         break;
       case 'cancelled':
         bgColor = const Color(0xFFFFEBEE);
         textColor = AppColors.error;
         label = 'Annulé';
+        break;
+      case 'absent':
+        bgColor = const Color(0xFFFFF3E0);
+        textColor = const Color(0xFFE65100);
+        label = 'Absent';
         break;
       default:
         bgColor = AppColors.background;

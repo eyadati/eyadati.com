@@ -19,15 +19,6 @@ _$DoctorImpl _$$DoctorImplFromJson(Map<String, dynamic> json) => _$DoctorImpl(
   photoUrl: json['photoUrl'] as String?,
   appointmentDuration: (json['appointmentDuration'] as num?)?.toInt() ?? 20,
   consultationDuration: (json['consultationDuration'] as num?)?.toInt() ?? 40,
-  openingAt: json['openingAt'] as String? ?? '09:00:00',
-  closingAt: json['closingAt'] as String? ?? '17:00:00',
-  breakStart: (json['breakStart'] as num?)?.toInt(),
-  breakEnd: (json['breakEnd'] as num?)?.toInt(),
-  workingDays:
-      (json['workingDays'] as List<dynamic>?)
-          ?.map((e) => e as String)
-          .toList() ??
-      const [],
   manualPause: json['manualPause'] as bool? ?? false,
   subscriptionEnd: json['subscriptionEnd'] == null
       ? null
@@ -51,11 +42,6 @@ Map<String, dynamic> _$$DoctorImplToJson(_$DoctorImpl instance) =>
       'photoUrl': instance.photoUrl,
       'appointmentDuration': instance.appointmentDuration,
       'consultationDuration': instance.consultationDuration,
-      'openingAt': instance.openingAt,
-      'closingAt': instance.closingAt,
-      'breakStart': instance.breakStart,
-      'breakEnd': instance.breakEnd,
-      'workingDays': instance.workingDays,
       'manualPause': instance.manualPause,
       'subscriptionEnd': instance.subscriptionEnd?.toIso8601String(),
       'createdAt': instance.createdAt?.toIso8601String(),

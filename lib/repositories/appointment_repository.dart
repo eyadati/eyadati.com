@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/appointment.dart';
-import '../models/doctor.dart';
 import '../core/utils/input_validator.dart';
 import '../core/utils/security_validator.dart';
 
@@ -381,63 +380,55 @@ class AppointmentRepository {
         return [];
       }
 
-      final doctorResponse = await _client
-          .from('doctors')
-          .select()
-          .eq('id', doctorId)
+      final dayOfWeek = _getDayOfWeek(date);
+      final schedule = await _client
+          .from('doctor_schedule')
+          .select('start_time, end_time, break_start, break_end')
+          .eq('doctor_id', doctorId)
+          .eq('day_of_week', dayOfWeek)
           .maybeSingle();
 
-      if (doctorResponse == null) return [];
+      if (schedule == null) return [];
 
-      final doctor = Doctor.fromDatabase(doctorResponse);
-
-      final dayName = _getDayName(date);
-      if (!doctor.workingDays.contains(dayName)) {
-        return [];
-      }
+      final startMinutes = schedule['start_time'] as int;
+      final endMinutes = schedule['end_time'] as int;
+      final breakStart = schedule['break_start'] as int?;
+      final breakEnd = schedule['break_end'] as int?;
 
       final existingAppointments = await getDoctorAppointmentsByDate(date);
 
       final slots = <TimeSlot>[];
-      final slotStartParts = doctor.openingAt.split(':');
-      final slotEndParts = doctor.closingAt.split(':');
-      final slotStart = int.parse(slotStartParts[0]);
-      final slotEnd = int.parse(slotEndParts[0]);
 
-      for (var hour = slotStart; hour < slotEnd; hour++) {
-        for (var minute = 0; minute < 60; minute += durationMinutes) {
-          final startTime = DateTime(date.year, date.month, date.day, hour, minute);
-          final endTime = startTime.add(Duration(minutes: durationMinutes));
+      for (var m = startMinutes; m < endMinutes; m += durationMinutes) {
+        final slotEndM = m + durationMinutes;
+        if (slotEndM > endMinutes) continue;
 
-          if (endTime.hour > slotEnd || (endTime.hour == slotEnd && endTime.minute > 0)) {
-            continue;
+        final startTime = DateTime(
+          date.year, date.month, date.day, m ~/ 60, m % 60,
+        );
+        final endTime = DateTime(
+          date.year, date.month, date.day, slotEndM ~/ 60, slotEndM % 60,
+        );
+
+        bool isBreak = false;
+        if (breakStart != null && breakEnd != null) {
+          if ((m >= breakStart && m < breakEnd) ||
+              (slotEndM > breakStart && slotEndM <= breakEnd)) {
+            isBreak = true;
           }
-
-          bool isBreak = false;
-          if (doctor.breakStart != null && doctor.breakEnd != null) {
-            final breakStartMinutes = doctor.breakStart! * 60;
-            final breakEndMinutes = doctor.breakEnd! * 60;
-            final slotMinutes = hour * 60 + minute;
-            final slotEndMinutes = slotMinutes + durationMinutes;
-
-            if ((slotMinutes >= breakStartMinutes && slotMinutes < breakEndMinutes) ||
-                (slotEndMinutes > breakStartMinutes && slotEndMinutes <= breakEndMinutes)) {
-              isBreak = true;
-            }
-          }
-
-          bool isBooked = existingAppointments.any((apt) {
-            final aptEnd = apt.scheduledAt.add(Duration(minutes: apt.duration));
-            return startTime.isBefore(aptEnd) && endTime.isAfter(apt.scheduledAt);
-          });
-
-          slots.add(TimeSlot(
-            startTime: startTime,
-            endTime: endTime,
-            durationMinutes: durationMinutes,
-            isAvailable: !isBreak && !isBooked && startTime.isAfter(DateTime.now()),
-          ));
         }
+
+        bool isBooked = existingAppointments.any((apt) {
+          final aptEnd = apt.scheduledAt.add(Duration(minutes: apt.duration));
+          return startTime.isBefore(aptEnd) && endTime.isAfter(apt.scheduledAt);
+        });
+
+        slots.add(TimeSlot(
+          startTime: startTime,
+          endTime: endTime,
+          durationMinutes: durationMinutes,
+          isAvailable: !isBreak && !isBooked && startTime.isAfter(DateTime.now()),
+        ));
       }
 
       return slots;
@@ -446,13 +437,12 @@ class AppointmentRepository {
     }
   }
 
-  bool _isValidStatus(String status) {
-    return ['upcoming', 'completed', 'cancelled', 'absent'].contains(status);
+  int _getDayOfWeek(DateTime date) {
+    return date.weekday == DateTime.sunday ? 0 : date.weekday;
   }
 
-  String _getDayName(DateTime date) {
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-    return days[date.weekday - 1];
+  bool _isValidStatus(String status) {
+    return ['upcoming', 'completed', 'cancelled', 'absent'].contains(status);
   }
 }
 

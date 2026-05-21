@@ -34,20 +34,21 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
   final List<String> _cities = algerianCities;
 
   final List<String> _specialties = [
-    'Médecine générale',
-    'Dentiste',
+    'Médecin généraliste',
     'Cardiologue',
     'Dermatologue',
-    'Ophtalmologue',
     'Pédiatre',
-    'Neurologue',
-    'Orthopédiste',
     'Gynécologue',
-    'Urologue',
+    'Orthopédiste',
+    'Neurologue',
+    'Ophtalmologue',
+    'Dentiste',
     'Psychiatre',
+    'Urologue',
     'Otorhinolaryngologue',
     'Radiologue',
     'Anesthésiste',
+    'Autres',
   ];
 
   void _search() {

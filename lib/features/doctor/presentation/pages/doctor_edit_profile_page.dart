@@ -9,6 +9,7 @@ import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import 'package:eyadati/core/widgets/inputs/app_dropdown.dart';
+import 'package:eyadati/core/utils/maps_utils.dart';
 import '../providers/doctor_provider.dart';
 import '../../../../core/utils/supabase_client.dart';
 
@@ -27,6 +28,8 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
   late TextEditingController _mapsLinkController;
   String _selectedCity = '';
   String _selectedSpecialty = '';
+  int _appointmentDuration = 30;
+  int _consultationDuration = 20;
   bool _isLoading = false;
   bool _isUploadingPhoto = false;
   String? _photoUrl;
@@ -43,8 +46,6 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     'Tlemcen',
   ];
 
-  final List<String> _algerianCities = algerianCities;
-
   final List<String> _specialties = [
     'Médecin généraliste',
     'Cardiologue',
@@ -56,7 +57,11 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     'Ophtalmologue',
     'Psychiatre',
     'Dentiste',
-    'Ostéopathe',
+    'Urologue',
+    'Otorhinolaryngologue',
+    'Radiologue',
+    'Anesthésiste',
+    'Autres',
   ];
 
   @override
@@ -69,6 +74,8 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     _mapsLinkController = TextEditingController(text: state.mapsLink ?? '');
     _selectedCity = state.city;
     _selectedSpecialty = state.specialty;
+    _appointmentDuration = state.appointmentDuration;
+    _consultationDuration = state.consultationDuration;
     _photoUrl = state.avatarUrl.isNotEmpty ? state.avatarUrl : null;
   }
 
@@ -98,7 +105,6 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
 
       setState(() => _photoUrl = publicUrl);
     } catch (e) {
-      print('[DoctorEditProfile] Photo upload error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -121,10 +127,22 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
       if (userId == null) throw Exception('Not authenticated');
 
       final client = SupabaseInitializer.client;
+      final mapsLink = _mapsLinkController.text.trim().isEmpty
+          ? null
+          : _mapsLinkController.text.trim();
+
+      double? latitude;
+      double? longitude;
+      if (mapsLink != null) {
+        final coords = parseGoogleMapsLink(mapsLink);
+        latitude = coords.lat;
+        longitude = coords.lng;
+      }
 
       await client.from('profiles').update({
         'full_name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
+        'city': _selectedCity,
         'avatar_url': _photoUrl,
       }).eq('id', userId);
 
@@ -132,8 +150,12 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
         'specialty': _selectedSpecialty,
         'city': _selectedCity,
         'address': _addressController.text.trim(),
-        'maps_link': _mapsLinkController.text.trim().isEmpty ? null : _mapsLinkController.text.trim(),
+        'maps_link': mapsLink,
+        'latitude': latitude,
+        'longitude': longitude,
         'photo_url': _photoUrl,
+        'appointment_duration': _appointmentDuration,
+        'consultation_duration': _consultationDuration,
       }).eq('id', userId);
 
       await ref.read(doctorProvider.notifier).refresh();
@@ -142,7 +164,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Profil mis à jour'),
+            content: const Text('Profil mis à jour'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -166,12 +188,12 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('Modifier le profil', style: AppTextStyles.pageHeaderTitle),
-        foregroundColor: AppColors.textPrimary,
-        backgroundColor: AppColors.white,
+        title: const Text('Modifier le profil'),
+        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(LucideIcons.arrowLeft, color: AppColors.textPrimary),
+          icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -180,60 +202,97 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildPhotoUpload(),
               const SizedBox(height: AppSpacing.xl),
-              _buildSectionTitle('Informations personnelles'),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _nameController,
-                label: 'Nom complet',
-                hint: 'Entrez votre nom',
-                prefixIcon: LucideIcons.user,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
+              _buildSectionCard(
+                title: 'Informations personnelles',
+                icon: LucideIcons.user,
+                child: Column(
+                  children: [
+                    AppTextField(
+                      controller: _nameController,
+                      label: 'Nom complet',
+                      hint: 'Entrez votre nom',
+                      prefixIcon: LucideIcons.user,
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppTextField(
+                      controller: _phoneController,
+                      label: 'Téléphone',
+                      hint: '0555 00 00 00',
+                      prefixIcon: LucideIcons.phone,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppDropdown<String>(
+                      label: 'Spécialité',
+                      hint: 'Sélectionnez votre spécialité',
+                      value: _selectedSpecialty.isNotEmpty ? _selectedSpecialty : null,
+                      items: _specialties.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      onChanged: (v) => setState(() => _selectedSpecialty = v ?? ''),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppDropdown<String>(
+                      label: 'Ville',
+                      hint: 'Sélectionnez votre ville',
+                      value: _selectedCity.isNotEmpty ? _selectedCity : null,
+                      items: algerianCities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (v) => setState(() => _selectedCity = v ?? ''),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _phoneController,
-                label: 'Téléphone',
-                hint: '0555 00 00 00',
-                prefixIcon: LucideIcons.phone,
-                keyboardType: TextInputType.phone,
+              const SizedBox(height: AppSpacing.lg),
+              _buildSectionCard(
+                title: 'Cabinet',
+                icon: LucideIcons.building,
+                child: Column(
+                  children: [
+                    AppTextField(
+                      controller: _addressController,
+                      label: 'Adresse du cabinet',
+                      hint: '123 Rue Didouche Mourad, Alger Centre',
+                      prefixIcon: LucideIcons.mapPin,
+                      keyboardType: TextInputType.streetAddress,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AppTextField(
+                      controller: _mapsLinkController,
+                      label: 'Lien Google Maps',
+                      hint: 'https://maps.google.com/...',
+                      prefixIcon: LucideIcons.map,
+                      keyboardType: TextInputType.url,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: AppSpacing.xl),
-              _buildSectionTitle('Informations professionnelles'),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _addressController,
-                label: 'Adresse du cabinet',
-                hint: '123 Rue Didouche Mourad, Alger Centre',
-                prefixIcon: LucideIcons.mapPin,
-                keyboardType: TextInputType.streetAddress,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _mapsLinkController,
-                label: 'Lien Google Maps',
-                hint: 'https://maps.google.com/...',
-                prefixIcon: LucideIcons.map,
-                keyboardType: TextInputType.url,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppDropdown<String>(
-                label: 'Spécialité',
-                hint: 'Sélectionnez votre spécialité',
-                value: _selectedSpecialty.isNotEmpty ? _selectedSpecialty : null,
-                items: _specialties.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                onChanged: (v) => setState(() => _selectedSpecialty = v ?? ''),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppDropdown<String>(
-                label: 'Ville',
-                hint: 'Sélectionnez votre ville',
-                value: _selectedCity.isNotEmpty ? _selectedCity : null,
-                items: _algerianCities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (v) => setState(() => _selectedCity = v ?? ''),
+              const SizedBox(height: AppSpacing.lg),
+              _buildSectionCard(
+                title: 'Durées',
+                icon: LucideIcons.timer,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionLabel('Durée des rendez-vous'),
+                    const SizedBox(height: AppSpacing.sm),
+                    _buildDurationSelector(
+                      options: [15, 20, 30, 45, 60],
+                      selected: _appointmentDuration,
+                      onChanged: (v) => setState(() => _appointmentDuration = v),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildSectionLabel('Durée des consultations'),
+                    const SizedBox(height: AppSpacing.sm),
+                    _buildDurationSelector(
+                      options: [10, 15, 20, 30],
+                      selected: _consultationDuration,
+                      onChanged: (v) => setState(() => _consultationDuration = v),
+                      isSecondary: true,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(
@@ -241,6 +300,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                 label: 'Enregistrer',
                 isLoading: _isLoading,
               ),
+              const SizedBox(height: AppSpacing.xl),
             ],
           ),
         ),
@@ -269,7 +329,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                     : null,
               ),
               child: _photoUrl == null
-                  ? Icon(LucideIcons.camera, size: 32, color: AppColors.textHint)
+                  ? const Icon(LucideIcons.camera, size: 32, color: AppColors.textHint)
                   : null,
             ),
             if (_isUploadingPhoto)
@@ -299,7 +359,7 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
-                  child: Icon(LucideIcons.pencil, size: 12, color: Colors.white),
+                  child: const Icon(LucideIcons.pencil, size: 12, color: Colors.white),
                 ),
               ),
           ],
@@ -308,7 +368,97 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(title, style: AppTextStyles.sectionHeader);
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.md),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 18),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Text(title, style: AppTextStyles.cardTitle),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: AppColors.border.withValues(alpha: 0.5)),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label) {
+    return Text(label, style: AppTextStyles.labelMedium);
+  }
+
+  Widget _buildDurationSelector({
+    required List<int> options,
+    required int selected,
+    required ValueChanged<int> onChanged,
+    bool isSecondary = false,
+  }) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: options.map((minutes) {
+        final isSelected = selected == minutes;
+        final color = isSecondary ? AppColors.secondary : AppColors.primary;
+        return GestureDetector(
+          onTap: () => onChanged(minutes),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected ? color : AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isSelected ? color : AppColors.border,
+              ),
+            ),
+            child: Text(
+              '$minutes min',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: isSelected ? AppColors.white : AppColors.textPrimary,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }

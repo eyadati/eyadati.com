@@ -14,6 +14,7 @@ import '../../features/patient/presentation/pages/booking_page.dart';
 import '../../features/patient/presentation/pages/patient_appointments_page.dart';
 import '../../features/patient/presentation/pages/favorites_page.dart';
 import '../../features/patient/presentation/pages/patient_settings_page.dart';
+import '../../features/patient/presentation/pages/patient_edit_profile_page.dart';
 import '../../features/doctor/presentation/pages/doctor_dashboard_page.dart';
 import '../../features/doctor/presentation/pages/doctor_setup_page.dart';
 import '../../features/doctor/presentation/pages/doctor_calendar_page.dart';
@@ -165,6 +166,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.patientProfile,
         builder: (context, state) => const PatientSettingsPage(),
+      ),
+      GoRoute(
+        path: RouteNames.patientEditProfile,
+        builder: (context, state) => const PatientEditProfilePage(),
       ),
       GoRoute(
         path: RouteNames.doctorDashboard,
