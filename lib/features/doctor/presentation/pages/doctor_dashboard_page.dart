@@ -3,39 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/features/doctor/presentation/pages/doctor_calendar_page.dart';
-import 'package:eyadati/features/doctor/presentation/pages/doctor_settings_page.dart';
 import 'package:eyadati/features/doctor/presentation/providers/doctor_provider.dart';
-import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/features/doctor/presentation/widgets/doctor_notification_sidebar.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
-
-// Add a simple notification sheet placeholder
-class _NotificationSheet extends StatelessWidget {
-  final List<AppointmentData> appointments;
-  const _NotificationSheet({required this.appointments});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          if (appointments.isEmpty)
-            const Text('Aucune notification.')
-          else
-            ...appointments.map((a) => ListTile(title: Text(a.patientName.isNotEmpty ? a.patientName : 'Patient inconnu'))),
-        ],
-      ),
-    );
-  }
-}
 
 class DoctorDashboardPage extends ConsumerStatefulWidget {
   const DoctorDashboardPage({super.key});
@@ -45,39 +16,43 @@ class DoctorDashboardPage extends ConsumerStatefulWidget {
       _DoctorDashboardPageState();
 }
 
-class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
+class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
+    with SingleTickerProviderStateMixin {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isExpanded = true;
+
+  void _toggleExpanded() {
+    setState(() => _isExpanded = !_isExpanded);
+  }
+
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
+    final pending = doctorState.allAppointments
+        .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
+        .toList();
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.background,
+      endDrawer: DoctorNotificationSidebar(appointments: pending),
       body: Column(
         children: [
-          _buildTopBar(doctorState),
+          _buildTopBar(doctorState, pending),
           Expanded(
             child: doctorState.errorMessage != null
                 ? _buildErrorView(doctorState)
                 : Skeletonizer(
                     enabled: doctorState.isLoading,
-                    child: SingleChildScrollView(
+                    child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          _buildStatsSection(doctorState),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            height: 600,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: const DoctorCalendarPage(),
-                            ),
-                          ),
-                        ],
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const DoctorCalendarPage(),
                       ),
                     ),
                   ),
@@ -125,63 +100,77 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
-  Widget _buildTopBar(DoctorState doctorState) {
-    final pending = doctorState.allAppointments
-        .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
-        .toList();
-    return Container(
-      height: 70,
-      color: AppColors.background,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          Text(
-            'Eyadati',
-            style: AppTextStyles.titleLarge.copyWith(
-              fontWeight: FontWeight.w900,
-              color: AppColors.primary,
-            ),
+  Widget _buildTopBar(DoctorState doctorState, List pending) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          const Spacer(),
-          IconButton(
-            icon: Stack(
-              children: [
-                const Icon(LucideIcons.bell),
-                if (pending.isNotEmpty)
-                  Positioned(
-                    right: 0,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.error,
-                        shape: BoxShape.circle,
-                      ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Eyadati',
+                style: AppTextStyles.titleLarge.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: _toggleExpanded,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: AnimatedRotation(
+                    duration: const Duration(milliseconds: 250),
+                    turns: _isExpanded ? 0 : 0.5,
+                    child: const Icon(
+                      LucideIcons.chevronDown,
+                      size: 18,
+                      color: Colors.white,
                     ),
                   ),
-              ],
-            ),
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              backgroundColor: Colors.transparent,
-              builder: (c) => _NotificationSheet(appointments: pending),
-            ),
+                ),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(LucideIcons.settings),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const DoctorSettingsPage()),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 12),
+              child: _buildStatsRow(doctorState),
             ),
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
           ),
-          const SizedBox(width: 12),
-          _buildAvatarWidget(doctorState.avatarUrl, doctorState.name, 16),
         ],
       ),
     );
   }
 
-  Widget _buildStatsSection(DoctorState doctorState) {
+  Widget _buildStatsRow(DoctorState doctorState) {
     final now = DateTime.now();
     final onlineCount = doctorState.allAppointments
         .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
@@ -191,113 +180,98 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     final nextApt = nextAptList.isNotEmpty ? nextAptList.first : null;
 
     String nextAptInfo = 'Aucun';
+    Color nextAptColor = AppColors.textHint;
     if (nextApt != null) {
       final dateStr = '${nextApt.startTime.day}/${nextApt.startTime.month}';
       final timeStr =
-          '${nextApt.startTime.hour}:${nextApt.startTime.minute.toString().padLeft(2, '0')}';
+          '${nextApt.startTime.hour.toString().padLeft(2, '0')}:${nextApt.startTime.minute.toString().padLeft(2, '0')}';
       final patientName = nextApt.patientName.isNotEmpty ? nextApt.patientName : 'Patient';
-      nextAptInfo = '$patientName\n$dateStr à $timeStr';
+      nextAptInfo = '$patientName — $dateStr $timeStr';
+      nextAptColor = AppColors.textPrimary;
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 800;
-        return Flex(
-          direction: isNarrow ? Axis.vertical : Axis.horizontal,
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                "Cette semaine",
-                '${doctorState.weekAppointmentsCount}',
-                LucideIcons.calendar,
-                AppColors.primary,
-              ),
-            ),
-            SizedBox(height: isNarrow ? 16 : 0, width: isNarrow ? 0 : 24),
-            Expanded(
-              child: _buildStatCard(
-                "En ligne",
-                '$onlineCount',
-                LucideIcons.video,
-                AppColors.secondary,
-              ),
-            ),
-            SizedBox(height: isNarrow ? 16 : 0, width: isNarrow ? 0 : 24),
-            Expanded(
-              child: _buildStatCard(
-                "Prochain RDV",
-                nextAptInfo,
-                LucideIcons.user,
-                AppColors.warning,
-              ),
-            ),
-          ],
-        );
-      },
+    return Row(
+      children: [
+        Expanded(
+          child: _buildCompactStat(
+            'Cette semaine',
+            '${doctorState.weekAppointmentsCount}',
+            LucideIcons.calendar,
+            AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildCompactStat(
+            'En ligne',
+            '$onlineCount',
+            LucideIcons.video,
+            AppColors.secondary,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildCompactStat(
+            'Prochain RDV',
+            nextAptInfo,
+            LucideIcons.clock,
+            nextAptColor,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatCard(
-    String title,
+  Widget _buildCompactStat(
+    String label,
     String value,
     IconData icon,
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: color, size: 16),
           ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: AppTextStyles.headlineSmall.copyWith(
-                  fontWeight: FontWeight.w800,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Text(
-                title,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textHint,
+                Text(
+                  label,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textHint,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildAvatarWidget(String? avatarUrl, String name, double radius) {
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: AppColors.primaryLight,
-      child: Text(
-        _getInitials(name),
-        style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
-      ),
-    );
-  }
-
-  String _getInitials(String name) {
-    if (name.isEmpty) return 'DR';
-    final parts = name.trim().split(' ');
-    return parts.length >= 2
-        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-        : name.substring(0, 1).toUpperCase();
   }
 }

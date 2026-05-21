@@ -33,6 +33,7 @@ dependencies:
   flutter_animate: ^4.5.2
   syncfusion_flutter_calendar: ^28.2.11
   syncfusion_flutter_core: ^28.2.11
+  flutter_settings_ui: ^3.0.0
 
   # Code Generation
   freezed_annotation: ^2.4.4

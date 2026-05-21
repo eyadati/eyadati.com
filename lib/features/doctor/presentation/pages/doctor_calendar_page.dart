@@ -23,7 +23,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   final CalendarController _calendarController = CalendarController();
   final _CalendarDataSource _dataSource = _CalendarDataSource([]);
   CalendarView _currentView = CalendarView.week;
-  String _lastUpdateIds = '';
+  String _lastUpdateKey = '';
 
   @override
   void initState() {
@@ -43,7 +43,15 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       if (slot.startTime < earliest) earliest = slot.startTime;
       if (slot.endTime > latest) latest = slot.endTime;
     }
-    return (earliest ~/ 60, (latest ~/ 60).ceil());
+    if (earliest == 24) return (8, 20);
+    final start = earliest ~/ 60;
+    final end = (latest / 60).ceil();
+    final minRange = 6;
+    int adjustedEnd = end;
+    if (end - start < minRange) {
+      adjustedEnd = start + minRange;
+    }
+    return (start.clamp(6, 22), adjustedEnd.clamp(start + 1, 23));
   }
 
   double _getTimeIntervalHeight(double screenWidth) {
@@ -457,9 +465,11 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final (startHour, endHour) = _getVisibleHours(doctorState);
 
-    final currentIds = doctorState.allAppointments.map((a) => a.id).join(',');
-    if (currentIds != _lastUpdateIds) {
-      _lastUpdateIds = currentIds;
+    final currentKey = doctorState.allAppointments
+        .map((a) => '${a.id}:${a.status}')
+        .join(',');
+    if (currentKey != _lastUpdateKey) {
+      _lastUpdateKey = currentKey;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _updateDataSource(doctorState);
@@ -555,6 +565,9 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                         decoration: BoxDecoration(
                           color: AppColors.white,
                           borderRadius: BorderRadius.circular(12),
+                          border: apt.status == 'cancelled'
+                              ? Border.all(color: AppColors.error.withValues(alpha: 0.3))
+                              : null,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.1),
@@ -567,13 +580,17 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                           children: [
                             CircleAvatar(
                               radius: 16,
-                              backgroundColor: AppColors.primaryLight,
+                              backgroundColor: apt.status == 'cancelled'
+                                  ? AppColors.error.withValues(alpha: 0.1)
+                                  : AppColors.primaryLight,
                               child: Text(
                                 apt.patientName.isNotEmpty
                                     ? apt.patientName[0].toUpperCase()
                                     : 'P',
                                 style: AppTextStyles.labelSmall.copyWith(
-                                  color: AppColors.primary,
+                                  color: apt.status == 'cancelled'
+                                      ? AppColors.error
+                                      : AppColors.primary,
                                 ),
                               ),
                             ),
@@ -581,16 +598,42 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  apt.patientName,
-                                  style: AppTextStyles.bodyMedium.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      apt.patientName,
+                                      style: AppTextStyles.bodyMedium.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: apt.status == 'cancelled'
+                                            ? AppColors.error
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    if (apt.status == 'cancelled') ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.error.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'Annulé',
+                                          style: AppTextStyles.labelSmall.copyWith(
+                                            color: AppColors.error,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 Text(
                                   '${apt.isConsultation ? "Consultation" : "RDV"} • ${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
                                   style: AppTextStyles.labelSmall.copyWith(
-                                    color: AppColors.textHint,
+                                    color: apt.status == 'cancelled'
+                                        ? AppColors.error.withValues(alpha: 0.7)
+                                        : AppColors.textHint,
                                   ),
                                 ),
                               ],
@@ -705,11 +748,16 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
   }
 
   Widget _buildAppointmentWidget(_AppointmentWrapper apt, Rect bounds) {
-    Color bgColor = AppColors.aptVideoCall;
-    Color textColor = AppColors.aptVideoCallText;
-    Color accentColor = AppColors.primary;
+    Color bgColor;
+    Color textColor;
+    Color accentColor;
+    bool isCancelled = apt.status == 'cancelled';
 
-    if (apt.bookingType == 'home') {
+    if (isCancelled) {
+      bgColor = AppColors.error.withValues(alpha: 0.15);
+      textColor = AppColors.error;
+      accentColor = AppColors.error;
+    } else if (apt.bookingType == 'home') {
       bgColor = AppColors.aptHomeVisit;
       textColor = AppColors.aptHomeVisitText;
       accentColor = AppColors.aptHomeVisitText;
@@ -717,6 +765,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       bgColor = AppColors.aptInPerson;
       textColor = AppColors.aptInPersonText;
       accentColor = AppColors.aptInPersonText;
+    } else {
+      bgColor = AppColors.aptVideoCall;
+      textColor = AppColors.aptVideoCallText;
+      accentColor = AppColors.primary;
     }
 
     return Container(
@@ -725,6 +777,9 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(10),
+        border: isCancelled
+            ? Border.all(color: AppColors.error.withValues(alpha: 0.4), width: 1)
+            : null,
       ),
       child: Row(
         children: [
@@ -748,17 +803,30 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                       color: textColor,
                       fontWeight: FontWeight.w900,
                       fontSize: 13,
+                      decoration: isCancelled ? TextDecoration.lineThrough : null,
                     ),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     apt.patientName,
                     style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.textPrimary,
+                      color: isCancelled ? AppColors.error : AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
+                      decoration: isCancelled ? TextDecoration.lineThrough : null,
                     ),
                   ),
+                  if (isCancelled) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      'Annulé',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1161,7 +1229,7 @@ class _AppointmentWrapper extends Appointment {
   @override
   Color get color {
     if (status == 'cancelled') {
-      return AppColors.error.withValues(alpha: 0.5);
+      return AppColors.error.withValues(alpha: 0.7);
     }
     return isConsultation ? AppColors.consultationColor : AppColors.primary;
   }
