@@ -1,17 +1,16 @@
 {
-    "name": "Eyadati - مواعيد طبية",
+    "name": "Eyadati - عيادتي",
     "short_name": "Eyadati",
-    "start_url": "./",
+    "start_url": "/",
     "display": "standalone",
-    "display_override": [
-        "standalone",
-        "fullscreen"
-    ],
-    "background_color": "#ffffff",
-    "theme_color": "#0175C2",
-    "description": "احجز مواعيدك الطبية بسهولة في الجزائر",
-    "orientation": "any",
+    "background_color": "#FFFFFF",
+    "theme_color": "#0D6EFD",
+    "description": "منصة حجز مواعيد الأطباء للمرضى والأطباء - Book doctor appointments easily",
+    "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "scope": "/",
+    "lang": "ar",
+    "dir": "rtl",
     "categories": [
         "medical",
         "health",
@@ -19,10 +18,10 @@
     ],
     "shortcuts": [
         {
-            "name": "مواعيدي",
-            "short_name": "المواعيد",
-            "description": "عرض زياراتك الطبية القادمة",
-            "url": "./#/appointments",
+            "name": "الأطباء",
+            "short_name": "الأطباء",
+            "description": "البحث عن الأطباء وحجز مواعيد",
+            "url": "/patient/doctors",
             "icons": [
                 {
                     "src": "icons/Icon-192.png",
@@ -31,10 +30,10 @@
             ]
         },
         {
-            "name": "البحث عن عيادات",
-            "short_name": "العيادات",
-            "description": "البحث عن عيادات قريبة",
-            "url": "./#/clinics",
+            "name": "مواعيدي",
+            "short_name": "مواعيدي",
+            "description": "عرض المواعيد",
+            "url": "/patient/appointments",
             "icons": [
                 {
                     "src": "icons/Icon-192.png",
@@ -43,9 +42,6 @@
             ]
         }
     ],
-    "screenshots": [],
-    "related_applications": [],
-    "scope": "./",
     "icons": [
         {
             "src": "icons/Icon-192.png",

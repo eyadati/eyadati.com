@@ -5,222 +5,79 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="منصة حجز مواعيد الأطباء - Eyadati">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#FFFFFF">
-  <meta name="google-signin-client_id" content="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com">
+  <meta name="theme-color" content="#0D6EFD">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Eyadati">
+
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Eyadati - حجز مواعيد الأطباء</title>
+  <link rel="manifest" href="manifest.json">
   
-  <!-- SEO & Description -->
-   <meta name="description" content="Eyadati: احجز مواعيدك الطبية بسهولة في الجزائر. ابحث عن عيادات قريبة، قارن الأطباء، واحجز موعدك فوراً.">
-    <meta name="keywords" content="عيادة, طبيب, موعد, جزائر, حجز, طب, clinic, doctor, appointment, algeria, مواعيد طبية, حجز موعد, عيادات الجزائر, البحث عن أطباء, مقارنة العيادات, حجز موعد طبي">
-   <meta name="author" content="Eyadati">
-   <meta name="robots" content="index, follow">
-   <link rel="canonical" href="https://www.eyadati.com/">
-   
-   <!-- Open Graph / Social Media -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Eyadati: احجز مواعيدك الطبية بسهولة في الجزائر">
-    <meta property="og:description" content="ابحث عن عيادات قريبة، قارن الأطباء، واحجز موعدك فوراً. خدمة حجز المواعيد الطبية الرائدة في الجزائر.">
-    <meta property="og:image" content="icons/Icon-512.png">
-    <meta property="og:locale" content="ar_DZ">
-    <meta property="og:locale:alternate" content="fr_FR">
-   
-   <!-- Twitter Card -->
-   <meta name="twitter:card" content="summary_large_image">
-   <meta name="twitter:title" content="Eyadati">
-   <meta name="twitter:description" content="احجز موعدك الطبي في الجزائر">
-   <meta name="twitter:image" content="icons/Icon-512.png">
-   
-   <!-- iOS meta tags -->
-   <meta name="apple-mobile-web-app-capable" content="yes">
-   <meta name="apple-mobile-web-app-status-bar-style" content="#FFFFFF">
-   <meta name="apple-mobile-web-app-title" content="عيادتي">
-   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-   <link rel="apple-touch-icon-precomposed" href="icons/Icon-192.png">
-   
-   <!-- Favicon -->
-   <link rel="icon" type="image/png" href="favicon.png">
-   <link rel="shortcut icon" type="image/png" href="favicon.png">
-   
-   <title>عيادتي - Eyadati</title>
-   <link rel="manifest" href="manifest.json">
+  <!-- Preload core assets -->
+  <link rel="preload" href="flutter_bootstrap.js" as="script">
 
-   <!-- Structured Data - MedicalBusiness -->
-   <script type="application/ld+json">
-   {
-     "@context": "https://schema.org",
-     "@type": "MedicalBusiness",
-     "name": "Eyadati",
-     "alternateName": "عيادتي",
-     "description": "منصة حجز مواعيد طبية في الجزائر - Book medical appointments in Algeria",
-     "url": "https://www.eyadati.com",
-     "logo": "https://www.eyadati.com/icons/Icon-512.png",
-     "image": "https://www.eyadati.com/icons/Icon-512.png",
-     "areaServed": {
-       "@type": "State",
-       "name": "Algeria"
-     },
-     "inLanguage": ["ar", "fr"],
-     "availableService": [
-       {"@type": "MedicalProcedure", "name": "Appointment Booking", "alternateName": "حجز مواعيد"},
-       {"@type": "MedicalProcedure", "name": "Clinic Search", "alternateName": "البحث عن عيادات"}
-     ],
-     "contactPoint": {
-       "@type": "ContactPoint",
-       "telephone": "+213",
-       "contactType": "Customer Service",
-       "availableLanguage": ["Arabic", "French"]
-     }
-   }
-   </script>
-
-   <!-- Splash Screen Styles -->
-   <style>
-   * {
-     margin: 0;
-     padding: 0;
-     box-sizing: border-box;
-   }
-   
-html, body {
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
       background-color: #FFFFFF;
+    }
+    
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     
-    .splash-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: white;
-      transition: opacity 0.3s ease-out;
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0D6EFD;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
     }
-   
-   .splash-screen.fade-out {
-     opacity: 0;
-     pointer-events: none;
-   }
-   
-   .splash-logo {
-     width: 100px;
-     height: 100px;
-     background: white;
-     border-radius: 24px;
-     display: flex;
-     justify-content: center;
-     align-items: center;
-     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-     animation: pulse 2s ease-in-out infinite;
-   }
-   
-   .splash-logo img {
-     width: 80px;
-     height: 80px;
-     object-fit: contain;
-   }
-   
-   .splash-title {
-     margin-top: 24px;
-     font-size: 28px;
-     font-weight: 700;
-     color: white;
-     letter-spacing: -0.5px;
-   }
-   
-   .splash-loader {
-     margin-top: 48px;
-     width: 40px;
-     height: 40px;
-     border: 3px solid rgba(255, 255, 255, 0.2);
-     border-top-color: white;
-     border-radius: 50%;
-     animation: spin 1s linear infinite;
-   }
-   
-   @keyframes spin {
-     0% { transform: rotate(0deg); }
-     100% { transform: rotate(360deg); }
-   }
-   
-   @keyframes pulse {
-     0%, 100% { transform: scale(1); }
-     50% { transform: scale(1.05); }
-   }
-   
-@media (prefers-color-scheme: dark) {
-      html, body {
-        background-color: #121212;
-      }
+    
+    .loading-text {
+      margin-top: 20px;
+      color: #666;
+      font-size: 16px;
     }
-   
-   /* Hide splash once Flutter loads */
-   body.flutter-loaded .splash-screen {
-     opacity: 0;
-     pointer-events: none;
-   }
-   </style>
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
-   <!-- Splash Screen -->
-   <div class="splash-screen" id="splash">
-     <div class="splash-logo">
-       <img src="icons/Icon-192.png" alt="Logo">
-     </div>
-     <div class="splash-title">عيادتي</div>
-     <div class="splash-loader"></div>
-   </div>
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">جاري التحميل...</div>
+  </div>
+  
+  <script>
+    window.addEventListener('flutter-first-frame', function() {
+      document.getElementById('loading').style.display = 'none';
+    });
 
-<script src="flutter_bootstrap.js" async></script>
-    
-    <!-- PWA Service Worker Update Detection -->
-    <script>
-      // Check for service worker updates
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('flutter_service_worker.js?v=' + Date.now())
-            .then(function(registration) {
-              console.log('Service Worker registered');
-              
-              // Check for updates periodically
-              setInterval(function() {
-                registration.update();
-              }, 60 * 60 * 1000); // Check every hour
-              
-              // Listen for updates
-              registration.addEventListener('updatefound', function() {
-                var newWorker = registration.installing;
-                newWorker.addEventListener('statechange', function() {
-                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // New version available
-                    if (confirm('A new version of Eyadati is available. Reload to update?')) {
-                      window.location.reload();
-                    }
-                  }
-                });
-              });
-            })
-            .catch(function(error) {
-              console.log('Service Worker registration failed:', error);
-            });
-        });
-      }
-      
-      // Hide splash when Flutter is ready
-      window.addEventListener('flutter-first-frame', function() {
-       document.body.classList.add('flutter-loaded');
-       setTimeout(function() {
-         var splash = document.getElementById('splash');
-         if (splash) splash.remove();
-       }, 300);
-     });
-   </script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('service-worker.js');
+      });
+    }
+  </script>
+  
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
