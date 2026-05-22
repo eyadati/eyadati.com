@@ -5,6 +5,7 @@ class Environment {
   final bool enableLogging;
   final bool enableDebugMode;
   final String apiUrl;
+  final String appBaseUrl;
 
   const Environment({
     required this.name,
@@ -13,6 +14,7 @@ class Environment {
     this.enableLogging = false,
     this.enableDebugMode = false,
     this.apiUrl = '',
+    this.appBaseUrl = 'https://eyadati.app',
   });
 
   bool get isProduction => name == 'production';

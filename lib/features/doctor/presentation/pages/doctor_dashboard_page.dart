@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/features/doctor/presentation/pages/doctor_calendar_page.dart';
 import 'package:eyadati/features/doctor/presentation/providers/doctor_provider.dart';
 import 'package:eyadati/features/doctor/presentation/widgets/doctor_notification_sidebar.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -118,7 +120,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -130,6 +132,33 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
                 ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Stack(
+                  children: [
+                    const Icon(LucideIcons.bell, color: Colors.white),
+                    if (pending.isNotEmpty)
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.error,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+                padding: EdgeInsets.zero,
+              ),
+              IconButton(
+                icon: const Icon(LucideIcons.settings, color: Colors.white),
+                onPressed: () => context.push(RouteNames.doctorSettings),
+                padding: EdgeInsets.zero,
               ),
               const Spacer(),
               InkWell(

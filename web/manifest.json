@@ -11,19 +11,47 @@
     "scope": "/",
     "lang": "ar",
     "dir": "rtl",
-    "categories": ["medical", "health", "productivity"],
+    "categories": [
+        "medical",
+        "health",
+        "productivity"
+    ],
+    "shortcuts": [
+        {
+            "name": "الأطباء",
+            "short_name": "الأطباء",
+            "description": "البحث عن الأطباء وحجز مواعيد",
+            "url": "/patient/doctors",
+            "icons": [
+                {
+                    "src": "icons/Icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "مواعيدي",
+            "short_name": "مواعيدي",
+            "description": "عرض المواعيد",
+            "url": "/patient/appointments",
+            "icons": [
+                {
+                    "src": "icons/Icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any"
+            "type": "image/png"
         },
         {
             "src": "icons/Icon-512.png",
             "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "any"
+            "type": "image/png"
         },
         {
             "src": "icons/Icon-maskable-192.png",
@@ -36,22 +64,6 @@
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "maskable"
-        }
-    ],
-    "shortcuts": [
-        {
-            "name": "الأطباء",
-            "short_name": "الأطباء",
-            "description": "البحث عن الأطباء وحجز مواعيد",
-            "url": "/patient/doctors",
-            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
-        },
-        {
-            "name": "مواعيدي",
-            "short_name": "مواعيدي",
-            "description": "عرض المواعيد",
-            "url": "/patient/appointments",
-            "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
         }
     ]
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
@@ -17,6 +18,18 @@ class DoctorDetailsPage extends ConsumerStatefulWidget {
 }
 
 class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
+  String _getInitials(String name) {
+    if (name.isEmpty) return 'D';
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return 'D';
+    final parts = trimmed.split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'D';
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts[0].substring(0, 1).toUpperCase();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -56,16 +69,19 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: AppColors.white,
-                      child: Text(
-                        doctor.name.isNotEmpty
-                            ? doctor.name[0].toUpperCase()
-                            : 'D',
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
+                      backgroundImage: doctor.photoUrl != null
+                          ? CachedNetworkImageProvider(doctor.photoUrl!)
+                          : null,
+                      child: doctor.photoUrl == null
+                          ? Text(
+                              _getInitials(doctor.name),
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     Text(

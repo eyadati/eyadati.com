@@ -77,6 +77,26 @@ class _DoctorEditProfilePageState extends ConsumerState<DoctorEditProfilePage> {
     _appointmentDuration = state.appointmentDuration;
     _consultationDuration = state.consultationDuration;
     _photoUrl = state.avatarUrl.isNotEmpty ? state.avatarUrl : null;
+    if (_photoUrl == null && state.userId != null) {
+      _loadExistingPhoto(state.userId!);
+    }
+  }
+
+  Future<void> _loadExistingPhoto(String userId) async {
+    try {
+      final response = await SupabaseInitializer.client
+          .from('doctors')
+          .select('photo_url')
+          .eq('id', userId)
+          .maybeSingle();
+      if (response != null && response['photo_url'] != null) {
+        if (mounted) {
+          setState(() => _photoUrl = response['photo_url'] as String);
+        }
+      }
+    } catch (_) {
+      // Silently fail — user can still upload a new photo
+    }
   }
 
   @override

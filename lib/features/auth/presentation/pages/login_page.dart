@@ -70,6 +70,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: AppSpacing.xl),
+                Center(
+                  child: Image.asset(
+                    'assets/favicon.png',
+                    width: 80,
+                    height: 80,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
                 const AuthHeader(
                   title: 'Bienvenue',
                   subtitle: 'Connectez-vous à votre compte',

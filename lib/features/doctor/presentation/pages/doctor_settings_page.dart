@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_settings_ui/flutter_settings_ui.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
@@ -314,14 +315,19 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
           CircleAvatar(
             radius: 36,
             backgroundColor: AppColors.primary,
-            child: Text(
-              _getInitials(state.name),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
+            backgroundImage: state.avatarUrl.isNotEmpty
+                ? CachedNetworkImageProvider(state.avatarUrl)
+                : null,
+            child: state.avatarUrl.isEmpty
+                ? Text(
+                    _getInitials(state.name),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  )
+                : null,
           ),
           const SizedBox(height: AppSpacing.md),
           Text(

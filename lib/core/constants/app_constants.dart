@@ -2,16 +2,6 @@ class AppConstants {
   static const String appName = 'Eyadati';
   static const String appDescription = 'Doctor Appointment Booking Platform';
 
-  static const String supabaseUrl = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: '',
-  );
-
-  static const String supabaseAnonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: '',
-  );
-
   static const int defaultAppointmentDuration = 20;
   static const int defaultConsultationDuration = 40;
   static const int defaultOpeningHour = 9;

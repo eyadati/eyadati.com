@@ -94,7 +94,7 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
         final doctor = Doctor.fromDatabase(row as Map<String, dynamic>);
         return doctor.copyWith(
           name: profile?['full_name'] as String? ?? 'Docteur',
-          photoUrl: profile?['avatar_url'] as String?,
+          photoUrl: profile?['avatar_url'] as String? ?? doctor.photoUrl,
         );
       }).toList();
 

@@ -1,6 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../constants/app_constants.dart';
+import '../config/environment.dart';
 
 class SupabaseInitializer {
   static SupabaseClient? _client;
@@ -18,10 +19,17 @@ class SupabaseInitializer {
     _isInitializing = true;
 
     try {
-      await dotenv.load(fileName: '.env');
+      String supabaseUrl;
+      String supabaseAnonKey;
 
-      final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? AppConstants.supabaseUrl;
-      final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? AppConstants.supabaseAnonKey;
+      if (kDebugMode) {
+        await dotenv.load(fileName: '.env');
+        supabaseUrl = dotenv.env['SUPABASE_URL'] ?? Environments.production.supabaseUrl;
+        supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? Environments.production.supabaseAnonKey;
+      } else {
+        supabaseUrl = Environments.production.supabaseUrl;
+        supabaseAnonKey = Environments.production.supabaseAnonKey;
+      }
 
       if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
         throw Exception('Supabase credentials not configured');

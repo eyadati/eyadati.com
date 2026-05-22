@@ -20,6 +20,9 @@ import '../../features/doctor/presentation/pages/doctor_setup_page.dart';
 import '../../features/doctor/presentation/pages/doctor_calendar_page.dart';
 import '../../features/doctor/presentation/pages/doctor_schedule_page.dart';
 import '../../features/doctor/presentation/pages/doctor_settings_page.dart';
+import '../../features/doctor/presentation/pages/doctor_subscription_page.dart';
+import '../../features/doctor/presentation/pages/payment_success_page.dart';
+import '../../features/doctor/presentation/pages/payment_failure_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
 /// A notifier that bridges the Riverpod AuthState to GoRouter's refreshListenable.
@@ -190,6 +193,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.doctorSettings,
         builder: (context, state) => const DoctorSettingsPage(),
+      ),
+      GoRoute(
+        path: RouteNames.doctorSubscription,
+        builder: (context, state) => const DoctorSubscriptionPage(),
+      ),
+      GoRoute(
+        path: RouteNames.paymentSuccess,
+        builder: (context, state) => const PaymentSuccessPage(),
+      ),
+      GoRoute(
+        path: RouteNames.paymentFailure,
+        builder: (context, state) => const PaymentFailurePage(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
