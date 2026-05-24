@@ -65,7 +65,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/favicon.png',
+              'assets/logo.png',
               width: 100,
               height: 100,
             ),

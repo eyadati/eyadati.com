@@ -654,7 +654,9 @@ class _DoctorAddAppointmentDialogState
                       : (remaining > 0 ? AppColors.white : AppColors.background),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.border,
+                    color: isSelected 
+                        ? AppColors.primary 
+                        : (remaining > 0 ? AppColors.primary.withValues(alpha: 0.3) : AppColors.border),
                   ),
                 ),
                 child: Text(
