@@ -1,16 +1,16 @@
 {
-    "name": "Eyadati - عيادتي",
+    "name": "Eyadati",
     "short_name": "Eyadati",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#FFFFFF",
-    "theme_color": "#0D6EFD",
-    "description": "منصة حجز مواعيد الأطباء للمرضى والأطباء - Book doctor appointments easily",
+    "background_color": "#F8FAFC",
+    "theme_color": "#FFFFFF",
+    "description": "احجز مواعيدك الطبية عن بعد",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "scope": "/",
-    "lang": "ar",
-    "dir": "rtl",
+    "lang": "fr",
+    "dir": "ltr",
     "categories": [
         "medical",
         "health",
@@ -18,22 +18,10 @@
     ],
     "shortcuts": [
         {
-            "name": "الأطباء",
-            "short_name": "الأطباء",
-            "description": "البحث عن الأطباء وحجز مواعيد",
-            "url": "/patient/doctors",
-            "icons": [
-                {
-                    "src": "icons/Icon-192.png",
-                    "sizes": "192x192"
-                }
-            ]
-        },
-        {
-            "name": "مواعيدي",
-            "short_name": "مواعيدي",
-            "description": "عرض المواعيد",
-            "url": "/patient/appointments",
+            "name": "Eyadati",
+            "short_name": "Eyadati",
+            "description": "احجز مواعيدك الطبية عن بعد",
+            "url": "/",
             "icons": [
                 {
                     "src": "icons/Icon-192.png",

@@ -153,11 +153,25 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _buildProfileHeader(doctorState),
-          Expanded(
-            child: SettingsList(
+      appBar: AppBar(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        title: Text(
+          'Paramètres',
+          style: AppTextStyles.titleMedium.copyWith(fontWeight: FontWeight.w700),
+        ),
+        leading: IconButton(
+          icon: const Icon(LucideIcons.chevronLeft, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildProfileHeader(doctorState),
+            SettingsList(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               lightTheme: SettingsThemeData(
                 settingsListBackground: AppColors.background,
                 titleTextColor: AppColors.textSecondary,
@@ -266,27 +280,27 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
                 ),
               ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _confirmLogout,
-                icon: const Icon(LucideIcons.logOut, size: 18),
-                label: const Text('Déconnexion'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _confirmLogout,
+                  icon: const Icon(LucideIcons.logOut, size: 18),
+                  label: const Text('Déconnexion'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -294,76 +308,28 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
   Widget _buildProfileHeader(DoctorState state) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+      decoration: const BoxDecoration(
+        color: AppColors.background,
       ),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 36,
-            backgroundColor: AppColors.primary,
-            backgroundImage: state.avatarUrl.isNotEmpty
-                ? CachedNetworkImageProvider(state.avatarUrl)
-                : null,
-            child: state.avatarUrl.isEmpty
-                ? Text(
-                    _getInitials(state.name),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            state.name.isNotEmpty ? state.name : 'Docteur',
-            style: AppTextStyles.headlineMedium,
-          ),
-          if (state.specialty.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              state.specialty,
-              style: AppTextStyles.bodyMedium.copyWith(
-                fontWeight: FontWeight.w300,
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              if (state.city.isNotEmpty)
-                _buildInfoChip(LucideIcons.mapPin, state.city),
-              if (state.phone.isNotEmpty)
-                _buildInfoChip(LucideIcons.phone, state.phone),
-              _buildDurationChip(
-                'RDV: ${state.appointmentDuration}min',
-                LucideIcons.timer,
-              ),
-              _buildDurationChip(
-                'Consult: ${state.consultationDuration}min',
-                LucideIcons.stethoscope,
-              ),
-            ],
-          ),
-        ],
+      child: Center(
+        child: CircleAvatar(
+          radius: 40,
+          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          backgroundImage: state.avatarUrl.isNotEmpty
+              ? CachedNetworkImageProvider(state.avatarUrl)
+              : null,
+          child: state.avatarUrl.isEmpty
+              ? Text(
+                  _getInitials(state.name),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                )
+              : null,
+        ),
       ),
     );
   }

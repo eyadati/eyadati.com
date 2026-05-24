@@ -107,14 +107,13 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primary, AppColors.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: AppColors.surface,
+        border: const Border(
+          bottom: BorderSide(color: AppColors.border),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
+            color: AppColors.shadow,
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -130,14 +129,14 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
                 'Eyadati',
                 style: AppTextStyles.titleLarge.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: Colors.white,
+                  color: AppColors.primary,
                 ),
               ),
-              const SizedBox(width: 8),
+              const Spacer(),
               IconButton(
                 icon: Stack(
                   children: [
-                    const Icon(LucideIcons.bell, color: Colors.white),
+                    const Icon(LucideIcons.bell, color: AppColors.textPrimary),
                     if (pending.isNotEmpty)
                       Positioned(
                         right: 0,
@@ -156,18 +155,18 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
                 padding: EdgeInsets.zero,
               ),
               IconButton(
-                icon: const Icon(LucideIcons.settings, color: Colors.white),
+                icon: const Icon(LucideIcons.settings, color: AppColors.textPrimary),
                 onPressed: () => context.push(RouteNames.doctorSettings),
                 padding: EdgeInsets.zero,
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: _toggleExpanded,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: AnimatedRotation(
@@ -176,7 +175,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
                     child: const Icon(
                       LucideIcons.chevronDown,
                       size: 18,
-                      color: Colors.white,
+                      color: AppColors.primary,
                     ),
                   ),
                 ),

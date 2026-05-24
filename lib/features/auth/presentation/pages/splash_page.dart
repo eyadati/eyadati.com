@@ -79,10 +79,6 @@ class _SplashPageState extends ConsumerState<SplashPage> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'عيادتي',
-              style: TextStyle(fontSize: 18, color: AppColors.white),
-            ),
             const SizedBox(height: 48),
             const LoadingIndicator(color: AppColors.white, size: 32),
           ],
