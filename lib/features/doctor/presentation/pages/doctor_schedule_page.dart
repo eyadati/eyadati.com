@@ -4,6 +4,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/schedule_slot_card.dart';
 import '../widgets/add_schedule_dialog.dart';
@@ -31,8 +32,12 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
 
   Future<void> _loadSchedule() async {
     setState(() => _isLoading = true);
-    await ref.read(doctorProvider.notifier).loadScheduleForDay(_selectedDay);
+    await ref.read(doctorProvider.notifier).refresh();
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  List<ScheduleSlot> _getFilteredSlots(List<ScheduleSlot> allSlots) {
+    return allSlots.where((s) => s.dayOfWeek == _selectedDay).toList();
   }
 
   void _showAddSlotDialog() {
@@ -185,110 +190,100 @@ class _DoctorSchedulePageState extends ConsumerState<DoctorSchedulePage> {
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 )
-              else if (doctorState.scheduleSlots.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  child: Column(
-                    children: [
-                      Icon(
-                        LucideIcons.clock,
-                        size: 48,
-                        color: AppColors.textHint,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Aucun créneau',
-                        style: AppTextStyles.labelLarge.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Appuyez sur "Ajouter" pour créer un créneau pour ${_getDayFullName(_selectedDay)}',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w300,
-                          color: AppColors.textHint,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                )
               else
-                ...doctorState.scheduleSlots.map((slot) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: ScheduleSlotCard(
-                      slot: slot,
-                      onEdit: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AddScheduleDialog(
-                            doctorId: slot.doctorId,
-                            initialDay: slot.dayOfWeek,
-                            initialStartTime: slot.startTime,
-                            initialEndTime: slot.endTime,
-                            existingSlot: slot,
-                            onSave:
-                                (
-                                  day,
-                                  start,
-                                  end, {
-                                  int? breakStart,
-                                  int? breakEnd,
-                                }) async {
-                                  await ref
-                                      .read(doctorProvider.notifier)
-                                      .updateScheduleSlot(
-                                        slotId: slot.id,
-                                        startTime: start,
-                                        endTime: end,
-                                        breakStart: breakStart,
-                                        breakEnd: breakEnd,
-                                      );
-                                  await _loadSchedule();
-                                },
-                          ),
-                        );
-                      },
-                      onDelete: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Supprimer le créneau'),
-                            content: const Text(
-                              'Voulez-vous supprimer ce créneau ?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Annuler'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: Text(
-                                  'Supprimer',
-                                  style: TextStyle(color: AppColors.error),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
-                          await ref
-                              .read(doctorProvider.notifier)
-                              .deleteScheduleSlot(slot.id);
-                          await _loadSchedule();
-                        }
-                      },
-                    ),
-                  );
-                }),
+                ..._buildSlotList(doctorState),
             ],
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildSlotList(DoctorState doctorState) {
+    final filteredSlots = _getFilteredSlots(doctorState.scheduleSlots);
+    if (filteredSlots.isEmpty) {
+      return [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            children: [
+              Icon(LucideIcons.clock, size: 48, color: AppColors.textHint),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Aucun créneau',
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Appuyez sur "Ajouter" pour créer un créneau pour ${_getDayFullName(_selectedDay)}',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w300,
+                  color: AppColors.textHint,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+    return filteredSlots.map((slot) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+        child: ScheduleSlotCard(
+          slot: slot,
+          onEdit: () {
+            showDialog(
+              context: context,
+              builder: (context) => AddScheduleDialog(
+                doctorId: slot.doctorId,
+                initialDay: slot.dayOfWeek,
+                initialStartTime: slot.startTime,
+                initialEndTime: slot.endTime,
+                existingSlot: slot,
+                onSave: (day, start, end, {int? breakStart, int? breakEnd}) async {
+                  await ref
+                      .read(doctorProvider.notifier)
+                      .updateScheduleSlot(
+                        slotId: slot.id,
+                        startTime: start,
+                        endTime: end,
+                        breakStart: breakStart,
+                        breakEnd: breakEnd,
+                      );
+                  await _loadSchedule();
+                },
+              ),
+            );
+          },
+          onDelete: () async {
+            final confirm = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Supprimer le créneau'),
+                content: const Text('Voulez-vous supprimer ce créneau ?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text('Supprimer', style: TextStyle(color: AppColors.error)),
+                  ),
+                ],
+              ),
+            );
+            if (confirm == true) {
+              await ref.read(doctorProvider.notifier).deleteScheduleSlot(slot.id);
+              await _loadSchedule();
+            }
+          },
+        ),
+      );
+    }).toList();
   }
 
   String _getDayFullName(int day) {

@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const CHARGILY_SECRET_KEY = Deno.env.get('CHARGILY_SECRET_KEY')
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://erkldarqweehvwgpncrg.supabase.co'
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
 const SUBSCRIPTION_DAYS = 30
@@ -12,8 +12,8 @@ serve(async (req) => {
     return new Response('Method Not Allowed', { status: 405 })
   }
 
-  if (!CHARGILY_SECRET_KEY) {
-    console.error('CHARGILY_SECRET_KEY not set')
+  if (!CHARGILY_SECRET_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Missing required environment variables')
     return new Response('Server configuration error', { status: 500 })
   }
 

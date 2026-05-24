@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_settings_ui/flutter_settings_ui.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/providers/locale_provider.dart';
+import 'package:eyadati/core/routing/route_names.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/doctor_provider.dart';
 import 'doctor_change_password_page.dart';
@@ -112,6 +114,9 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               await Future.delayed(const Duration(milliseconds: 100));
               if (context.mounted) {
                 await ref.read(authProvider.notifier).logout();
+                if (context.mounted) {
+                  context.go(RouteNames.login);
+                }
               }
             },
             child: Text(
@@ -334,40 +339,4 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.textSecondary),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: AppTextStyles.labelMedium.copyWith(
-            fontWeight: FontWeight.w300,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDurationChip(String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: AppColors.primary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:eyadati/models/doctor.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 import 'package:eyadati/core/engine/availability_service.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/core/utils/maps_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:eyadati/core/engine/availability_service.dart';
 
 class DoctorState {
   final String? userId;
@@ -395,14 +393,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         phone: profile?['phone'] as String? ?? '',
         address: doctorData['address'] as String? ?? '',
 
-        consultationDuration: _requireInt(
-          doctorData['consultation_duration'],
-          'consultation_duration',
-        ),
-        appointmentDuration: _requireInt(
-          doctorData['appointment_duration'],
-          'appointment_duration',
-        ),
+        consultationDuration: (doctorData['consultation_duration'] as int?) ?? 30,
+        appointmentDuration: (doctorData['appointment_duration'] as int?) ?? 20,
         avatarUrl:
             profile?['avatar_url'] as String? ??
             doctorData['photo_url'] as String? ??
@@ -949,15 +941,5 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     state = state.copyWith(errorMessage: null);
   }
 
-  int _requireInt(dynamic value, String fieldName) {
-    if (value == null) {
-      throw Exception('Doctor profile missing $fieldName from database');
-    }
-    if (value is! int) {
-      throw Exception(
-        'Doctor profile has invalid $fieldName type: ${value.runtimeType}',
-      );
-    }
-    return value;
-  }
+
 }

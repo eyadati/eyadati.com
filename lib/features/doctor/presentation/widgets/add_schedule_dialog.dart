@@ -108,6 +108,23 @@ class _AddScheduleDialogState extends State<AddScheduleDialog> {
       return;
     }
 
+    if (_breakStart != null && _breakEnd != null) {
+      final breakStartMins = TimeUtils.timeOfDayToMinutes(_breakStart!);
+      final breakEndMins = TimeUtils.timeOfDayToMinutes(_breakEnd!);
+      if (breakEndMins <= breakStartMins) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("La fin de la pause doit être après le début")),
+        );
+        return;
+      }
+      if (breakStartMins < startMins || breakEndMins > endMins) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("La pause doit être dans les horaires de travail")),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     try {
       final breakStartMins = _breakStart != null ? TimeUtils.timeOfDayToMinutes(_breakStart!) : null;

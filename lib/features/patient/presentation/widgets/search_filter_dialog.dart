@@ -114,7 +114,7 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: DropdownButtonFormField<String>(
-              value: _selectedCity,
+              initialValue: _selectedCity,
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
@@ -148,7 +148,7 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: DropdownButtonFormField<String>(
-              value: _selectedSpecialty,
+              initialValue: _selectedSpecialty,
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
