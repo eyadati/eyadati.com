@@ -11,8 +11,18 @@ class DoctorNotificationSidebar extends StatelessWidget {
 
   String _formatDate(DateTime dt) {
     const months = [
-      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-      'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc',
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Juin',
+      'Juil',
+      'Août',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
@@ -46,7 +56,8 @@ class DoctorNotificationSidebar extends StatelessWidget {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: appointments.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, color: AppColors.border),
+                separatorBuilder: (_, _) =>
+                    const Divider(height: 1, color: AppColors.border),
                 itemBuilder: (_, i) => _NotificationItem(
                   appointment: appointments[i],
                   formatDate: _formatDate,
@@ -74,7 +85,11 @@ class DoctorNotificationSidebar extends StatelessWidget {
               color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(LucideIcons.bell, size: 20, color: AppColors.primary),
+            child: const Icon(
+              LucideIcons.bell,
+              size: 20,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(width: 12),
           Text(
@@ -89,7 +104,7 @@ class DoctorNotificationSidebar extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.warning,
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -103,7 +118,11 @@ class DoctorNotificationSidebar extends StatelessWidget {
             ),
           const SizedBox(width: 12),
           IconButton(
-            icon: const Icon(LucideIcons.x, size: 20, color: AppColors.textSecondary),
+            icon: const Icon(
+              LucideIcons.x,
+              size: 20,
+              color: AppColors.textSecondary,
+            ),
             onPressed: () => Navigator.pop(context),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -118,7 +137,11 @@ class DoctorNotificationSidebar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.bellOff, size: 48, color: AppColors.textHint.withValues(alpha: 0.4)),
+          Icon(
+            LucideIcons.bellOff,
+            size: 48,
+            color: AppColors.textHint.withValues(alpha: 0.4),
+          ),
           const SizedBox(height: 12),
           Text(
             'Aucune notification',
@@ -179,7 +202,9 @@ class _NotificationItem extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${formatDate(appointment.startTime)} à ${formatTime(appointment.startTime)}',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textHint),
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textHint,
+                  ),
                 ),
               ],
             ),

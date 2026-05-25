@@ -276,6 +276,10 @@ create policy "Patients can cancel own upcoming appointments"
     and status = 'upcoming'
   );
 
+create policy "Doctors can delete own appointments"
+  on public.appointments for delete
+  using (auth.uid() = doctor_id);
+
 -- Grant execute on new functions
 grant execute on function public.validate_appointment_date(timestamptz) to anon;
 grant execute on function public.validate_duration(integer) to anon;

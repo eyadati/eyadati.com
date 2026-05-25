@@ -1,3 +1,4 @@
+import 'package:eyadati/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
@@ -71,7 +72,11 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.alertCircle, size: 48, color: AppColors.error),
+            const Icon(
+              LucideIcons.alertCircle,
+              size: 48,
+              color: AppColors.error,
+            ),
             const SizedBox(height: 16),
             Text(
               'Erreur de chargement',
@@ -107,10 +112,8 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: const Border(
-          bottom: BorderSide(color: AppColors.border),
-        ),
+        color: AppTheme.lightTheme.scaffoldBackgroundColor,
+        border: const Border(bottom: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadow,
@@ -155,7 +158,10 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
                 padding: EdgeInsets.zero,
               ),
               IconButton(
-                icon: const Icon(LucideIcons.settings, color: AppColors.textPrimary),
+                icon: const Icon(
+                  LucideIcons.settings,
+                  color: AppColors.textPrimary,
+                ),
                 onPressed: () => context.push(RouteNames.doctorSettings),
                 padding: EdgeInsets.zero,
               ),
@@ -171,7 +177,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
                   ),
                   child: AnimatedRotation(
                     duration: const Duration(milliseconds: 250),
-                    turns: _isExpanded ? 0 : 0.5,
+                    turns: _isExpanded ? 0.5 : 0,
                     child: const Icon(
                       LucideIcons.chevronDown,
                       size: 18,
@@ -213,7 +219,9 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
       final dateStr = '${nextApt.startTime.day}/${nextApt.startTime.month}';
       final timeStr =
           '${nextApt.startTime.hour.toString().padLeft(2, '0')}:${nextApt.startTime.minute.toString().padLeft(2, '0')}';
-      final patientName = nextApt.patientName.isNotEmpty ? nextApt.patientName : 'Patient';
+      final patientName = nextApt.patientName.isNotEmpty
+          ? nextApt.patientName
+          : 'Patient';
       nextAptInfo = '$patientName — $dateStr $timeStr';
       nextAptColor = AppColors.textPrimary;
     }

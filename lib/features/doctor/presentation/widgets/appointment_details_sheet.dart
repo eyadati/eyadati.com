@@ -157,11 +157,12 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                       final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'cancelled');
                       if (context.mounted) {
                         Navigator.pop(context);
-                        if (ok) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Rendez-vous annulé', style: TextStyle(color: AppColors.white)), backgroundColor: AppColors.error),
-                          );
-                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? 'Rendez-vous annulé' : 'Erreur lors de l\'annulation', style: TextStyle(color: AppColors.white)),
+                            backgroundColor: ok ? AppColors.error : AppColors.warning,
+                          ),
+                        );
                       }
                     }
                   },
@@ -193,11 +194,12 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                       final ok = await ref.read(doctorProvider.notifier).deleteAppointment(appointment.id);
                       if (context.mounted) {
                         Navigator.pop(context);
-                        if (ok) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Rendez-vous supprimé', style: TextStyle(color: AppColors.white)), backgroundColor: AppColors.error),
-                          );
-                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? 'Rendez-vous supprimé' : 'Erreur lors de la suppression', style: TextStyle(color: AppColors.white)),
+                            backgroundColor: ok ? AppColors.error : AppColors.warning,
+                          ),
+                        );
                       }
                     }
                   },

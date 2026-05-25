@@ -30,6 +30,7 @@ class _DoctorAddAppointmentDialogState
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _phoneFocusNode = FocusNode();
   late DateTime _selectedDate;
   TimeOfDay? _selectedSlot;
   int? _selectedDuration;
@@ -76,6 +77,7 @@ class _DoctorAddAppointmentDialogState
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _phoneFocusNode.dispose();
     super.dispose();
   }
 
@@ -380,6 +382,8 @@ class _DoctorAddAppointmentDialogState
                   label: 'Nom du patient',
                   hint: 'Entrez le nom',
                   prefixIcon: LucideIcons.user,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _phoneFocusNode.requestFocus(),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Le nom est requis';
@@ -394,6 +398,9 @@ class _DoctorAddAppointmentDialogState
                   hint: 'Entrez le numéro',
                   prefixIcon: LucideIcons.phone,
                   keyboardType: TextInputType.phone,
+                  focusNode: _phoneFocusNode,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _save(),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const SizedBox(height: AppSpacing.md),

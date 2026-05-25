@@ -782,10 +782,12 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     String status,
   ) async {
     try {
-      await _client
+      final updated = await _client
           .from('appointments')
           .update({'status': status})
-          .eq('id', appointmentId);
+          .eq('id', appointmentId)
+          .select();
+      if (updated.isEmpty) return false;
 
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
@@ -902,7 +904,12 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
   Future<bool> deleteAppointment(String appointmentId) async {
     try {
-      await _client.from('appointments').delete().eq('id', appointmentId);
+      final deleted = await _client
+          .from('appointments')
+          .delete()
+          .eq('id', appointmentId)
+          .select();
+      if (deleted.isEmpty) return false;
       final updatedUpcoming = state.upcomingAppointments
           .where((a) => a.id != appointmentId)
           .toList();
