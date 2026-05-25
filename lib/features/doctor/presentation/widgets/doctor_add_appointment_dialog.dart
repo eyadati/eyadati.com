@@ -61,7 +61,10 @@ class _DoctorAddAppointmentDialogState
     if (validStarts.isNotEmpty) {
       final firstSlot = validStarts.first;
       setState(() {
-        _selectedSlot = TimeOfDay(hour: firstSlot.minute ~/ 60, minute: firstSlot.minute % 60);
+        _selectedSlot = TimeOfDay(
+          hour: firstSlot.minute ~/ 60,
+          minute: firstSlot.minute % 60,
+        );
         _selectedDuration = firstSlot.duration;
       });
     }
@@ -85,21 +88,24 @@ class _DoctorAddAppointmentDialogState
     return 30;
   }
 
-  List<int> _getAvailableDurations(DoctorState doctorState, int remainingMinutes) {
+  List<int> _getAvailableDurations(
+    DoctorState doctorState,
+    int remainingMinutes,
+  ) {
     final consultationDuration = doctorState.consultationDuration;
-    
+
     // Static duration options - always show all options
     final List<int> allOptions = [10, 20, 30, 40, 50, 60];
-    
+
     // Add consultation as a separate option (shown as "Consultation" in UI)
     // Filter only what fits in remaining time, but include consultation if time allows
     final filtered = allOptions.where((d) => d <= remainingMinutes).toList();
-    
+
     // Always include consultation option if there's enough time
     if (remainingMinutes >= consultationDuration) {
       // Add consultation - will be shown with special label in UI
     }
-    
+
     filtered.sort();
     return filtered;
   }
@@ -150,8 +156,8 @@ class _DoctorAddAppointmentDialogState
     }
 
     final doctorState = ref.read(doctorProvider);
-    final effectiveDuration = _isConsultation 
-        ? doctorState.consultationDuration 
+    final effectiveDuration = _isConsultation
+        ? doctorState.consultationDuration
         : _selectedDuration!;
 
     final scheduledAt = DateTime(
@@ -162,14 +168,17 @@ class _DoctorAddAppointmentDialogState
       _selectedSlot!.minute,
     );
 
-    final selectedSlotMinutes = _selectedSlot!.hour * 60 + _selectedSlot!.minute;
+    final selectedSlotMinutes =
+        _selectedSlot!.hour * 60 + _selectedSlot!.minute;
     final endMinutes = selectedSlotMinutes + effectiveDuration;
     final conflicts = doctorState.allAppointments.where((apt) {
       if (apt.startTime.year != _selectedDate.year ||
           apt.startTime.month != _selectedDate.month ||
-          apt.startTime.day != _selectedDate.day) return false;
+          apt.startTime.day != _selectedDate.day)
+        return false;
       final aptStart = apt.startTime.hour * 60 + apt.startTime.minute;
-      final aptEnd = apt.startTime.hour * 60 + apt.startTime.minute + apt.duration;
+      final aptEnd =
+          apt.startTime.hour * 60 + apt.startTime.minute + apt.duration;
       return selectedSlotMinutes < aptEnd && endMinutes > aptStart;
     }).toList();
 
@@ -185,15 +194,17 @@ class _DoctorAddAppointmentDialogState
       return;
     }
 
-    final success = await ref.read(doctorProvider.notifier).createAppointment(
-      scheduledAt: scheduledAt,
-      duration: _selectedDuration,
-      isConsultation: _isConsultation,
-      patientName: _nameController.text.trim(),
-      patientPhone: _phoneController.text.trim().isEmpty
-          ? null
-          : _phoneController.text.trim(),
-    );
+    final success = await ref
+        .read(doctorProvider.notifier)
+        .createAppointment(
+          scheduledAt: scheduledAt,
+          duration: _selectedDuration,
+          isConsultation: _isConsultation,
+          patientName: _nameController.text.trim(),
+          patientPhone: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+        );
 
     if (mounted) {
       if (success) {
@@ -201,9 +212,7 @@ class _DoctorAddAppointmentDialogState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isConsultation 
-                  ? 'Consultation créée'
-                  : 'Rendez-vous créé',
+              _isConsultation ? 'Consultation créée' : 'Rendez-vous créé',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -229,15 +238,23 @@ class _DoctorAddAppointmentDialogState
     }).toList();
 
     final slotStart = _selectedSlot != null
-        ? DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day,
-            _selectedSlot!.hour, _selectedSlot!.minute)
+        ? DateTime(
+            _selectedDate.year,
+            _selectedDate.month,
+            _selectedDate.day,
+            _selectedSlot!.hour,
+            _selectedSlot!.minute,
+          )
         : null;
 
     final remainingMinutes = slotStart != null
         ? _calculateRemainingMinutes(slotStart, dayAppointments)
         : _getSlotIntervalMinutes();
 
-    final availableDurations = _getAvailableDurations(doctorState, remainingMinutes);
+    final availableDurations = _getAvailableDurations(
+      doctorState,
+      remainingMinutes,
+    );
 
     return Dialog(
       backgroundColor: AppColors.white,
@@ -263,7 +280,10 @@ class _DoctorAddAppointmentDialogState
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(LucideIcons.x, color: AppColors.textSecondary),
+                      icon: const Icon(
+                        LucideIcons.x,
+                        color: AppColors.textSecondary,
+                      ),
                       onPressed: () => Navigator.pop(context),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -412,15 +432,34 @@ class _DoctorAddAppointmentDialogState
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: !_isConsultation ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+                            color: !_isConsultation
+                                ? AppColors.primary.withValues(alpha: 0.1)
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: !_isConsultation ? AppColors.primary : AppColors.border),
+                            border: Border.all(
+                              color: !_isConsultation
+                                  ? AppColors.primary
+                                  : AppColors.border,
+                            ),
                           ),
                           child: Column(
                             children: [
-                              Icon(LucideIcons.user, color: !_isConsultation ? AppColors.primary : AppColors.textSecondary),
+                              Icon(
+                                LucideIcons.user,
+                                color: !_isConsultation
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                              ),
                               const SizedBox(height: 4),
-                              Text('RDV', style: TextStyle(fontWeight: FontWeight.w600, color: !_isConsultation ? AppColors.primary : AppColors.textSecondary)),
+                              Text(
+                                'RDV',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: !_isConsultation
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -433,15 +472,36 @@ class _DoctorAddAppointmentDialogState
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: _isConsultation ? AppColors.consultationColor.withValues(alpha: 0.1) : Colors.transparent,
+                            color: _isConsultation
+                                ? AppColors.consultationColor.withValues(
+                                    alpha: 0.1,
+                                  )
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _isConsultation ? AppColors.consultationColor : AppColors.border),
+                            border: Border.all(
+                              color: _isConsultation
+                                  ? AppColors.consultationColor
+                                  : AppColors.border,
+                            ),
                           ),
                           child: Column(
                             children: [
-                              Icon(LucideIcons.video, color: _isConsultation ? AppColors.consultationColor : AppColors.textSecondary),
+                              Icon(
+                                LucideIcons.video,
+                                color: _isConsultation
+                                    ? AppColors.consultationColor
+                                    : AppColors.textSecondary,
+                              ),
                               const SizedBox(height: 4),
-                              Text('Visio', style: TextStyle(fontWeight: FontWeight.w600, color: _isConsultation ? AppColors.consultationColor : AppColors.textSecondary)),
+                              Text(
+                                'Visio',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: _isConsultation
+                                      ? AppColors.consultationColor
+                                      : AppColors.textSecondary,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -452,7 +512,7 @@ class _DoctorAddAppointmentDialogState
                 const SizedBox(height: AppSpacing.lg),
                 if (_selectedSlot != null) ...[
                   Text(
-                    _isConsultation 
+                    _isConsultation
                         ? 'Durée: ${doctorState.consultationDuration} min (fixe)'
                         : 'Durée du rendez-vous',
                     style: const TextStyle(
@@ -466,7 +526,9 @@ class _DoctorAddAppointmentDialogState
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: AppColors.consultationColor.withValues(alpha: 0.1),
+                        color: AppColors.consultationColor.withValues(
+                          alpha: 0.1,
+                        ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -569,8 +631,8 @@ class _DoctorAddAppointmentDialogState
                 SizedBox(
                   width: double.infinity,
                   child: PrimaryButton(
-                    label: _isConsultation 
-                        ? 'Créer la consultation' 
+                    label: _isConsultation
+                        ? 'Créer la consultation'
                         : 'Créer le rendez-vous',
                     onPressed: _save,
                   ),
@@ -627,7 +689,7 @@ class _DoctorAddAppointmentDialogState
             final slotMinute = slot.minute % 60;
             final slotTime = TimeOfDay(hour: slotHour, minute: slotMinute);
             final isSelected = _selectedSlot == slotTime;
-            
+
             final slotStart = DateTime(
               _selectedDate.year,
               _selectedDate.month,
@@ -640,8 +702,11 @@ class _DoctorAddAppointmentDialogState
                   apt.startTime.month == _selectedDate.month &&
                   apt.startTime.day == _selectedDate.day;
             }).toList();
-            final remaining = _calculateRemainingMinutes(slotStart, dayAppointments);
-            
+            final remaining = _calculateRemainingMinutes(
+              slotStart,
+              dayAppointments,
+            );
+
             return GestureDetector(
               onTap: remaining > 0
                   ? () {
@@ -656,23 +721,30 @@ class _DoctorAddAppointmentDialogState
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected 
-                      ? AppColors.primary 
-                      : (remaining > 0 ? AppColors.white : AppColors.background),
+                  color: isSelected
+                      ? AppColors.primary
+                      : (remaining > 0
+                            ? AppColors.white
+                            : AppColors.background),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isSelected 
-                        ? AppColors.primary 
-                        : (remaining > 0 ? AppColors.primary.withValues(alpha: 0.3) : AppColors.border),
+                    width: 2,
+                    color: isSelected
+                        ? AppColors.primary
+                        : (remaining > 0
+                              ? AppColors.primary.withValues(alpha: 0.3)
+                              : AppColors.border),
                   ),
                 ),
                 child: Text(
                   TimeUtils.minutesToString(slot.minute),
                   style: TextStyle(
-                    color: isSelected 
-                        ? AppColors.white 
-                        : (remaining > 0 ? AppColors.textPrimary : AppColors.textHint),
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? AppColors.white
+                        : (remaining > 0
+                              ? AppColors.textPrimary
+                              : AppColors.textHint),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w600,
                   ),
                 ),
               ),
@@ -683,7 +755,10 @@ class _DoctorAddAppointmentDialogState
     );
   }
 
-  int _calculateRemainingMinutes(DateTime slotStart, List<AppointmentData> appointments) {
+  int _calculateRemainingMinutes(
+    DateTime slotStart,
+    List<AppointmentData> appointments,
+  ) {
     if (appointments.isEmpty) return 60;
     final slotMinute = slotStart.hour * 60 + slotStart.minute;
     for (final apt in appointments) {

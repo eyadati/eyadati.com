@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/utils/supabase_client.dart';
 import 'core/providers/locale_provider.dart';
+import 'core/widgets/feedback/update_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,7 +42,7 @@ class EyadatiApp extends ConsumerWidget {
         final isRtl = ref.watch(localeProvider).languageCode == 'ar';
         return Directionality(
           textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
-          child: child ?? const SizedBox(),
+          child: AppWithUpdateBanner(child: child ?? const SizedBox()),
         );
       },
     );

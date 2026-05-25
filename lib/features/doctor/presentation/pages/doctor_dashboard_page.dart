@@ -113,14 +113,6 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage>
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
         color: AppTheme.lightTheme.scaffoldBackgroundColor,
-        border: const Border(bottom: BorderSide(color: AppColors.border)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
       child: Column(
