@@ -42,7 +42,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       final appointmentsData = await SupabaseInitializer.client
           .from('appointments')
           .select('''
-            id, scheduled_at, duration, status, appointment_type, booking_type, notes,
+            id, scheduled_at, duration, status, is_consultation, booking_type, notes,
             patient_name_snapshot, patient_phone_snapshot
           ''')
           .eq('doctor_id', widget.doctorId)
@@ -73,7 +73,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             endTime: start.add(Duration(minutes: dur)),
             patientName: a['patient_name_snapshot'] as String? ?? 'Patient',
             status: a['status'] as String,
-            isConsultation: a['appointment_type'] == 'consultation',
+            isConsultation: a['is_consultation'] as bool? ?? false,
             duration: dur,
             bookingType: a['booking_type'] as String? ?? 'online',
           );
@@ -212,7 +212,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         'duration': duration,
         'status': 'upcoming',
         'booking_type': 'online',
-        'appointment_type': _appointmentType == 'regular' ? 'standard' : _appointmentType,
         'is_consultation': _appointmentType == 'consultation',
         'patient_name_snapshot': patientName ?? 'Patient',
         'notes': _notesController.text.isEmpty ? null : _notesController.text,

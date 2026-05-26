@@ -273,7 +273,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
       patientPhone: a['patient_phone_snapshot'] as String?,
       status: a['status'] as String,
-      isConsultation: a['appointment_type'] == 'consultation',
+      isConsultation: a['is_consultation'] as bool? ?? false,
       notes: a['notes'] as String?,
       duration: duration,
       patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
@@ -349,7 +349,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             scheduled_at,
             duration,
             status,
-            appointment_type,
+            is_consultation,
             booking_type,
             notes,
             patient_name_snapshot,
@@ -718,7 +718,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         'duration': effectiveDuration,
         'status': 'upcoming',
         'booking_type': patientId != null ? 'online' : 'manual',
-        'appointment_type': isConsultation ? 'consultation' : 'standard',
         'is_consultation': isConsultation,
       };
 

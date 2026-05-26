@@ -64,12 +64,6 @@ class _SplashPageState extends ConsumerState<SplashPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/logo.png',
-              width: 100,
-              height: 100,
-            ),
-            const SizedBox(height: 24),
             const Text(
               'Eyadati',
               style: TextStyle(

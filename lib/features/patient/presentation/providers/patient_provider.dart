@@ -113,7 +113,7 @@ class PatientAppointmentViewModel {
       dateTime: DateTime.parse(map['scheduled_at'] as String),
       duration: map['duration'] as int? ?? 30,
       status: map['status'] as String? ?? 'upcoming',
-      isConsultation: map['appointment_type'] == 'consultation',
+      isConsultation: map['is_consultation'] as bool? ?? false,
       notes: map['notes'] as String?,
     );
   }
@@ -181,7 +181,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
       final appointmentsResult = await SupabaseInitializer.client
           .from('appointments')
           .select(
-            'id, doctor_id, scheduled_at, duration, status, appointment_type, notes, doctors(specialty, address, maps_link, photo_url)',
+            'id, doctor_id, scheduled_at, duration, status, is_consultation, notes, doctors(specialty, address, maps_link, photo_url)',
           )
           .eq('patient_id', userId)
           .order('scheduled_at', ascending: false)
@@ -247,7 +247,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
           dateTime: DateTime.parse(row['scheduled_at'] as String),
           duration: row['duration'] as int? ?? 30,
           status: row['status'] as String? ?? 'upcoming',
-          isConsultation: row['appointment_type'] == 'consultation',
+          isConsultation: row['is_consultation'] as bool? ?? false,
           notes: row['notes'] as String?,
         );
 
