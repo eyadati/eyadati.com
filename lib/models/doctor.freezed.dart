@@ -34,6 +34,7 @@ mixin _$Doctor {
   int get appointmentDuration => throw _privateConstructorUsedError;
   int get consultationDuration => throw _privateConstructorUsedError;
   bool get manualPause => throw _privateConstructorUsedError;
+  bool get isTest => throw _privateConstructorUsedError;
   DateTime? get subscriptionEnd => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
 
@@ -65,6 +66,7 @@ abstract class $DoctorCopyWith<$Res> {
     int appointmentDuration,
     int consultationDuration,
     bool manualPause,
+    bool isTest,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
   });
@@ -98,6 +100,7 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
     Object? appointmentDuration = null,
     Object? consultationDuration = null,
     Object? manualPause = null,
+    Object? isTest = null,
     Object? subscriptionEnd = freezed,
     Object? createdAt = freezed,
   }) {
@@ -155,6 +158,10 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
                 ? _value.manualPause
                 : manualPause // ignore: cast_nullable_to_non_nullable
                       as bool,
+            isTest: null == isTest
+                ? _value.isTest
+                : isTest // ignore: cast_nullable_to_non_nullable
+                      as bool,
             subscriptionEnd: freezed == subscriptionEnd
                 ? _value.subscriptionEnd
                 : subscriptionEnd // ignore: cast_nullable_to_non_nullable
@@ -191,6 +198,7 @@ abstract class _$$DoctorImplCopyWith<$Res> implements $DoctorCopyWith<$Res> {
     int appointmentDuration,
     int consultationDuration,
     bool manualPause,
+    bool isTest,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
   });
@@ -223,6 +231,7 @@ class __$$DoctorImplCopyWithImpl<$Res>
     Object? appointmentDuration = null,
     Object? consultationDuration = null,
     Object? manualPause = null,
+    Object? isTest = null,
     Object? subscriptionEnd = freezed,
     Object? createdAt = freezed,
   }) {
@@ -280,6 +289,10 @@ class __$$DoctorImplCopyWithImpl<$Res>
             ? _value.manualPause
             : manualPause // ignore: cast_nullable_to_non_nullable
                   as bool,
+        isTest: null == isTest
+            ? _value.isTest
+            : isTest // ignore: cast_nullable_to_non_nullable
+                  as bool,
         subscriptionEnd: freezed == subscriptionEnd
             ? _value.subscriptionEnd
             : subscriptionEnd // ignore: cast_nullable_to_non_nullable
@@ -310,6 +323,7 @@ class _$DoctorImpl implements _Doctor {
     this.appointmentDuration = 20,
     this.consultationDuration = 40,
     this.manualPause = false,
+    this.isTest = false,
     this.subscriptionEnd,
     this.createdAt,
   });
@@ -347,13 +361,16 @@ class _$DoctorImpl implements _Doctor {
   @JsonKey()
   final bool manualPause;
   @override
+  @JsonKey()
+  final bool isTest;
+  @override
   final DateTime? subscriptionEnd;
   @override
   final DateTime? createdAt;
 
   @override
   String toString() {
-    return 'Doctor(id: $id, name: $name, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, manualPause: $manualPause, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
+    return 'Doctor(id: $id, name: $name, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, manualPause: $manualPause, isTest: $isTest, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
   }
 
   @override
@@ -382,6 +399,7 @@ class _$DoctorImpl implements _Doctor {
                 other.consultationDuration == consultationDuration) &&
             (identical(other.manualPause, manualPause) ||
                 other.manualPause == manualPause) &&
+            (identical(other.isTest, isTest) || other.isTest == isTest) &&
             (identical(other.subscriptionEnd, subscriptionEnd) ||
                 other.subscriptionEnd == subscriptionEnd) &&
             (identical(other.createdAt, createdAt) ||
@@ -405,6 +423,7 @@ class _$DoctorImpl implements _Doctor {
     appointmentDuration,
     consultationDuration,
     manualPause,
+    isTest,
     subscriptionEnd,
     createdAt,
   );
@@ -438,6 +457,7 @@ abstract class _Doctor implements Doctor {
     final int appointmentDuration,
     final int consultationDuration,
     final bool manualPause,
+    final bool isTest,
     final DateTime? subscriptionEnd,
     final DateTime? createdAt,
   }) = _$DoctorImpl;
@@ -470,6 +490,8 @@ abstract class _Doctor implements Doctor {
   int get consultationDuration;
   @override
   bool get manualPause;
+  @override
+  bool get isTest;
   @override
   DateTime? get subscriptionEnd;
   @override

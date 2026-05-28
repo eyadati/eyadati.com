@@ -1,3 +1,4 @@
+import 'dart:html' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/models/payment_history.dart';
@@ -125,8 +126,9 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       }
 
       final user = SupabaseInitializer.client.auth.currentUser!;
-      final baseUrl = successUrl?.replaceAll('/payment/success', '') ??
-          'https://eyadati.app';
+      final origin = html.window.location.origin;
+      final baseUrl =
+          successUrl?.replaceAll('/payment/success', '') ?? origin;
 
       final response = await SupabaseInitializer.client.functions.invoke(
         'create-checkout',

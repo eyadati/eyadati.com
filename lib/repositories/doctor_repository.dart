@@ -26,6 +26,7 @@ class DoctorRepository {
           .from('doctors')
           .select()
           .eq('manual_pause', false)
+          .eq('is_test', false)
           .gt('subscription_end', DateTime.now().toIso8601String());
 
       if (specialty != null && specialty.isNotEmpty) {
@@ -352,6 +353,7 @@ class DoctorRepository {
           .from('doctors')
           .select('specialty')
           .eq('manual_pause', false)
+          .eq('is_test', false)
           .gt('subscription_end', DateTime.now().toIso8601String());
 
       final specialties = (response as List)
@@ -378,6 +380,7 @@ class DoctorRepository {
           .from('doctors')
           .select('city')
           .eq('manual_pause', false)
+          .eq('is_test', false)
           .gt('subscription_end', DateTime.now().toIso8601String());
 
       final cities = (response as List)

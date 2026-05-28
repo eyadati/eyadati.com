@@ -21,6 +21,7 @@ class DoctorState {
   final String avatarUrl;
   final String? mapsLink;
   final bool isPaused;
+  final bool isTest;
   final int todayAppointments;
   final int weekAppointments;
   final int totalPatients;
@@ -45,6 +46,7 @@ class DoctorState {
     this.avatarUrl = '',
     this.mapsLink,
     this.isPaused = false,
+    this.isTest = false,
     this.todayAppointments = 0,
     this.weekAppointments = 0,
     this.totalPatients = 0,
@@ -126,6 +128,7 @@ class DoctorState {
     String? avatarUrl,
     String? mapsLink,
     bool? isPaused,
+    bool? isTest,
     int? todayAppointments,
     int? weekAppointments,
     int? totalPatients,
@@ -150,6 +153,7 @@ class DoctorState {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       mapsLink: mapsLink ?? this.mapsLink,
       isPaused: isPaused ?? this.isPaused,
+      isTest: isTest ?? this.isTest,
       todayAppointments: todayAppointments ?? this.todayAppointments,
       weekAppointments: weekAppointments ?? this.weekAppointments,
       totalPatients: totalPatients ?? this.totalPatients,
@@ -296,7 +300,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       final doctorData = await _client
           .from('doctors')
           .select(
-            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration, manual_pause',
+            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration, manual_pause, is_test',
           )
           .eq('id', user.id)
           .maybeSingle();
@@ -401,6 +405,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             '',
         mapsLink: doctorData['maps_link'] as String?,
         isPaused: doctorData['manual_pause'] as bool? ?? false,
+        isTest: doctorData['is_test'] as bool? ?? false,
         todayAppointments: todayAppts.count,
         weekAppointments: weekAppts.count,
         totalPatients: 0,

@@ -69,6 +69,7 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
             'id, specialty, address, city, bio, photo_url, maps_link, latitude, longitude, manual_pause, subscription_end, appointment_duration, consultation_duration, created_at',
           )
           .eq('manual_pause', false)
+          .eq('is_test', false)
           .gt('subscription_end', now)
           .order('created_at', ascending: false)
           .limit(50);

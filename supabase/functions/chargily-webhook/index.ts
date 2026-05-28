@@ -3,16 +3,27 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const CHARGILY_SECRET_KEY = Deno.env.get('CHARGILY_SECRET_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const SUPABASE_SECRET_KEYS = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')
+const SECRET_KEY = SUPABASE_SECRET_KEYS['default'] || ''
 
 const SUBSCRIPTION_DAYS = 30
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'signature, content-type',
+}
+
 serve(async (req) => {
-  if (req.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 })
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: CORS_HEADERS })
   }
 
-  if (!CHARGILY_SECRET_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405, headers: CORS_HEADERS })
+  }
+
+  if (!CHARGILY_SECRET_KEY || !SUPABASE_URL || !SECRET_KEY) {
     console.error('Missing required environment variables')
     return new Response('Server configuration error', { status: 500 })
   }
@@ -74,7 +85,7 @@ serve(async (req) => {
     return new Response('Missing doctor_id', { status: 400 })
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const supabase = createClient(SUPABASE_URL, SECRET_KEY)
 
   try {
     // Idempotency: check if this event was already processed

@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
+import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 import '../providers/doctor_provider.dart';
@@ -12,18 +14,26 @@ import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
 
 class DoctorCalendarPage extends ConsumerStatefulWidget {
-  const DoctorCalendarPage({super.key});
+  final VoidCallback? onBellPressed;
+
+  const DoctorCalendarPage({super.key, this.onBellPressed});
 
   @override
   ConsumerState<DoctorCalendarPage> createState() => _DoctorCalendarPageState();
 }
 
-class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
+class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
+    with SingleTickerProviderStateMixin {
   DateTime _focusedDay = DateTime.now();
   final CalendarController _calendarController = CalendarController();
   final _CalendarDataSource _dataSource = _CalendarDataSource([]);
   CalendarView _currentView = CalendarView.week;
   String _lastUpdateKey = '';
+  bool _isExpanded = true;
+
+  void _toggleExpanded() {
+    setState(() => _isExpanded = !_isExpanded);
+  }
 
   @override
   void initState() {
@@ -203,26 +213,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
       return AppColors.error.withValues(alpha: 0.5);
     }
     return apt.isConsultation ? AppColors.consultationColor : AppColors.primary;
-  }
-
-  Widget _buildNotificationBell(DoctorState state) {
-    // Remove pending notification bell - not needed with upcoming/cancelled only
-    return IconButton(
-      icon: Icon(LucideIcons.bell, size: 22),
-      onPressed: null,
-      color: AppColors.textHint,
-    );
-  }
-
-  void _showNotificationSheet(
-    BuildContext context,
-    List<AppointmentData> pending,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _NotificationSheet(appointments: pending),
-    );
   }
 
   List<TimeRegion> _buildBreakRegions(
@@ -482,196 +472,235 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
     final isDayView = _currentView == CalendarView.day;
 
+    final pendingCount = doctorState.allAppointments
+        .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
+        .length;
+
     return Column(
       children: [
-        _buildCalendarHeader(isDayView),
-        const Divider(height: 1, color: AppColors.border),
+        _buildTopHeader(isDayView, pendingCount, doctorState.isTest),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: _buildCardsRow(doctorState),
+          crossFadeState: _isExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
         Expanded(
-          child: SfCalendarTheme(
-            data: SfCalendarThemeData(
-              backgroundColor: AppColors.white,
-              todayHighlightColor: AppColors.primary,
-              selectionBorderColor: AppColors.primary,
-              cellBorderColor: AppColors.primary.withValues(alpha: 0.65),
-              viewHeaderBackgroundColor: AppColors.white,
-              timeTextStyle: AppTextStyles.labelSmall.copyWith(
-                color: AppColors.textHint,
-                fontWeight: FontWeight.w500,
-              ),
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
             ),
-            child: SfCalendar(
-              controller: _calendarController,
-              dataSource: _dataSource,
-              view: _currentView,
-              initialDisplayDate: _focusedDay,
-              showCurrentTimeIndicator: true,
-              headerHeight: 0,
-              todayHighlightColor: AppColors.primary,
-              specialRegions: breakRegions,
-              timeSlotViewSettings: TimeSlotViewSettings(
-                startHour: startHour.toDouble(),
-                endHour: endHour.toDouble(),
-                timeInterval: const Duration(hours: 1),
-                timeIntervalHeight: 120,
-                timeFormat: 'H a',
-                timeRulerSize: 60,
-                dayFormat: 'EEE',
-                dateFormat: 'd',
-              ),
-              selectionDecoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                border: Border.all(color: AppColors.primary, width: 2),
-                borderRadius: BorderRadius.circular(4),
-              ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SfCalendarTheme(
+                data: SfCalendarThemeData(
+                  backgroundColor: AppColors.white,
+                  todayHighlightColor: AppColors.primary,
+                  selectionBorderColor: AppColors.primary,
+                  cellBorderColor: AppColors.primary.withValues(alpha: 0.65),
+                  viewHeaderBackgroundColor: AppColors.white,
+                  timeTextStyle: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textHint,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                child: SfCalendar(
+                  controller: _calendarController,
+                  dataSource: _dataSource,
+                  view: _currentView,
+                  initialDisplayDate: _focusedDay,
+                  showCurrentTimeIndicator: true,
+                  headerHeight: 0,
+                  todayHighlightColor: AppColors.primary,
+                  specialRegions: breakRegions,
+                  timeSlotViewSettings: TimeSlotViewSettings(
+                    startHour: startHour.toDouble(),
+                    endHour: endHour.toDouble(),
+                    timeInterval: const Duration(hours: 1),
+                    timeIntervalHeight: 120,
+                    timeFormat: 'H a',
+                    timeRulerSize: 60,
+                    dayFormat: 'EEE',
+                    dateFormat: 'd',
+                  ),
+                  selectionDecoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    border: Border.all(color: AppColors.primary, width: 2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
 
-              viewHeaderStyle: ViewHeaderStyle(
-                dayTextStyle: AppTextStyles.labelMedium.copyWith(
-                  color: AppColors.textHint,
-                ),
-                dateTextStyle: AppTextStyles.titleMedium.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              appointmentBuilder: (context, details) {
-                final apt = details.appointments.first as _AppointmentWrapper;
-                return GestureDetector(
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      builder: (c) => AppointmentDetailsSheet(
-                        appointment: AppointmentData(
-                          id: apt.id,
-                          startTime: apt.startTime,
-                          endTime: apt.endTime,
-                          patientName: apt.patientName,
-                          status: apt.status,
-                          isConsultation: apt.isConsultation,
-                          duration: apt.duration,
-                          notes: apt.notes,
-                          patientPhone: apt.patientPhone,
-                          patientAvatar: apt.patientAvatar,
-                          patientId: apt.patientId,
-                          bookingType: apt.bookingType,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Tooltip(
-                    richMessage: WidgetSpan(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: apt.status == 'cancelled'
-                              ? Border.all(color: AppColors.error.withValues(alpha: 0.3))
-                              : null,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
+                  viewHeaderStyle: ViewHeaderStyle(
+                    dayTextStyle: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.textHint,
+                    ),
+                    dateTextStyle: AppTextStyles.titleMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  appointmentBuilder: (context, details) {
+                    final apt =
+                        details.appointments.first as _AppointmentWrapper;
+                    return GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (c) => AppointmentDetailsSheet(
+                            appointment: AppointmentData(
+                              id: apt.id,
+                              startTime: apt.startTime,
+                              endTime: apt.endTime,
+                              patientName: apt.patientName,
+                              status: apt.status,
+                              isConsultation: apt.isConsultation,
+                              duration: apt.duration,
+                              notes: apt.notes,
+                              patientPhone: apt.patientPhone,
+                              patientAvatar: apt.patientAvatar,
+                              patientId: apt.patientId,
+                              bookingType: apt.bookingType,
                             ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircleAvatar(
-                              radius: 16,
-                              backgroundColor: apt.status == 'cancelled'
-                                  ? AppColors.error.withValues(alpha: 0.1)
-                                  : AppColors.primaryLight,
-                              child: Text(
-                                apt.patientName.isNotEmpty
-                                    ? apt.patientName[0].toUpperCase()
-                                    : 'P',
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: apt.status == 'cancelled'
-                                      ? AppColors.error
-                                      : AppColors.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      apt.patientName,
-                                      style: AppTextStyles.bodyMedium.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: apt.status == 'cancelled'
-                                            ? AppColors.error
-                                            : AppColors.textPrimary,
+                          ),
+                        );
+                      },
+                      child: Tooltip(
+                        richMessage: WidgetSpan(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: apt.status == 'cancelled'
+                                  ? Border.all(
+                                      color: AppColors.error.withValues(
+                                        alpha: 0.3,
                                       ),
-                                    ),
-                                    if (apt.status == 'cancelled') ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.error.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          'Annulé',
-                                          style: AppTextStyles.labelSmall.copyWith(
-                                            color: AppColors.error,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                Text(
-                                  '${apt.isConsultation ? "Consultation" : "RDV"} • ${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
-                                  style: AppTextStyles.labelSmall.copyWith(
-                                    color: apt.status == 'cancelled'
-                                        ? AppColors.error.withValues(alpha: 0.7)
-                                        : AppColors.textHint,
-                                  ),
+                                    )
+                                  : null,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 10,
                                 ),
                               ],
                             ),
-                          ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: apt.status == 'cancelled'
+                                      ? AppColors.error.withValues(alpha: 0.1)
+                                      : AppColors.primaryLight,
+                                  child: Text(
+                                    apt.patientName.isNotEmpty
+                                        ? apt.patientName[0].toUpperCase()
+                                        : 'P',
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: apt.status == 'cancelled'
+                                          ? AppColors.error
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          apt.patientName,
+                                          style: AppTextStyles.bodyMedium
+                                              .copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                color: apt.status == 'cancelled'
+                                                    ? AppColors.error
+                                                    : AppColors.textPrimary,
+                                              ),
+                                        ),
+                                        if (apt.status == 'cancelled') ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.error.withValues(
+                                                alpha: 0.1,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              'Annulé',
+                                              style: AppTextStyles.labelSmall
+                                                  .copyWith(
+                                                    color: AppColors.error,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    Text(
+                                      '${apt.isConsultation ? "Consultation" : "RDV"} • ${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
+                                      style: AppTextStyles.labelSmall.copyWith(
+                                        color: apt.status == 'cancelled'
+                                            ? AppColors.error.withValues(
+                                                alpha: 0.7,
+                                              )
+                                            : AppColors.textHint,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    waitDuration: const Duration(milliseconds: 300),
-                    decoration: const BoxDecoration(color: Colors.transparent),
-                    child: _buildAppointmentWidget(apt, details.bounds),
-                  ),
-                );
-              },
-              onTap: (CalendarTapDetails details) {
-                if (details.appointments == null ||
-                    details.appointments!.isEmpty) {
-                  if (details.date != null) {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => DoctorAddAppointmentDialog(
-                        initialDate: details.date!,
+                        waitDuration: const Duration(milliseconds: 300),
+                        decoration: const BoxDecoration(
+                          color: Colors.transparent,
+                        ),
+                        child: _buildAppointmentWidget(apt, details.bounds),
                       ),
                     );
-                  }
-                }
-              },
-              onViewChanged: (details) {
-                if (details.visibleDates.isNotEmpty) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    setState(() {
-                      _focusedDay = details
-                          .visibleDates[details.visibleDates.length ~/ 2];
-                    });
-                  });
-                }
-              },
+                  },
+                  onTap: (CalendarTapDetails details) {
+                    if (details.appointments == null ||
+                        details.appointments!.isEmpty) {
+                      if (details.date != null) {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => DoctorAddAppointmentDialog(
+                            initialDate: details.date!,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  onViewChanged: (details) {
+                    if (details.visibleDates.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        setState(() {
+                          _focusedDay = details
+                              .visibleDates[details.visibleDates.length ~/ 2];
+                        });
+                      });
+                    }
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -679,35 +708,113 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
     );
   }
 
-  Widget _buildCalendarHeader(bool isDayView) {
+  Widget _buildTopHeader(bool isDayView, int pendingCount, bool isTest) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(4),
+          Row(
+            children: [
+              Text(
+                'Eyadati',
+                style: AppTextStyles.titleLarge.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                ),
+              ),
+              if (isTest)
+                Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'TEST',
+                    style: AppTextStyles.badge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 16),
+          const Spacer(),
           IconButton(
-            icon: const Icon(LucideIcons.chevronLeft, size: 20),
+            icon: const Icon(LucideIcons.chevronLeft, size: 25),
             onPressed: isDayView ? _previousDay : _previousWeeks,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             padding: EdgeInsets.zero,
           ),
+          const SizedBox(width: 4),
           Text(
             isDayView ? _formatDayRange() : _formatWeekRange(),
-            style: AppTextStyles.bodyMedium.copyWith(
-              fontWeight: FontWeight.w700,
+            style: AppTextStyles.bodyLarge.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
             ),
           ),
+          const SizedBox(width: 4),
           IconButton(
-            icon: const Icon(LucideIcons.chevronRight, size: 20),
+            icon: const Icon(LucideIcons.chevronRight, size: 25),
             onPressed: isDayView ? _nextDay : _nextWeeks,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             padding: EdgeInsets.zero,
+          ),
+          const Spacer(),
+          IconButton(
+            icon: Stack(
+              children: [
+                const Icon(LucideIcons.bell, color: AppColors.textPrimary),
+                if (pendingCount > 0)
+                  Positioned(
+                    right: 0,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: widget.onBellPressed,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: EdgeInsets.zero,
+          ),
+          IconButton(
+            icon: const Icon(
+              LucideIcons.settings,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: () => context.push(RouteNames.doctorSettings),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: _toggleExpanded,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: AnimatedRotation(
+                duration: const Duration(milliseconds: 250),
+                turns: _isExpanded ? 0.5 : 0,
+                child: const Icon(
+                  LucideIcons.chevronDown,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -778,7 +885,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
         color: bgColor,
         borderRadius: BorderRadius.circular(10),
         border: isCancelled
-            ? Border.all(color: AppColors.error.withValues(alpha: 0.4), width: 1)
+            ? Border.all(
+                color: AppColors.error.withValues(alpha: 0.4),
+                width: 1,
+              )
             : null,
       ),
       child: Row(
@@ -803,17 +913,23 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage> {
                       color: textColor,
                       fontWeight: FontWeight.w900,
                       fontSize: 13,
-                      decoration: isCancelled ? TextDecoration.lineThrough : null,
+                      decoration: isCancelled
+                          ? TextDecoration.lineThrough
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     apt.patientName,
                     style: AppTextStyles.labelSmall.copyWith(
-                      color: isCancelled ? AppColors.error : AppColors.textPrimary,
+                      color: isCancelled
+                          ? AppColors.error
+                          : AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
-                      decoration: isCancelled ? TextDecoration.lineThrough : null,
+                      decoration: isCancelled
+                          ? TextDecoration.lineThrough
+                          : null,
                     ),
                   ),
                   if (isCancelled) ...[
