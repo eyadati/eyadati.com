@@ -13,7 +13,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await SupabaseInitializer.initialize();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (_) {
+    // Firebase unavailable (ad blocker, unsupported browser, etc.)
+    // Realtime-only path will still work for call notifications
+  }
 
   runApp(const ProviderScope(child: EyadatiApp()));
 }

@@ -17,7 +17,11 @@ class NotificationService {
     if (_initialized) return;
     _initialized = true;
 
-    _messaging = FirebaseMessaging.instance;
+    try {
+      _messaging = FirebaseMessaging.instance;
+    } catch (_) {
+      return;
+    }
 
     final permission = await _messaging!.requestPermission(
       alert: true,
