@@ -94,6 +94,14 @@ class CallLogNotifier extends StateNotifier<CallLogState> {
         'patient_name': patientName,
         'patient_id': patientId,
       });
+
+      try {
+        await _client.functions.invoke('send-call-notification', body: {
+          'patient_phone': patientPhone,
+          'patient_name': patientName ?? '',
+        });
+      } catch (_) {}
+
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
