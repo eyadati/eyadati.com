@@ -176,7 +176,7 @@ class DoctorRepository {
         'bio': bio?.trim(),
         'appointment_duration': appointmentDuration,
         'consultation_duration': consultationDuration,
-        'subscription_end': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        'subscription_end': DateTime.now().add(const Duration(days: 14)).toIso8601String(),
       };
 
       final response = await _client

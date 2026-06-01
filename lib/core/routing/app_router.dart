@@ -184,7 +184,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RouteNames.doctorCalendar,
-        builder: (context, state) => const DoctorCalendarPage(),
+        builder: (context, state) => DoctorCalendarPage(),
       ),
       GoRoute(
         path: RouteNames.doctorSchedule,

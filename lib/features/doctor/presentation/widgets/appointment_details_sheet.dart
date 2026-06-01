@@ -22,7 +22,7 @@ class AppointmentDetailsSheet extends ConsumerWidget {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: 400,
+        width: double.infinity,
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -48,6 +48,8 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                       Text(appointment.patientName, style: AppTextStyles.sectionTitle),
                       if (appointment.patientId != null)
                         Text('ID: ${appointment.patientId}', style: AppTextStyles.patientId),
+                      if (appointment.patientPhone != null)
+                        Text('📞 ${appointment.patientPhone}', style: AppTextStyles.patientId),
                     ],
                   ),
                 ),

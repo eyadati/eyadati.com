@@ -1,12 +1,19 @@
 
-const CACHE_NAME = 'eyadati-v1.0.0';
+const CACHE_NAME = 'eyadati-v1.0.1';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
   '/flutter_bootstrap.js',
   '/favicon.png',
+  '/icons/Icon-48.png',
+  '/icons/Icon-72.png',
+  '/icons/Icon-96.png',
+  '/icons/Icon-128.png',
+  '/icons/Icon-144.png',
   '/icons/Icon-192.png',
+  '/icons/Icon-256.png',
+  '/icons/Icon-384.png',
   '/icons/Icon-512.png',
   '/icons/Icon-maskable-192.png',
   '/icons/Icon-maskable-512.png',

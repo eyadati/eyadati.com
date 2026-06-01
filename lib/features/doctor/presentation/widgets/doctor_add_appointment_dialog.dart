@@ -261,7 +261,7 @@ class _DoctorAddAppointmentDialogState
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: SingleChildScrollView(
         child: Container(
-          width: 400,
+          width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Form(
             key: _formKey,

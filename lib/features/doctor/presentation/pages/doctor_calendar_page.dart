@@ -5,6 +5,7 @@ import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_breakpoints.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/models/appointment_data.dart';
@@ -12,11 +13,18 @@ import 'package:eyadati/models/schedule_slot_model.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
+import '../widgets/doctor_day_list_view.dart';
+import '../widgets/doctor_week_strip.dart';
 
 class DoctorCalendarPage extends ConsumerStatefulWidget {
   final VoidCallback? onBellPressed;
+  final ValueNotifier<DateTime> selectedDateNotifier;
 
-  const DoctorCalendarPage({super.key, this.onBellPressed});
+  DoctorCalendarPage({
+    super.key,
+    this.onBellPressed,
+    ValueNotifier<DateTime>? selectedDateNotifier,
+  }) : selectedDateNotifier = selectedDateNotifier ?? ValueNotifier(DateTime.now());
 
   @override
   ConsumerState<DoctorCalendarPage> createState() => _DoctorCalendarPageState();
@@ -27,7 +35,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
   DateTime _focusedDay = DateTime.now();
   final CalendarController _calendarController = CalendarController();
   final _CalendarDataSource _dataSource = _CalendarDataSource([]);
-  CalendarView _currentView = CalendarView.week;
+
   String _lastUpdateKey = '';
   bool _isExpanded = true;
 
@@ -35,9 +43,14 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     setState(() => _isExpanded = !_isExpanded);
   }
 
+  void _syncSelectedDate() {
+    widget.selectedDateNotifier.value = _focusedDay;
+  }
+
   @override
   void initState() {
     super.initState();
+    _syncSelectedDate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _updateDataSource(ref.read(doctorProvider));
@@ -98,28 +111,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     return '${startOfWeek.day} ${months[startOfWeek.month]} ${startOfWeek.year} - ${endOfWeek.day} ${months[endOfWeek.month]} ${endOfWeek.year}';
   }
 
-  String _formatDayRange() {
-    final months = [
-      '',
-      'Jan',
-      'Fév',
-      'Mar',
-      'Avr',
-      'Mai',
-      'Juin',
-      'Juil',
-      'Août',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Déc',
-    ];
-    return '${_focusedDay.day} ${months[_focusedDay.month]} ${_focusedDay.year}';
-  }
-
   void _previousWeeks() {
     setState(() {
       _focusedDay = _focusedDay.subtract(const Duration(days: 7));
+      _syncSelectedDate();
     });
     _calendarController.displayDate = _focusedDay;
   }
@@ -127,36 +122,9 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
   void _nextWeeks() {
     setState(() {
       _focusedDay = _focusedDay.add(const Duration(days: 7));
+      _syncSelectedDate();
     });
     _calendarController.displayDate = _focusedDay;
-  }
-
-  void _previousDay() {
-    setState(() {
-      _focusedDay = _focusedDay.subtract(const Duration(days: 1));
-    });
-    _calendarController.displayDate = _focusedDay;
-  }
-
-  void _nextDay() {
-    setState(() {
-      _focusedDay = _focusedDay.add(const Duration(days: 1));
-    });
-    _calendarController.displayDate = _focusedDay;
-  }
-
-  void _goToToday() {
-    final today = DateTime.now();
-    setState(() {
-      _focusedDay = today;
-    });
-    _calendarController.displayDate = today;
-  }
-
-  void _switchView(CalendarView view) {
-    setState(() {
-      _currentView = view;
-    });
   }
 
   void _updateDataSource(DoctorState doctorState) {
@@ -189,30 +157,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
         initialTime: initialTime,
       ),
     );
-  }
-
-  AppointmentData _toAppointmentData(_AppointmentWrapper apt) {
-    return AppointmentData(
-      id: apt.id,
-      startTime: apt.startTime,
-      endTime: apt.endTime,
-      patientName: apt.patientName,
-      patientAvatar: apt.patientAvatar,
-      patientPhone: apt.patientPhone,
-      status: apt.status,
-      isConsultation: apt.isConsultation,
-      notes: apt.notes,
-      duration: apt.duration,
-      patientId: apt.patientId,
-      bookingType: apt.bookingType,
-    );
-  }
-
-  Color _getStatusColor(_AppointmentWrapper apt) {
-    if (apt.status == 'cancelled') {
-      return AppColors.error.withValues(alpha: 0.5);
-    }
-    return apt.isConsultation ? AppColors.consultationColor : AppColors.primary;
   }
 
   List<TimeRegion> _buildBreakRegions(
@@ -262,17 +206,58 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     return regions;
   }
 
-  Widget _buildCardsRow(DoctorState doctorState) {
+  Widget _buildCardsRow(DoctorState doctorState, double screenWidth) {
+    final isMobile = AppBreakpoints.isMobile(screenWidth);
     final now = DateTime.now();
-    // Per supabase_checklist: Use computed getters instead of stored derived lists
     final upcomingList = doctorState.upcomingAppointmentsList;
 
     final weekCount = doctorState.weekAppointmentsCount;
-    final onlineCount = upcomingList
-        .where((a) => a.bookingType == 'online' && a.startTime.isAfter(now))
+    final weekStart = DateTime(now.year, now.month, now.day - (now.weekday - 1) % 7);
+    final weekEnd = weekStart.add(const Duration(days: 7));
+    final onlineCount = doctorState.allAppointments
+        .where((a) =>
+            a.bookingType == 'online' &&
+            a.startTime.isAfter(weekStart) &&
+            a.startTime.isBefore(weekEnd) &&
+            a.status == 'upcoming')
         .length;
 
     final nextAppointment = upcomingList.isNotEmpty ? upcomingList.first : null;
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Cette semaine',
+                    '$weekCount',
+                    LucideIcons.calendar,
+                    AppColors.secondary,
+                    isMobile: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildStatCard(
+                    'En ligne',
+                    '$onlineCount',
+                    LucideIcons.video,
+                    AppColors.primary,
+                    isMobile: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildNextAppointmentCard(nextAppointment, isMobile: true),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -306,10 +291,11 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     String title,
     String value,
     IconData icon,
-    Color color,
-  ) {
+    Color color, {
+    bool isMobile = false,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(isMobile ? 8 : 12),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
@@ -319,18 +305,18 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(isMobile ? 6 : 8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: color, size: 16),
+            child: Icon(icon, color: color, size: isMobile ? 14 : 16),
           ),
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 20,
+            style: TextStyle(
+              fontSize: isMobile ? 18 : 20,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
@@ -338,7 +324,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
           const SizedBox(height: 2),
           Text(
             title,
-            style: AppTextStyles.labelSmall.copyWith(
+            style: (isMobile ? AppTextStyles.badge : AppTextStyles.labelSmall).copyWith(
               color: AppColors.textSecondary,
             ),
           ),
@@ -347,10 +333,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     );
   }
 
-  Widget _buildNextAppointmentCard(AppointmentData? appointment) {
+  Widget _buildNextAppointmentCard(AppointmentData? appointment, {bool isMobile = false}) {
     if (appointment == null) {
       return Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(isMobile ? 10 : 12),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
@@ -360,7 +346,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(isMobile ? 6 : 8),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -368,14 +354,14 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
               child: Icon(
                 LucideIcons.clock,
                 color: AppColors.primary,
-                size: 16,
+                size: isMobile ? 14 : 16,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '--',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: isMobile ? 18 : 20,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
               ),
@@ -383,7 +369,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             const SizedBox(height: 2),
             Text(
               'Prochain RDV',
-              style: AppTextStyles.labelSmall.copyWith(
+              style: (isMobile ? AppTextStyles.badge : AppTextStyles.labelSmall).copyWith(
                 color: AppColors.textSecondary,
               ),
             ),
@@ -402,7 +388,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     final typeLabel = appointment.isConsultation ? 'Consultation' : 'RDV';
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(isMobile ? 10 : 12),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
@@ -428,8 +414,8 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
           const SizedBox(height: 8),
           Text(
             appointment.patientName,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 14,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
             ),
@@ -470,7 +456,7 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
       doctorState.scheduleSlots,
       _focusedDay,
     );
-    final isDayView = _currentView == CalendarView.day;
+    final isMobile = AppBreakpoints.isMobile(screenWidth);
 
     final pendingCount = doctorState.allAppointments
         .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
@@ -478,18 +464,19 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
 
     return Column(
       children: [
-        _buildTopHeader(isDayView, pendingCount, doctorState.isTest),
+        _buildTopHeader(pendingCount, doctorState.isTest),
         AnimatedCrossFade(
           firstChild: const SizedBox.shrink(),
-          secondChild: _buildCardsRow(doctorState),
+          secondChild: _buildCardsRow(doctorState, screenWidth),
           crossFadeState: _isExpanded
               ? CrossFadeState.showSecond
               : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 250),
         ),
+        const SizedBox(height: 8),
         Expanded(
           child: Container(
-            margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
@@ -497,210 +484,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: SfCalendarTheme(
-                data: SfCalendarThemeData(
-                  backgroundColor: AppColors.white,
-                  todayHighlightColor: AppColors.primary,
-                  selectionBorderColor: AppColors.primary,
-                  cellBorderColor: AppColors.primary.withValues(alpha: 0.65),
-                  viewHeaderBackgroundColor: AppColors.white,
-                  timeTextStyle: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textHint,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                child: SfCalendar(
-                  controller: _calendarController,
-                  dataSource: _dataSource,
-                  view: _currentView,
-                  initialDisplayDate: _focusedDay,
-                  showCurrentTimeIndicator: true,
-                  headerHeight: 0,
-                  todayHighlightColor: AppColors.primary,
-                  specialRegions: breakRegions,
-                  timeSlotViewSettings: TimeSlotViewSettings(
-                    startHour: startHour.toDouble(),
-                    endHour: endHour.toDouble(),
-                    timeInterval: const Duration(hours: 1),
-                    timeIntervalHeight: 120,
-                    timeFormat: 'H a',
-                    timeRulerSize: 60,
-                    dayFormat: 'EEE',
-                    dateFormat: 'd',
-                  ),
-                  selectionDecoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    border: Border.all(color: AppColors.primary, width: 2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-
-                  viewHeaderStyle: ViewHeaderStyle(
-                    dayTextStyle: AppTextStyles.labelMedium.copyWith(
-                      color: AppColors.textHint,
-                    ),
-                    dateTextStyle: AppTextStyles.titleMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  appointmentBuilder: (context, details) {
-                    final apt =
-                        details.appointments.first as _AppointmentWrapper;
-                    return GestureDetector(
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (c) => AppointmentDetailsSheet(
-                            appointment: AppointmentData(
-                              id: apt.id,
-                              startTime: apt.startTime,
-                              endTime: apt.endTime,
-                              patientName: apt.patientName,
-                              status: apt.status,
-                              isConsultation: apt.isConsultation,
-                              duration: apt.duration,
-                              notes: apt.notes,
-                              patientPhone: apt.patientPhone,
-                              patientAvatar: apt.patientAvatar,
-                              patientId: apt.patientId,
-                              bookingType: apt.bookingType,
-                            ),
-                          ),
-                        );
-                      },
-                      child: Tooltip(
-                        richMessage: WidgetSpan(
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: apt.status == 'cancelled'
-                                  ? Border.all(
-                                      color: AppColors.error.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                    )
-                                  : null,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 10,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: apt.status == 'cancelled'
-                                      ? AppColors.error.withValues(alpha: 0.1)
-                                      : AppColors.primaryLight,
-                                  child: Text(
-                                    apt.patientName.isNotEmpty
-                                        ? apt.patientName[0].toUpperCase()
-                                        : 'P',
-                                    style: AppTextStyles.labelSmall.copyWith(
-                                      color: apt.status == 'cancelled'
-                                          ? AppColors.error
-                                          : AppColors.primary,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          apt.patientName,
-                                          style: AppTextStyles.bodyMedium
-                                              .copyWith(
-                                                fontWeight: FontWeight.w700,
-                                                color: apt.status == 'cancelled'
-                                                    ? AppColors.error
-                                                    : AppColors.textPrimary,
-                                              ),
-                                        ),
-                                        if (apt.status == 'cancelled') ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 1,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.error.withValues(
-                                                alpha: 0.1,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              'Annulé',
-                                              style: AppTextStyles.labelSmall
-                                                  .copyWith(
-                                                    color: AppColors.error,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    Text(
-                                      '${apt.isConsultation ? "Consultation" : "RDV"} • ${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
-                                      style: AppTextStyles.labelSmall.copyWith(
-                                        color: apt.status == 'cancelled'
-                                            ? AppColors.error.withValues(
-                                                alpha: 0.7,
-                                              )
-                                            : AppColors.textHint,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        waitDuration: const Duration(milliseconds: 300),
-                        decoration: const BoxDecoration(
-                          color: Colors.transparent,
-                        ),
-                        child: _buildAppointmentWidget(apt, details.bounds),
-                      ),
-                    );
-                  },
-                  onTap: (CalendarTapDetails details) {
-                    if (details.appointments == null ||
-                        details.appointments!.isEmpty) {
-                      if (details.date != null) {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => DoctorAddAppointmentDialog(
-                            initialDate: details.date!,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  onViewChanged: (details) {
-                    if (details.visibleDates.isNotEmpty) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        setState(() {
-                          _focusedDay = details
-                              .visibleDates[details.visibleDates.length ~/ 2];
-                        });
-                      });
-                    }
-                  },
-                ),
-              ),
+              child: isMobile
+                  ? _buildMobileDayView(doctorState)
+                  : _buildTabletCalendar(
+                      doctorState, startHour, endHour, breakRegions, screenWidth),
             ),
           ),
         ),
@@ -708,16 +495,274 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     );
   }
 
-  Widget _buildTopHeader(bool isDayView, int pendingCount, bool isTest) {
+  Widget _buildMobileDayView(DoctorState doctorState) {
+    final dayAppointments = doctorState.getAppointmentsForDay(_focusedDay);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+          child: DoctorWeekStrip(
+            selectedDate: _focusedDay,
+            appointments: doctorState.allAppointments,
+            onDateSelected: (date) {
+      setState(() {
+        _focusedDay = date;
+        _syncSelectedDate();
+      });
+      _calendarController.displayDate = date;
+            },
+          ),
+        ),
+        const Divider(height: 1, color: AppColors.border),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => ref.read(doctorProvider.notifier).refresh(),
+            child: DoctorDayListView(
+              selectedDate: _focusedDay,
+              appointments: dayAppointments,
+              startHour: _getVisibleHours(doctorState).$1,
+              endHour: _getVisibleHours(doctorState).$2,
+              onAppointmentTap: (apt) {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (c) => AppointmentDetailsSheet(appointment: apt),
+                );
+              },
+              onEmptySlotTap: (time) {
+                _showAddAppointmentDialog(_focusedDay, initialTime: time);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabletCalendar(
+    DoctorState doctorState,
+    int startHour,
+    int endHour,
+    List<TimeRegion> breakRegions,
+    double screenWidth,
+  ) {
+    return SfCalendarTheme(
+      data: SfCalendarThemeData(
+        backgroundColor: AppColors.white,
+        todayHighlightColor: AppColors.primary,
+        selectionBorderColor: AppColors.primary,
+        cellBorderColor: AppColors.primary.withValues(alpha: 0.65),
+        viewHeaderBackgroundColor: AppColors.white,
+        timeTextStyle: AppTextStyles.labelSmall.copyWith(
+          color: AppColors.textHint,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      child: SfCalendar(
+        controller: _calendarController,
+        dataSource: _dataSource,
+        view: CalendarView.week,
+        initialDisplayDate: _focusedDay,
+        showCurrentTimeIndicator: true,
+        headerHeight: 0,
+        todayHighlightColor: AppColors.primary,
+        specialRegions: breakRegions,
+        timeSlotViewSettings: TimeSlotViewSettings(
+          startHour: startHour.toDouble(),
+          endHour: endHour.toDouble(),
+          timeInterval: const Duration(hours: 1),
+          timeIntervalHeight: _getTimeIntervalHeight(screenWidth),
+          timeFormat: 'H a',
+          timeRulerSize: 60,
+          dayFormat: 'EEE',
+          dateFormat: 'd',
+        ),
+        selectionDecoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          border: Border.all(color: AppColors.primary, width: 2),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        viewHeaderStyle: ViewHeaderStyle(
+          dayTextStyle: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textHint,
+          ),
+          dateTextStyle: AppTextStyles.titleMedium.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        appointmentBuilder: (context, details) {
+          final apt = details.appointments.first as _AppointmentWrapper;
+          return GestureDetector(
+            onTap: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (c) => AppointmentDetailsSheet(
+                  appointment: AppointmentData(
+                    id: apt.id,
+                    startTime: apt.startTime,
+                    endTime: apt.endTime,
+                    patientName: apt.patientName,
+                    status: apt.status,
+                    isConsultation: apt.isConsultation,
+                    duration: apt.duration,
+                    notes: apt.notes,
+                    patientPhone: apt.patientPhone,
+                    patientAvatar: apt.patientAvatar,
+                    patientId: apt.patientId,
+                    bookingType: apt.bookingType,
+                  ),
+                ),
+              );
+            },
+            child: Tooltip(
+              richMessage: WidgetSpan(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: apt.status == 'cancelled'
+                        ? Border.all(color: AppColors.error.withValues(alpha: 0.3))
+                        : null,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: apt.status == 'cancelled'
+                            ? AppColors.error.withValues(alpha: 0.1)
+                            : AppColors.primaryLight,
+                        child: Text(
+                          apt.patientName.isNotEmpty
+                              ? apt.patientName[0].toUpperCase()
+                              : 'P',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: apt.status == 'cancelled'
+                                ? AppColors.error
+                                : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                apt.patientName,
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: apt.status == 'cancelled'
+                                      ? AppColors.error
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              if (apt.status == 'cancelled') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.error.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Annulé',
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: AppColors.error,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          Text(
+                            '${apt.isConsultation ? "Consultation" : "RDV"} • ${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: apt.status == 'cancelled'
+                                  ? AppColors.error.withValues(alpha: 0.7)
+                                  : AppColors.textHint,
+                            ),
+                          ),
+                          if (apt.patientPhone != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              '📞 ${apt.patientPhone}',
+                              style: AppTextStyles.badge.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              waitDuration: const Duration(milliseconds: 300),
+              decoration: const BoxDecoration(color: Colors.transparent),
+              child: _buildAppointmentWidget(apt, details.bounds),
+            ),
+          );
+        },
+        onTap: (CalendarTapDetails details) {
+          if (details.appointments == null || details.appointments!.isEmpty) {
+            if (details.date != null) {
+              showDialog(
+                context: context,
+                builder: (ctx) => DoctorAddAppointmentDialog(
+                  initialDate: details.date!,
+                ),
+              );
+            }
+          }
+        },
+        onViewChanged: (details) {
+          if (details.visibleDates.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                _focusedDay =
+                    details.visibleDates[details.visibleDates.length ~/ 2];
+                _syncSelectedDate();
+              });
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildTopHeader(int pendingCount, bool isTest) {
+    final isMobile = AppBreakpoints.isMobile(MediaQuery.of(context).size.width);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 8 : 16,
+        vertical: isMobile ? 8 : 10,
+      ),
       child: Row(
         children: [
           Row(
             children: [
               Text(
                 'Eyadati',
-                style: AppTextStyles.titleLarge.copyWith(
+                style: (isMobile ? AppTextStyles.titleMedium : AppTextStyles.titleLarge).copyWith(
                   fontWeight: FontWeight.w900,
                   color: AppColors.primary,
                 ),
@@ -741,28 +786,31 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
                 ),
             ],
           ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(LucideIcons.chevronLeft, size: 25),
-            onPressed: isDayView ? _previousDay : _previousWeeks,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            padding: EdgeInsets.zero,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            isDayView ? _formatDayRange() : _formatWeekRange(),
-            style: AppTextStyles.bodyLarge.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+          if (!isMobile) const Spacer(),
+          if (!isMobile)
+            IconButton(
+              icon: const Icon(LucideIcons.chevronLeft, size: 25),
+              onPressed: _previousWeeks,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
             ),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(LucideIcons.chevronRight, size: 25),
-            onPressed: isDayView ? _nextDay : _nextWeeks,
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            padding: EdgeInsets.zero,
-          ),
+          if (!isMobile) ...[
+            const SizedBox(width: 4),
+            Text(
+              _formatWeekRange(),
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(LucideIcons.chevronRight, size: 25),
+              onPressed: _nextWeeks,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
+            ),
+          ],
           const Spacer(),
           IconButton(
             icon: Stack(
@@ -817,39 +865,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildViewToggleItem(
-    String label,
-    bool isSelected,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.labelMedium.copyWith(
-            color: isSelected ? AppColors.primary : AppColors.textHint,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
       ),
     );
   }
@@ -952,356 +967,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     );
   }
 
-  Widget _buildScheduleView(DoctorState state) {
-    // Per supabase_checklist: Use computed getter instead of stored derived list
-    final upcoming = state.upcomingAppointmentsList;
-    if (upcoming.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(LucideIcons.calendarX, size: 48, color: AppColors.textHint),
-            const SizedBox(height: 12),
-            Text('Aucun rendez-vous à venir', style: AppTextStyles.bodyMedium),
-          ],
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: upcoming.length,
-      itemBuilder: (context, index) {
-        final apt = upcoming[index];
-        final color = apt.isConsultation
-            ? AppColors.consultationColor
-            : AppColors.primary;
-        final dateStr =
-            '${apt.startTime.day}/${apt.startTime.month}/${apt.startTime.year}';
-        final timeStr =
-            '${apt.startTime.hour.toString().padLeft(2, '0')}:${apt.startTime.minute.toString().padLeft(2, '0')}';
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border(left: BorderSide(color: color, width: 4)),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            title: Text(apt.patientName, style: AppTextStyles.titleSmall),
-            subtitle: Text(
-              '$dateStr à $timeStr • ${apt.duration} min',
-              style: AppTextStyles.bodySmall,
-            ),
-            trailing: IconButton(
-              icon: const Icon(LucideIcons.chevronRight, size: 20),
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (c) => AppointmentDetailsSheet(appointment: apt),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ViewToggle extends StatelessWidget {
-  final CalendarView currentView;
-  final VoidCallback onWeekTap;
-  final VoidCallback onDayTap;
-  final VoidCallback onScheduleTap;
-
-  const _ViewToggle({
-    required this.currentView,
-    required this.onWeekTap,
-    required this.onDayTap,
-    required this.onScheduleTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      padding: const EdgeInsets.all(2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ToggleButton(
-            icon: LucideIcons.calendarDays,
-            label: 'Semaine',
-            isSelected: currentView == CalendarView.week,
-            onTap: onWeekTap,
-          ),
-          _ToggleButton(
-            icon: LucideIcons.calendar,
-            label: 'Jour',
-            isSelected: currentView == CalendarView.day,
-            onTap: onDayTap,
-          ),
-          _ToggleButton(
-            icon: LucideIcons.list,
-            label: 'Liste',
-            isSelected: currentView == CalendarView.schedule,
-            onTap: onScheduleTap,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _ToggleButton({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected ? Colors.white : AppColors.textSecondary,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: AppTextStyles.labelSmall.copyWith(
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationSheet extends ConsumerWidget {
-  final List<AppointmentData> appointments;
-
-  const _NotificationSheet({required this.appointments});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.border,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(LucideIcons.bell, size: 20, color: Colors.black),
-                const SizedBox(width: 8),
-                Text(
-                  'En attente de confirmation',
-                  style: AppTextStyles.titleSmall,
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: Icon(
-                    LucideIcons.x,
-                    size: 20,
-                    color: AppColors.textSecondary,
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: AppColors.border),
-          if (appointments.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text(
-                'Aucune notification',
-                style: AppTextStyles.bodyMedium,
-              ),
-            )
-          else
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: appointments.length,
-                itemBuilder: (context, index) {
-                  return _NotificationItem(appointment: appointments[index]);
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationItem extends ConsumerWidget {
-  final AppointmentData appointment;
-
-  const _NotificationItem({required this.appointment});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dateStr =
-        '${appointment.startTime.day}/${appointment.startTime.month}/${appointment.startTime.year}';
-    final timeStr =
-        '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.user, size: 14, color: AppColors.textSecondary),
-              const SizedBox(width: 4),
-              Text(appointment.patientName, style: AppTextStyles.labelLarge),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'En ligne',
-                  style: AppTextStyles.badge.copyWith(color: AppColors.warning),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(LucideIcons.calendar, size: 12, color: AppColors.textHint),
-              const SizedBox(width: 4),
-              Text('$dateStr à $timeStr', style: AppTextStyles.bodySmall),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () async {
-                    final ok = await ref
-                        .read(doctorProvider.notifier)
-                        .cancelAppointmentStatus(appointment.id);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      if (ok) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Rendez-vous annulé'),
-                            backgroundColor: AppColors.error,
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Erreur lors de l\'annulation'),
-                            backgroundColor: AppColors.error,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: BorderSide(color: AppColors.error),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                  ),
-                  child: const Text('Annuler'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final ok = await ref
-                        .read(doctorProvider.notifier)
-                        .confirmAppointment(appointment.id);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      if (ok) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Rendez-vous confirmé'),
-                            backgroundColor: AppColors.success,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                  ),
-                  child: const Text('Confirmer'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _AppointmentWrapper extends Appointment {

@@ -43,7 +43,7 @@ class DoctorNotificationSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      width: 360,
+      width: MediaQuery.of(context).size.width * 0.85 > 360 ? 360 : MediaQuery.of(context).size.width * 0.85,
       backgroundColor: AppColors.white,
       child: Column(
         children: [

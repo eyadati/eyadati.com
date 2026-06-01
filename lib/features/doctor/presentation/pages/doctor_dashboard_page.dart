@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_breakpoints.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/features/doctor/presentation/pages/doctor_calendar_page.dart';
 import 'package:eyadati/features/doctor/presentation/providers/doctor_provider.dart';
 import 'package:eyadati/features/doctor/presentation/widgets/doctor_notification_sidebar.dart';
+import 'package:eyadati/features/doctor/presentation/widgets/doctor_add_appointment_dialog.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -18,6 +20,16 @@ class DoctorDashboardPage extends ConsumerStatefulWidget {
 
 class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ValueNotifier<DateTime> _selectedDate = ValueNotifier(DateTime.now());
+
+  void _showAddAppointmentDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => DoctorAddAppointmentDialog(
+        initialDate: _selectedDate.value,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,8 +49,21 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               child: DoctorCalendarPage(
                 onBellPressed: () =>
                     _scaffoldKey.currentState?.openEndDrawer(),
+                selectedDateNotifier: _selectedDate,
               ),
             ),
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= AppBreakpoints.mobile) {
+            return const SizedBox.shrink();
+          }
+          return FloatingActionButton(
+            onPressed: _showAddAppointmentDialog,
+            backgroundColor: AppColors.primary,
+            child: const Icon(LucideIcons.plus, color: Colors.white),
+          );
+        },
+      ),
     );
   }
 
