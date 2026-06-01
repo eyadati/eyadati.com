@@ -10,6 +10,7 @@ class DoctorDayListView extends StatelessWidget {
   final int endHour;
   final void Function(AppointmentData) onAppointmentTap;
   final void Function(DateTime time) onEmptySlotTap;
+  final void Function(AppointmentData)? onCallPatient;
 
   const DoctorDayListView({
     super.key,
@@ -19,6 +20,7 @@ class DoctorDayListView extends StatelessWidget {
     required this.endHour,
     required this.onAppointmentTap,
     required this.onEmptySlotTap,
+    this.onCallPatient,
   });
 
   Color _appointmentColor(AppointmentData apt) {
@@ -176,12 +178,29 @@ class DoctorDayListView extends StatelessWidget {
                       ),
                       if (apt.patientPhone != null) ...[
                         const SizedBox(height: 2),
-                        Text(
-                          '📞 ${apt.patientPhone}',
-                          style: AppTextStyles.badge.copyWith(
-                            color: AppColors.textSecondary,
-                            fontSize: 11,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              '📞 ${apt.patientPhone}',
+                              style: AppTextStyles.badge.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                            if (onCallPatient != null) ...[
+                              const SizedBox(width: 4),
+                              TextButton.icon(
+                                icon: Icon(Icons.phone, size: 12, color: AppColors.primary),
+                                label: Text('Call', style: TextStyle(fontSize: 10, color: AppColors.primary)),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(horizontal: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () => onCallPatient!(apt),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ],

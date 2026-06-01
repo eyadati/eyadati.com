@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/constants/app_breakpoints.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
+import '../providers/doctor_call_provider.dart';
 
 class AppointmentDetailsSheet extends ConsumerWidget {
   final AppointmentData appointment;
@@ -49,7 +52,70 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                       if (appointment.patientId != null)
                         Text('ID: ${appointment.patientId}', style: AppTextStyles.patientId),
                       if (appointment.patientPhone != null)
-                        Text('📞 ${appointment.patientPhone}', style: AppTextStyles.patientId),
+                        Row(
+                          children: [
+                            Text('📞 ${appointment.patientPhone}', style: AppTextStyles.patientId),
+                            if (AppBreakpoints.isMobile(MediaQuery.of(context).size.width))
+                              TextButton.icon(
+                                icon: Icon(Icons.phone, size: 14, color: AppColors.primary),
+                                label: Text('Call', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(horizontal: 6),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () => launchUrl(Uri.parse('tel:${appointment.patientPhone}')),
+                              )
+                            else
+                              TextButton.icon(
+                                icon: Icon(Icons.phone_forwarded, size: 14, color: AppColors.primary),
+                                label: Text('Notify phone', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(horizontal: 6),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Notify your phone'),
+                                      content: Text('Send a call notification for ${appointment.patientName} to your phone?'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send')),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed == true && context.mounted) {
+                                    try {
+                                      await ref.read(callLogProvider.notifier).requestCall(
+                                        patientPhone: appointment.patientPhone!,
+                                        patientName: appointment.patientName,
+                                      );
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Notification sent to phone', style: TextStyle(color: AppColors.white)),
+                                            backgroundColor: AppColors.success,
+                                          ),
+                                        );
+                                      }
+                                    } catch (_) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Failed to send notification', style: TextStyle(color: AppColors.white)),
+                                            backgroundColor: AppColors.error,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
                     ],
                   ),
                 ),

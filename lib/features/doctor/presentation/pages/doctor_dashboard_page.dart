@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_breakpoints.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/features/doctor/presentation/pages/doctor_calendar_page.dart';
 import 'package:eyadati/features/doctor/presentation/providers/doctor_provider.dart';
+import 'package:eyadati/features/doctor/presentation/providers/doctor_call_provider.dart';
 import 'package:eyadati/features/doctor/presentation/widgets/doctor_notification_sidebar.dart';
 import 'package:eyadati/features/doctor/presentation/widgets/doctor_add_appointment_dialog.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -21,6 +23,7 @@ class DoctorDashboardPage extends ConsumerStatefulWidget {
 class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ValueNotifier<DateTime> _selectedDate = ValueNotifier(DateTime.now());
+  String? _lastProcessedLogId;
 
   void _showAddAppointmentDialog() {
     showDialog(
@@ -31,12 +34,44 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
+  void _handleIncomingCallLog() {
+    final logs = ref.read(callLogProvider).logs;
+    if (logs.isEmpty) return;
+    final latest = logs.last;
+    if (latest.id == _lastProcessedLogId) return;
+    _lastProcessedLogId = latest.id;
+    if (!AppBreakpoints.isMobile(MediaQuery.of(context).size.width)) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('📞 Call patient'),
+        content: Text('Call ${latest.patientName ?? "patient"} at ${latest.patientPhone}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Dismiss')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              launchUrl(Uri.parse('tel:${latest.patientPhone}'));
+            },
+            child: Text('Call now', style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final doctorState = ref.watch(doctorProvider);
     final pending = doctorState.allAppointments
         .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
         .toList();
+
+    ref.listen<CallLogState>(callLogProvider, (previous, next) {
+      if (next.logs.length > (previous?.logs.length ?? 0)) {
+        _handleIncomingCallLog();
+      }
+    });
 
     return Scaffold(
       key: _scaffoldKey,

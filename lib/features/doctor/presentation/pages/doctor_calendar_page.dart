@@ -10,6 +10,7 @@ import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
@@ -530,6 +531,11 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
                   backgroundColor: Colors.transparent,
                   builder: (c) => AppointmentDetailsSheet(appointment: apt),
                 );
+              },
+              onCallPatient: (apt) {
+                if (AppBreakpoints.isMobile(MediaQuery.of(context).size.width)) {
+                  launchUrl(Uri.parse('tel:${apt.patientPhone}'));
+                }
               },
               onEmptySlotTap: (time) {
                 _showAddAppointmentDialog(_focusedDay, initialTime: time);
