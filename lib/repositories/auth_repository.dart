@@ -122,6 +122,38 @@ class AuthRepository {
     }
   }
 
+  Future<AuthResult> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final passwordError = InputValidator.validatePassword(newPassword);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null || user.email == null) {
+        return AuthResult.failure('Not authenticated');
+      }
+
+      final reauth = await _client.auth.signInWithPassword(
+        email: user.email!,
+        password: currentPassword,
+      );
+      if (reauth.user == null) {
+        return AuthResult.failure('Current password is incorrect');
+      }
+
+      await _client.auth.updateUser(UserAttributes(password: newPassword));
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Connection error. Please try again.');
+    }
+  }
+
   String _mapAuthError(String message) {
     final lowerMessage = message.toLowerCase();
     if (lowerMessage.contains('invalid login credentials')) {

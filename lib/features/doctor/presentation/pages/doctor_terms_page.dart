@@ -8,6 +8,7 @@ class DoctorTermsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
@@ -21,24 +22,135 @@ class DoctorTermsPage extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: Center(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.description_outlined,
-              size: 64,
-              color: AppColors.textHint,
+            _sectionTitle('1. Objet'),
+            _bodyText(
+              'Les présentes conditions d\'utilisation régissent l\'accès et l\'utilisation '
+              'de la plateforme Eyadati, une solution SaaS de gestion de rendez-vous médicaux '
+              'destinée aux professionnels de santé et à leurs patients.',
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Coming soon',
-              style: AppTextStyles.titleMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
+            _sectionTitle('2. Définitions'),
+            _bodyText(
+              '• "Plateforme" : l\'application web Eyadati et ses services associés\n'
+              '• "Médecin" : professionnel de santé utilisateur de la plateforme\n'
+              '• "Patient" : personne physique prenant rendez-vous via la plateforme\n'
+              '• "Compte" : espace personnel du médecin sur la plateforme\n'
+              '• "Abonnement" : formule payante souscrite par le médecin',
             ),
+            _sectionTitle('3. Inscription et compte'),
+            _bodyText(
+              'L\'inscription est réservée aux professionnels de santé habilités. '
+              'Le médecin s\'engage à fournir des informations exactes et à tenir '
+              'son compte à jour. Le compte est personnel et non cessible.\n\n'
+              'Le médecin est responsable de la confidentialité de ses identifiants '
+              'de connexion. Toute activité réalisée depuis son compte est réputée '
+              'être effectuée par lui-même.',
+            ),
+            _sectionTitle('4. Services'),
+            _bodyText(
+              'Eyadati propose aux médecins :\n\n'
+              '• La gestion du calendrier de rendez-vous\n'
+              '• La notification des patients par push ou e-mail\n'
+              '• Le suivi des consultations\n'
+              '• La gestion des patients\n'
+              '• Les statistiques d\'activité\n'
+              '• La facturation des abonnements',
+            ),
+            _sectionTitle('5. Obligations du médecin'),
+            _bodyText(
+              'Le médecin s\'engage à :\n\n'
+              '• Respecter le secret médical et la confidentialité des données patients\n'
+              '• Utiliser la plateforme conformément à la réglementation applicable\n'
+              '• Ne pas détourner les fonctionnalités à des fins frauduleuses\n'
+              '• Payer ses abonnements dans les délais impartis\n'
+              '• Respecter les droits des patients concernant leurs données',
+            ),
+            _sectionTitle('6. Abonnement et facturation'),
+            _bodyText(
+              'L\'accès à la plateforme est soumis à un abonnement payant selon '
+              'les tarifs en vigueur. Le paiement est effectué d\'avance pour la '
+              'période souscrite. En cas de non-paiement, l\'accès au compte peut '
+              'être suspendu après une période de grâce de 7 jours.\n\n'
+              'Le médecin peut résilier son abonnement à tout moment. La résiliation '
+              'prend effet à la fin de la période en cours, sans remboursement '
+              'des jours non utilisés.',
+            ),
+            _sectionTitle('7. Propriété intellectuelle'),
+            _bodyText(
+              'La plateforme Eyadati, son code source, son design, ses marques et '
+              'son contenu sont la propriété exclusive d\'Eyadati. Aucun droit de '
+              'propriété intellectuelle n\'est transféré au médecin, qui bénéficie '
+              'uniquement d\'une licence d\'utilisation non exclusive et non cessible.',
+            ),
+            _sectionTitle('8. Responsabilité'),
+            _bodyText(
+              'Eyadati s\'engage à mettre en œuvre tous les moyens raisonnables '
+              'pour assurer la disponibilité et le bon fonctionnement de la plateforme. '
+              'Cependant, Eyadati ne saurait être tenu responsable :\n\n'
+              '• Des interruptions liées à la maintenance ou aux tiers\n'
+              '• Des dommages indirects résultant de l\'utilisation du service\n'
+              '• Du contenu échangé entre médecins et patients\n'
+              '• Des décisions médicales prises sur la base des informations de la plateforme',
+            ),
+            _sectionTitle('9. Suspension et résiliation'),
+            _bodyText(
+              'Eyadati peut suspendre ou résilier un compte en cas de :\n\n'
+              '• Violation grave des présentes conditions\n'
+              '• Non-paiement de l\'abonnement\n'
+              '• Comportement frauduleux ou illicite\n'
+              '• Inactivité prolongée (plus de 12 mois)\n\n'
+              'Le médecin sera informé préalablement, sauf urgence.',
+            ),
+            _sectionTitle('10. Modification des conditions'),
+            _bodyText(
+              'Eyadati se réserve le droit de modifier les présentes conditions '
+              'à tout moment. Les médecins seront informés des modifications '
+              'significatives par e-mail ou via la plateforme. L\'utilisation '
+              'continue du service après les modifications vaut acceptation.',
+            ),
+            _sectionTitle('11. Droit applicable'),
+            _bodyText(
+              'Les présentes conditions sont régies par le droit français. '
+              'Tout litige relatif à leur interprétation ou exécution relève '
+              'de la compétence des tribunaux français.',
+            ),
+            _sectionTitle('12. Contact'),
+            _bodyText(
+              'Pour toute question relative aux conditions d\'utilisation :\n\n'
+              '• Par e-mail : support@eyadati.com\n'
+              '• Depuis l\'application : section Aide et support\n\n'
+              'Dernière mise à jour : juin 2026',
+            ),
+            const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
+      child: Text(
+        text,
+        style: AppTextStyles.titleMedium.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _bodyText(String text) {
+    return Text(
+      text,
+      style: AppTextStyles.bodyMedium.copyWith(
+        height: 1.6,
+        color: AppColors.textSecondary,
       ),
     );
   }
