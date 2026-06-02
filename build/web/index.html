@@ -13,7 +13,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Eyadati">
 
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="icons/Icon-128.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/Icon-144.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
 
   <link rel="icon" type="image/png" href="favicon.png"/>
 
@@ -81,17 +86,19 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
   <script>
-    firebase.initializeApp({
-      apiKey: 'AIzaSyD9ckA7tjyEsYldjO98qvwVc-hXBqlyckk',
-      authDomain: 'eydati-fcd79.firebaseapp.com',
-      projectId: 'eydati-fcd79',
-      storageBucket: 'eydati-fcd79.firebasestorage.app',
-      messagingSenderId: '854748341753',
-      appId: '1:854748341753:web:636a79b127eb3d831e4928',
-      measurementId: 'G-PC4TB4TYD8',
-    });
-
-    const messaging = firebase.messaging();
+    try {
+      firebase.initializeApp({
+        apiKey: 'AIzaSyD9ckA7tjyEsYldjO98qvwVc-hXBqlyckk',
+        authDomain: 'eydati-fcd79.firebaseapp.com',
+        projectId: 'eydati-fcd79',
+        storageBucket: 'eydati-fcd79.firebasestorage.app',
+        messagingSenderId: '854748341753',
+        appId: '1:854748341753:web:636a79b127eb3d831e4928',
+        measurementId: 'G-PC4TB4TYD8',
+      });
+    } catch (e) {
+      console.warn('Firebase init failed:', e);
+    }
   </script>
   
   <script src="flutter_bootstrap.js" async></script>

@@ -191,7 +191,7 @@ class DoctorDayListView extends StatelessWidget {
                               const SizedBox(width: 4),
                               TextButton.icon(
                                 icon: Icon(Icons.phone, size: 12, color: AppColors.primary),
-                                label: Text('Call', style: TextStyle(fontSize: 10, color: AppColors.primary)),
+                                label: Text('Appeler', style: TextStyle(fontSize: 10, color: AppColors.primary)),
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.symmetric(horizontal: 4),
                                   minimumSize: Size.zero,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
@@ -8,22 +9,26 @@ class CallLogState {
   final List<CallLog> logs;
   final bool isLoading;
   final String? error;
+  final String? notificationError;
 
   const CallLogState({
     this.logs = const [],
     this.isLoading = false,
     this.error,
+    this.notificationError,
   });
 
   CallLogState copyWith({
     List<CallLog>? logs,
     bool? isLoading,
     String? error,
+    String? notificationError,
   }) {
     return CallLogState(
       logs: logs ?? this.logs,
       isLoading: isLoading ?? this.isLoading,
       error: error ?? this.error,
+      notificationError: notificationError ?? this.notificationError,
     );
   }
 }
@@ -65,9 +70,13 @@ class CallLogNotifier extends StateNotifier<CallLogState> {
           schema: 'public',
           table: 'call_logs',
           callback: (payload) {
-            final record = payload.newRecord;
-            final log = CallLog.fromJson(record);
-            state = state.copyWith(logs: [...state.logs, log]);
+            try {
+              final record = payload.newRecord;
+              final log = CallLog.fromJson(record);
+              state = state.copyWith(logs: [...state.logs, log]);
+            } catch (e) {
+              debugPrint('Realtime callback error: $e');
+            }
           },
         )
         .subscribe();
@@ -83,7 +92,7 @@ class CallLogNotifier extends StateNotifier<CallLogState> {
     String? patientName,
     String? patientId,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true, error: null, notificationError: null);
     try {
       final user = _client.auth.currentUser;
       if (user == null) throw Exception('Not authenticated');
@@ -100,7 +109,10 @@ class CallLogNotifier extends StateNotifier<CallLogState> {
           'patient_phone': patientPhone,
           'patient_name': patientName ?? '',
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Notification error: $e');
+        state = state.copyWith(notificationError: e.toString());
+      }
 
       state = state.copyWith(isLoading: false);
     } catch (e) {
@@ -111,6 +123,10 @@ class CallLogNotifier extends StateNotifier<CallLogState> {
 
   void clearError() {
     state = state.copyWith(error: null);
+  }
+
+  void clearNotificationError() {
+    state = state.copyWith(notificationError: null);
   }
 
   @override

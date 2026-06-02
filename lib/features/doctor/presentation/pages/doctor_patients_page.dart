@@ -6,6 +6,7 @@ import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/widgets/cards/stat_card.dart';
 import 'package:eyadati/core/widgets/cards/empty_state_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/doctor_provider.dart';
 
 class DoctorPatientsPage extends ConsumerStatefulWidget {
@@ -152,6 +153,11 @@ class _PatientCard extends StatelessWidget {
               ],
             ),
           ),
+          if (patient.patientPhone != null && patient.patientPhone!.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.phone, color: AppColors.primary),
+              onPressed: () => launchUrl(Uri.parse('tel:${patient.patientPhone}')),
+            ),
           Icon(
             LucideIcons.chevronRight,
             color: AppColors.textHint,

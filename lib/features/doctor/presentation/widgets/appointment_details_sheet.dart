@@ -55,21 +55,10 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                         Row(
                           children: [
                             Text('📞 ${appointment.patientPhone}', style: AppTextStyles.patientId),
-                            if (AppBreakpoints.isMobile(MediaQuery.of(context).size.width))
-                              TextButton.icon(
-                                icon: Icon(Icons.phone, size: 14, color: AppColors.primary),
-                                label: Text('Call', style: TextStyle(fontSize: 12, color: AppColors.primary)),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(horizontal: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                onPressed: () => launchUrl(Uri.parse('tel:${appointment.patientPhone}')),
-                              )
-                            else
+                            if (!AppBreakpoints.isMobile(MediaQuery.of(context).size.width))
                               TextButton.icon(
                                 icon: Icon(Icons.phone_forwarded, size: 14, color: AppColors.primary),
-                                label: Text('Notify phone', style: TextStyle(fontSize: 12, color: AppColors.primary)),
+                                label: Text('Notifier mon téléphone', style: TextStyle(fontSize: 12, color: AppColors.primary)),
                                 style: TextButton.styleFrom(
                                   padding: EdgeInsets.symmetric(horizontal: 6),
                                   minimumSize: Size.zero,
@@ -79,11 +68,11 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                                   final confirmed = await showDialog<bool>(
                                     context: context,
                                     builder: (ctx) => AlertDialog(
-                                      title: const Text('Notify your phone'),
-                                      content: Text('Send a call notification for ${appointment.patientName} to your phone?'),
+                                      title: const Text('Notifier mon téléphone'),
+                                      content: Text('Envoyer une notification d\'appel pour ${appointment.patientName} à votre téléphone ?'),
                                       actions: [
-                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send')),
+                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Envoyer')),
                                       ],
                                     ),
                                   );
@@ -94,18 +83,28 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                                         patientName: appointment.patientName,
                                       );
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Notification sent to phone', style: TextStyle(color: AppColors.white)),
-                                            backgroundColor: AppColors.success,
-                                          ),
-                                        );
+                                        final notifError = ref.read(callLogProvider).notificationError;
+                                        if (notifError != null) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Appel enregistré mais notification échouée', style: TextStyle(color: AppColors.white)),
+                                              backgroundColor: AppColors.warning,
+                                            ),
+                                          );
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Notification envoyée au téléphone', style: TextStyle(color: AppColors.white)),
+                                              backgroundColor: AppColors.success,
+                                            ),
+                                          );
+                                        }
                                       }
                                     } catch (_) {
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
-                                            content: Text('Failed to send notification', style: TextStyle(color: AppColors.white)),
+                                            content: Text('Échec de l\'envoi de la notification', style: TextStyle(color: AppColors.white)),
                                             backgroundColor: AppColors.error,
                                           ),
                                         );
@@ -119,6 +118,11 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                     ],
                   ),
                 ),
+                if (AppBreakpoints.isMobile(MediaQuery.of(context).size.width) && appointment.patientPhone != null)
+                  IconButton(
+                    icon: Icon(Icons.phone, color: AppColors.primary, size: 24),
+                    onPressed: () => launchUrl(Uri.parse('tel:${appointment.patientPhone}')),
+                  ),
                 IconButton(
                   icon: Icon(LucideIcons.x, color: AppColors.textSecondary),
                   onPressed: () => Navigator.pop(context),
@@ -200,41 +204,50 @@ class AppointmentDetailsSheet extends ConsumerWidget {
             ],
             const SizedBox(height: AppSpacing.xl),
             if (!isCancelled) ...[
-              SizedBox(
-                width: double.infinity,
-                child: _ActionButton(
-                  label: 'Annuler',
-                  icon: LucideIcons.circleX,
-                  color: AppColors.error,
-                  onTap: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Annuler le rendez-vous'),
-                        content: const Text('Êtes-vous sûr de vouloir annuler ce rendez-vous ?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: Text('Oui, annuler', style: TextStyle(color: AppColors.error)),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'cancelled');
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(ok ? 'Rendez-vous annulé' : 'Erreur lors de l\'annulation', style: TextStyle(color: AppColors.white)),
-                            backgroundColor: ok ? AppColors.error : AppColors.warning,
+              Row(
+                children: [
+                  if (appointment.patientPhone != null)
+                    IconButton(
+                      icon: Icon(Icons.phone, color: AppColors.primary, size: 24),
+                      onPressed: () => launchUrl(Uri.parse('tel:${appointment.patientPhone}')),
+                    ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Annuler',
+                      icon: LucideIcons.circleX,
+                      color: AppColors.error,
+                      onTap: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Annuler le rendez-vous'),
+                            content: const Text('Êtes-vous sûr de vouloir annuler ce rendez-vous ?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: Text('Oui, annuler', style: TextStyle(color: AppColors.error)),
+                              ),
+                            ],
                           ),
                         );
-                      }
-                    }
-                  },
-                ),
+                        if (confirm == true) {
+                          final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'cancelled');
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ok ? 'Rendez-vous annulé' : 'Erreur lors de l\'annulation', style: TextStyle(color: AppColors.white)),
+                                backgroundColor: ok ? AppColors.error : AppColors.warning,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
             ] else ...[
               SizedBox(
