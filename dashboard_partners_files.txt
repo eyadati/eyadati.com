@@ -1,0 +1,3251 @@
+================================================================================
+FILE 1/7: lib/features/clinic/presentation/pages/clinic_calendar_page.dart
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:syncfusion_flutter_calendar/calendar.dart';
+import 'package:syncfusion_flutter_core/theme.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:go_router/go_router.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_breakpoints.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
+import 'package:eyadati/core/routing/route_names.dart';
+import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/features/doctor/presentation/widgets/doctor_week_strip.dart';
+import 'package:eyadati/features/doctor/presentation/widgets/doctor_day_list_view.dart';
+import 'package:eyadati/features/doctor/presentation/widgets/appointment_details_sheet.dart';
+import '../providers/clinic_provider.dart';
+import '../widgets/walk_in_dialog.dart';
+import '../widgets/add_doctor_dialog.dart';
+
+class ClinicCalendarPage extends ConsumerStatefulWidget {
+  final VoidCallback? onBellPressed;
+  final ValueNotifier<DateTime> selectedDateNotifier;
+
+  ClinicCalendarPage({
+    super.key,
+    this.onBellPressed,
+    ValueNotifier<DateTime>? selectedDateNotifier,
+  }) : selectedDateNotifier = selectedDateNotifier ?? ValueNotifier(DateTime.now());
+
+  @override
+  ConsumerState<ClinicCalendarPage> createState() => _ClinicCalendarPageState();
+}
+
+class _ClinicCalendarPageState extends ConsumerState<ClinicCalendarPage>
+    with SingleTickerProviderStateMixin {
+  DateTime _focusedDay = DateTime.now();
+  final CalendarController _calendarController = CalendarController();
+  final _ClinicCalendarDataSource _dataSource = _ClinicCalendarDataSource([]);
+
+  String _lastUpdateKey = '';
+  bool _isExpanded = true;
+
+  void _toggleExpanded() {
+    setState(() => _isExpanded = !_isExpanded);
+  }
+
+  void _syncSelectedDate() {
+    widget.selectedDateNotifier.value = _focusedDay;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncSelectedDate();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final dateParam = GoRouterState.of(context).uri.queryParameters['date'];
+      if (dateParam != null) {
+        final parsed = DateTime.tryParse(dateParam);
+        if (parsed != null) {
+          _focusedDay = parsed;
+          _calendarController.displayDate = parsed;
+        }
+      }
+      _updateDataSource(ref.read(clinicProvider));
+    });
+    Future.microtask(() => ref.read(clinicProvider.notifier).loadClinicGroup());
+  }
+
+  double _getTimeIntervalHeight(double screenWidth) {
+    if (screenWidth < 600) return 70;
+    if (screenWidth < 900) return 80;
+    return 90;
+  }
+
+  String _formatWeekRange() {
+    final months = [
+      '', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai',
+      'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc',
+    ];
+    final startOfWeek = _focusedDay.subtract(
+      Duration(days: _focusedDay.weekday % 7),
+    );
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+    if (startOfWeek.month == endOfWeek.month) {
+      return '${startOfWeek.day} - ${endOfWeek.day} ${months[startOfWeek.month]} ${startOfWeek.year}';
+    } else if (startOfWeek.year == endOfWeek.year) {
+      return '${startOfWeek.day} ${months[startOfWeek.month]} - ${endOfWeek.day} ${months[endOfWeek.month]} ${startOfWeek.year}';
+    }
+    return '${startOfWeek.day} ${months[startOfWeek.month]} ${startOfWeek.year} - ${endOfWeek.day} ${months[endOfWeek.month]} ${endOfWeek.year}';
+  }
+
+  void _previousWeeks() {
+    setState(() {
+      _focusedDay = _focusedDay.subtract(const Duration(days: 7));
+      _syncSelectedDate();
+    });
+    _calendarController.displayDate = _focusedDay;
+  }
+
+  void _nextWeeks() {
+    setState(() {
+      _focusedDay = _focusedDay.add(const Duration(days: 7));
+      _syncSelectedDate();
+    });
+    _calendarController.displayDate = _focusedDay;
+  }
+
+  void _updateDataSource(ClinicState clinicState) {
+    final colorMap = <String, Color>{};
+    for (final m in clinicState.members) {
+      colorMap[m.doctorId] = m.color;
+    }
+
+    final appointments = clinicState.filteredAppointments.map((a) {
+      final docColor = colorMap[a.doctorId] ?? AppColors.primary;
+      return _ClinicAppointmentWrapper(
+        id: a.id,
+        startTime: a.startTime,
+        endTime: a.endTime,
+        patientName: a.patientName,
+        status: a.status,
+        isConsultation: a.isConsultation,
+        duration: a.duration,
+        notes: a.notes,
+        patientPhone: a.patientPhone,
+        patientAvatar: a.patientAvatar,
+        patientId: a.patientId,
+        bookingType: a.bookingType,
+        doctorId: a.doctorId,
+        doctorName: a.doctorName,
+        doctorColor: docColor,
+      );
+    }).toList();
+    _dataSource.updateAppointments(appointments);
+  }
+
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color, {
+    bool isMobile = false,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 8 : 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(isMobile ? 6 : 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: isMobile ? 14 : 16),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: isMobile ? 18 : 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: (isMobile ? AppTextStyles.badge : AppTextStyles.labelSmall).copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNextAppointmentCard(AppointmentData? appointment, {bool isMobile = false}) {
+    if (appointment == null) {
+      return Container(
+        padding: EdgeInsets.all(isMobile ? 10 : 12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(isMobile ? 6 : 8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                LucideIcons.clock,
+                color: AppColors.primary,
+                size: isMobile ? 14 : 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '--',
+              style: TextStyle(
+                fontSize: isMobile ? 18 : 20,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Prochain RDV',
+              style: (isMobile ? AppTextStyles.badge : AppTextStyles.labelSmall).copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final timeStr =
+        '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${appointment.startTime.day}/${appointment.startTime.month}';
+    final typeColor = appointment.isConsultation
+        ? AppColors.consultationColor
+        : AppColors.primary;
+    final typeLabel = appointment.isConsultation ? 'Consultation' : 'RDV';
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 10 : 12),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: typeColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              typeLabel,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: typeColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appointment.patientName,
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$dateStr à $timeStr',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardsRow(ClinicState clinicState, double screenWidth) {
+    final isMobile = AppBreakpoints.isMobile(screenWidth);
+    final now = DateTime.now();
+    final filtered = clinicState.filteredAppointments;
+
+    final upcomingList = filtered
+        .where((a) =>
+            a.startTime.isAfter(now) &&
+            a.status == 'upcoming')
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final weekStart = DateTime(now.year, now.month, now.day - (now.weekday - 1) % 7);
+    final weekEnd = weekStart.add(const Duration(days: 7));
+    final weekCount = filtered
+        .where((a) =>
+            a.startTime.isAfter(weekStart) &&
+            a.startTime.isBefore(weekEnd))
+        .length;
+    final onlineCount = filtered
+        .where((a) =>
+            a.bookingType == 'online' &&
+            a.startTime.isAfter(weekStart) &&
+            a.startTime.isBefore(weekEnd) &&
+            a.status == 'upcoming')
+        .length;
+
+    final nextAppointment = upcomingList.isNotEmpty ? upcomingList.first : null;
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    'Cette semaine',
+                    '$weekCount',
+                    LucideIcons.calendar,
+                    AppColors.secondary,
+                    isMobile: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildStatCard(
+                    'En ligne',
+                    '$onlineCount',
+                    LucideIcons.video,
+                    AppColors.primary,
+                    isMobile: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildNextAppointmentCard(nextAppointment, isMobile: true),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              'Cette semaine',
+              '$weekCount',
+              LucideIcons.calendar,
+              AppColors.secondary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              'En ligne',
+              '$onlineCount',
+              LucideIcons.video,
+              AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: _buildNextAppointmentCard(nextAppointment)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final clinicState = ref.watch(clinicProvider);
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = AppBreakpoints.isMobile(screenWidth);
+
+    final currentKey = clinicState.filteredAppointments
+        .map((a) => '${a.id}:${a.status}')
+        .join(',');
+    if (currentKey != _lastUpdateKey) {
+      _lastUpdateKey = currentKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _updateDataSource(clinicState);
+      });
+    }
+
+    final pendingCount = clinicState.appointments
+        .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
+        .length;
+
+    return Column(
+      children: [
+        _buildTopHeader(pendingCount, clinicState.members.isNotEmpty),
+        _buildFilterChips(clinicState),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: _buildCardsRow(clinicState, screenWidth),
+          crossFadeState: _isExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: isMobile
+                  ? _buildMobileDayView(clinicState)
+                  : _buildTabletCalendar(clinicState, screenWidth),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileDayView(ClinicState clinicState) {
+    final dayAppointments = clinicState.filteredAppointments.where((a) =>
+      a.startTime.year == _focusedDay.year &&
+      a.startTime.month == _focusedDay.month &&
+      a.startTime.day == _focusedDay.day
+    ).toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+          child: DoctorWeekStrip(
+            selectedDate: _focusedDay,
+            appointments: clinicState.filteredAppointments,
+            onDateSelected: (date) {
+              setState(() {
+                _focusedDay = date;
+                _syncSelectedDate();
+              });
+              _calendarController.displayDate = date;
+            },
+          ),
+        ),
+        const Divider(height: 1, color: AppColors.border),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => ref.read(clinicProvider.notifier).refresh(),
+            child: DoctorDayListView(
+              selectedDate: _focusedDay,
+              appointments: dayAppointments,
+              startHour: 8,
+              endHour: 19,
+              onAppointmentTap: (apt) => _showAppointmentDetails(apt),
+              onEmptySlotTap: (time) => _showWalkInDialog(time),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabletCalendar(
+    ClinicState clinicState,
+    double screenWidth,
+  ) {
+    return SfCalendarTheme(
+      data: SfCalendarThemeData(
+        backgroundColor: AppColors.white,
+        todayHighlightColor: AppColors.primary,
+        selectionBorderColor: AppColors.primary,
+        cellBorderColor: AppColors.primary.withValues(alpha: 0.65),
+        viewHeaderBackgroundColor: AppColors.white,
+        timeTextStyle: AppTextStyles.labelSmall.copyWith(
+          color: AppColors.textHint,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      child: SfCalendar(
+        controller: _calendarController,
+        dataSource: _dataSource,
+        view: CalendarView.week,
+        initialDisplayDate: _focusedDay,
+        showCurrentTimeIndicator: true,
+        headerHeight: 0,
+        todayHighlightColor: AppColors.primary,
+        timeSlotViewSettings: TimeSlotViewSettings(
+          startHour: 8,
+          endHour: 19,
+          timeInterval: const Duration(hours: 1),
+          timeIntervalHeight: _getTimeIntervalHeight(screenWidth),
+          timeFormat: 'H a',
+          timeRulerSize: 60,
+          dayFormat: 'EEE',
+          dateFormat: 'd',
+        ),
+        selectionDecoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          border: Border.all(color: AppColors.primary, width: 2),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        viewHeaderStyle: ViewHeaderStyle(
+          dayTextStyle: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textHint,
+          ),
+          dateTextStyle: AppTextStyles.titleMedium.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        appointmentBuilder: (context, details) {
+          final apt = details.appointments.first as _ClinicAppointmentWrapper;
+          return GestureDetector(
+            onTap: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (c) => AppointmentDetailsSheet(
+                  appointment: AppointmentData(
+                    id: apt.id,
+                    startTime: apt.startTime,
+                    endTime: apt.endTime,
+                    patientName: apt.patientName,
+                    status: apt.status,
+                    isConsultation: apt.isConsultation,
+                    duration: apt.duration,
+                    notes: apt.notes,
+                    patientPhone: apt.patientPhone,
+                    patientAvatar: apt.patientAvatar,
+                    patientId: apt.patientId,
+                    bookingType: apt.bookingType,
+                    doctorId: apt.doctorId,
+                    doctorName: apt.doctorName,
+                  ),
+                ),
+              );
+            },
+            child: Tooltip(
+              richMessage: WidgetSpan(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: apt.status == 'cancelled'
+                        ? Border.all(color: AppColors.error.withValues(alpha: 0.3))
+                        : null,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: apt.status == 'cancelled'
+                            ? AppColors.error.withValues(alpha: 0.1)
+                            : AppColors.primaryLight,
+                        child: Text(
+                          apt.patientName.isNotEmpty
+                              ? apt.patientName[0].toUpperCase()
+                              : 'P',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: apt.status == 'cancelled'
+                                ? AppColors.error
+                                : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                apt.patientName,
+                                style: AppTextStyles.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: apt.status == 'cancelled'
+                                      ? AppColors.error
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              if (apt.status == 'cancelled') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.error.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'Annulé',
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: AppColors.error,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          Text(
+                            '${apt.isConsultation ? "Consultation" : "RDV"} • ${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: apt.status == 'cancelled'
+                                  ? AppColors.error.withValues(alpha: 0.7)
+                                  : AppColors.textHint,
+                            ),
+                          ),
+                          if (apt.patientPhone != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              '📞 ${apt.patientPhone}',
+                              style: AppTextStyles.badge.copyWith(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              waitDuration: const Duration(milliseconds: 300),
+              decoration: const BoxDecoration(color: Colors.transparent),
+              child: _buildAppointmentWidget(apt, details.bounds),
+            ),
+          );
+        },
+        onTap: (CalendarTapDetails details) {
+          if (details.appointments == null || details.appointments!.isEmpty) {
+            if (details.date != null) {
+              _showWalkInDialog(details.date!);
+            }
+          }
+        },
+        onViewChanged: (details) {
+          if (details.visibleDates.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                _focusedDay =
+                    details.visibleDates[details.visibleDates.length ~/ 2];
+                _syncSelectedDate();
+              });
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildTopHeader(int pendingCount, bool hasMembers) {
+    final isMobile = AppBreakpoints.isMobile(MediaQuery.of(context).size.width);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 8 : 16,
+        vertical: isMobile ? 8 : 10,
+      ),
+      child: Row(
+        children: [
+          if (!isMobile)
+            IconButton(
+              icon: const Icon(LucideIcons.chevronLeft, color: AppColors.textPrimary),
+              tooltip: 'Retour au calendrier individuel',
+              onPressed: () => context.pop(),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
+            ),
+          Row(
+            children: [
+              Text(
+                'Eyadati',
+                style: (isMobile ? AppTextStyles.titleMedium : AppTextStyles.titleLarge).copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(left: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'CLINIQUE',
+                  style: AppTextStyles.badge.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (!isMobile) const Spacer(),
+          if (!isMobile)
+            IconButton(
+              icon: const Icon(LucideIcons.chevronLeft, size: 25),
+              onPressed: _previousWeeks,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
+            ),
+          if (!isMobile) ...[
+            const SizedBox(width: 4),
+            Text(
+              _formatWeekRange(),
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(LucideIcons.chevronRight, size: 25),
+              onPressed: _nextWeeks,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
+            ),
+          ],
+          const Spacer(),
+          if (hasMembers)
+            IconButton(
+              icon: const Icon(LucideIcons.userRoundPlus, color: AppColors.textSecondary),
+              tooltip: 'Ajouter un médecin',
+              onPressed: () => showDialog(
+                context: context,
+                builder: (ctx) => const AddDoctorDialog(),
+              ),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
+            ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: Stack(
+              children: [
+                const Icon(LucideIcons.bell, color: AppColors.textPrimary),
+                if (pendingCount > 0)
+                  Positioned(
+                    right: 0,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: widget.onBellPressed,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: EdgeInsets.zero,
+          ),
+          IconButton(
+            icon: const Icon(
+              LucideIcons.settings,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: () => context.push(RouteNames.doctorSettings),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: _toggleExpanded,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: AnimatedRotation(
+                duration: const Duration(milliseconds: 250),
+                turns: _isExpanded ? 0.5 : 0,
+                child: const Icon(
+                  LucideIcons.chevronDown,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppointmentWidget(_ClinicAppointmentWrapper apt, Rect bounds) {
+    Color bgColor;
+    Color textColor;
+    Color accentColor;
+    bool isCancelled = apt.status == 'cancelled';
+
+    if (isCancelled) {
+      bgColor = AppColors.error.withValues(alpha: 0.15);
+      textColor = AppColors.error;
+      accentColor = AppColors.error;
+    } else if (apt.bookingType == 'home') {
+      bgColor = AppColors.aptHomeVisit;
+      textColor = AppColors.aptHomeVisitText;
+      accentColor = AppColors.aptHomeVisitText;
+    } else if (apt.isConsultation) {
+      bgColor = AppColors.aptInPerson;
+      textColor = AppColors.aptInPersonText;
+      accentColor = AppColors.aptInPersonText;
+    } else {
+      bgColor = AppColors.aptVideoCall;
+      textColor = AppColors.aptVideoCallText;
+      accentColor = AppColors.primary;
+    }
+
+    return Container(
+      margin: const EdgeInsets.all(2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: isCancelled
+            ? Border.all(
+                color: AppColors.error.withValues(alpha: 0.4),
+                width: 1,
+              )
+            : null,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              color: accentColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: apt.doctorColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  Text(
+                    '${apt.startTime.hour}:${apt.startTime.minute.toString().padLeft(2, '0')}',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      decoration: isCancelled
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    apt.doctorName,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: apt.doctorColor,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 10,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    apt.patientName,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: isCancelled
+                          ? AppColors.error
+                          : AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      decoration: isCancelled
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                  if (isCancelled) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      'Annulé',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips(ClinicState clinicState) {
+    if (clinicState.members.isEmpty) return const SizedBox.shrink();
+
+    final allSelected = clinicState.hiddenDoctorIds.isEmpty;
+
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: clinicState.members.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            final isSelected = allSelected;
+            return FilterChip(
+              label: Text(
+                'Tous les médecins',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+              selected: isSelected,
+              onSelected: (_) {
+                if (!isSelected) {
+                  ref.read(clinicProvider.notifier).showAllDoctors();
+                }
+              },
+              visualDensity: VisualDensity.compact,
+            );
+          }
+
+          final member = clinicState.members[index - 1];
+          final isHidden = clinicState.hiddenDoctorIds.contains(member.doctorId);
+
+          return GestureDetector(
+            onLongPress: () => _confirmRemoveDoctor(member),
+            child: FilterChip(
+              avatar: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: member.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              label: Text(
+                member.doctorName,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isHidden ? FontWeight.normal : FontWeight.w600,
+                ),
+              ),
+              selected: !isHidden,
+              onSelected: (_) {
+                ref.read(clinicProvider.notifier).toggleDoctorFilter(member.doctorId);
+              },
+              visualDensity: VisualDensity.compact,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmRemoveDoctor(ClinicGroupMember member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Retirer le médecin'),
+        content: Text('Voulez-vous retirer ${member.doctorName} de la clinique ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Retirer', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await ref.read(clinicProvider.notifier).removeDoctor(member.doctorId);
+    }
+  }
+
+  void _showWalkInDialog(DateTime time) {
+    final members = ref.read(clinicProvider).members;
+    showDialog(
+      context: context,
+      builder: (ctx) => WalkInDialog(
+        initialDate: time,
+        members: members,
+      ),
+    );
+  }
+
+  void _showAppointmentDetails(AppointmentData appointment) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => AppointmentDetailsSheet(appointment: appointment),
+    );
+  }
+}
+
+class _ClinicAppointmentWrapper extends Appointment {
+  @override
+  final String id;
+  final String patientName;
+  final String status;
+  final bool isConsultation;
+  final int duration;
+  @override
+  final String? notes;
+  final String? patientPhone;
+  final String? patientAvatar;
+  final String? patientId;
+  final String bookingType;
+  final String doctorId;
+  final String doctorName;
+  final Color doctorColor;
+
+  _ClinicAppointmentWrapper({
+    required this.id,
+    required DateTime startTime,
+    required DateTime endTime,
+    required this.patientName,
+    required this.status,
+    required this.isConsultation,
+    required this.duration,
+    this.notes,
+    this.patientPhone,
+    this.patientAvatar,
+    this.patientId,
+    this.bookingType = 'online',
+    this.doctorId = '',
+    this.doctorName = '',
+    this.doctorColor = AppColors.primary,
+  }) : super(
+         id: id,
+         startTime: startTime,
+         endTime: endTime,
+         subject: patientName,
+         notes: notes,
+         color: isConsultation
+             ? AppColors.consultationColor
+             : AppColors.primary,
+       );
+
+  @override
+  Color get color {
+    if (status == 'cancelled') {
+      return AppColors.error.withValues(alpha: 0.7);
+    }
+    return isConsultation ? AppColors.consultationColor : AppColors.primary;
+  }
+}
+
+class _ClinicCalendarDataSource extends CalendarDataSource {
+  _ClinicCalendarDataSource(List<Appointment> appointments) {
+    this.appointments = appointments;
+  }
+
+  void updateAppointments(List<Appointment> appointments) {
+    this.appointments = appointments;
+    notifyListeners(CalendarDataSourceAction.reset, appointments);
+  }
+}
+
+
+================================================================================
+FILE 2/7: lib/features/clinic/presentation/providers/clinic_provider.dart
+================================================================================
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/core/utils/doctor_colors.dart';
+import 'package:eyadati/models/appointment_data.dart';
+
+class ClinicGroupMember {
+  final String doctorId;
+  final String doctorName;
+  final Color color;
+
+  ClinicGroupMember({
+    required this.doctorId,
+    required this.doctorName,
+    this.color = Colors.blueGrey,
+  });
+}
+
+class ClinicState {
+  final List<ClinicGroupMember> members;
+  final List<AppointmentData> appointments;
+  final String? clinicGroupId;
+  final bool isLoading;
+  final String? error;
+  final Set<String> hiddenDoctorIds;
+
+  const ClinicState({
+    this.members = const [],
+    this.appointments = const [],
+    this.clinicGroupId,
+    this.isLoading = false,
+    this.error,
+    this.hiddenDoctorIds = const {},
+  });
+
+  List<AppointmentData> get filteredAppointments {
+    if (hiddenDoctorIds.isEmpty) return appointments;
+    return appointments.where((a) => !hiddenDoctorIds.contains(a.doctorId)).toList();
+  }
+
+  ClinicState copyWith({
+    List<ClinicGroupMember>? members,
+    List<AppointmentData>? appointments,
+    String? clinicGroupId,
+    bool? isLoading,
+    String? error,
+    Set<String>? hiddenDoctorIds,
+    bool clearError = false,
+  }) {
+    return ClinicState(
+      members: members ?? this.members,
+      appointments: appointments ?? this.appointments,
+      clinicGroupId: clinicGroupId ?? this.clinicGroupId,
+      isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : error ?? this.error,
+      hiddenDoctorIds: hiddenDoctorIds ?? this.hiddenDoctorIds,
+    );
+  }
+}
+
+final clinicProvider = StateNotifierProvider<ClinicNotifier, ClinicState>((ref) {
+  return ClinicNotifier();
+});
+
+class ClinicNotifier extends StateNotifier<ClinicState> {
+  RealtimeChannel? _channel;
+
+  SupabaseClient get _client => SupabaseInitializer.client;
+
+  ClinicNotifier() : super(const ClinicState());
+
+  Future<void> loadClinicGroup() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        state = state.copyWith(isLoading: false, error: 'Not authenticated');
+        return;
+      }
+
+      final memberRows = await _client
+          .from('clinic_group_members')
+          .select('clinic_group_id, doctor_id, color')
+          .eq('doctor_id', user.id)
+          .limit(1);
+
+      if (memberRows.isEmpty) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
+      final groupId = memberRows[0]['clinic_group_id'] as String;
+
+      final allMembers = await _client
+          .from('clinic_group_members')
+          .select('doctor_id, color')
+          .eq('clinic_group_id', groupId);
+
+      final doctorIds = allMembers
+          .map((m) => m['doctor_id'] as String)
+          .toList();
+
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name')
+          .inFilter('id', doctorIds);
+
+      final nameMap = <String, String>{};
+      for (final p in profiles) {
+        nameMap[p['id'] as String] = p['full_name'] as String? ?? '';
+      }
+
+      final colorGen = DoctorColorGenerator();
+      final members = <ClinicGroupMember>[];
+      for (int i = 0; i < allMembers.length; i++) {
+        final m = allMembers[i];
+        final docId = m['doctor_id'] as String;
+        members.add(ClinicGroupMember(
+          doctorId: docId,
+          doctorName: nameMap[docId] ?? '',
+          color: colorGen.getColor(i),
+        ));
+      }
+
+      state = state.copyWith(
+        members: members,
+        clinicGroupId: groupId,
+      );
+
+      await _loadAppointments(doctorIds, nameMap, colorGen);
+      _subscribe();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> _loadAppointments(
+    List<String> doctorIds,
+    Map<String, String> nameMap,
+    DoctorColorGenerator colorGen,
+  ) async {
+    try {
+      final data = await _client
+          .from('appointments')
+          .select('''
+            id,
+            scheduled_at,
+            duration,
+            status,
+            is_consultation,
+            booking_type,
+            notes,
+            patient_name_snapshot,
+            patient_phone_snapshot,
+            patient:profiles!patient_id (
+              id,
+              full_name,
+              avatar_url
+            ),
+            doctor_id
+          ''')
+          .inFilter('doctor_id', doctorIds)
+          .order('scheduled_at', ascending: false);
+
+      final appointments = data.map((a) {
+        final start = DateTime.parse(a['scheduled_at'] as String);
+        final duration = a['duration'] as int? ?? 30;
+        final patientNameSnapshot = a['patient_name_snapshot'] as String?;
+        final patientData = a['patient'] as Map<String, dynamic>?;
+        final patientFullName = patientData?['full_name'] as String?;
+        final resolvedName = patientNameSnapshot ?? patientFullName ?? 'Patient';
+        final docId = a['doctor_id'] as String? ?? '';
+
+        return AppointmentData(
+          id: a['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: duration)),
+          patientName: resolvedName,
+          patientAvatar: (patientData)?['avatar_url'] as String?,
+          patientPhone: a['patient_phone_snapshot'] as String?,
+          status: a['status'] as String,
+          isConsultation: a['is_consultation'] as bool? ?? false,
+          notes: a['notes'] as String?,
+          duration: duration,
+          patientId: (patientData)?['id'] as String?,
+          bookingType: a['booking_type'] as String? ?? 'online',
+          doctorId: docId,
+          doctorName: nameMap[docId] ?? '',
+        );
+      }).toList();
+
+      state = state.copyWith(
+        appointments: appointments,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> createWalkIn({
+    required String doctorId,
+    required String patientName,
+    String? patientPhone,
+    required DateTime scheduledAt,
+    required int duration,
+    bool isConsultation = false,
+  }) async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      await _client.from('appointments').insert({
+        'doctor_id': doctorId,
+        'patient_name_snapshot': patientName,
+        'patient_phone_snapshot': patientPhone ?? '',
+        'scheduled_at': scheduledAt.toUtc().toIso8601String(),
+        'duration': duration,
+        'status': 'upcoming',
+        'booking_type': 'manual',
+        'is_consultation': isConsultation,
+      });
+
+      state = state.copyWith(isLoading: false);
+      await refresh();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  void toggleDoctorFilter(String doctorId) {
+    final hidden = Set<String>.from(state.hiddenDoctorIds);
+    if (hidden.contains(doctorId)) {
+      hidden.remove(doctorId);
+    } else {
+      hidden.add(doctorId);
+    }
+    state = state.copyWith(hiddenDoctorIds: hidden);
+  }
+
+  void showAllDoctors() {
+    state = state.copyWith(hiddenDoctorIds: const {});
+  }
+
+  Future<void> removeDoctor(String doctorId) async {
+    if (state.clinicGroupId == null) return;
+
+    try {
+      await _client
+          .from('clinic_group_members')
+          .delete()
+          .eq('clinic_group_id', state.clinicGroupId!)
+          .eq('doctor_id', doctorId);
+
+      final user = _client.auth.currentUser;
+      if (user != null && doctorId == user.id) {
+        state = const ClinicState();
+        return;
+      }
+
+      await refresh();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<String?> addDoctorByEmail(String email) async {
+    try {
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name')
+          .eq('email', email)
+          .eq('role', 'doctor')
+          .limit(1);
+
+      if (profiles.isEmpty) {
+        return 'Aucun médecin trouvé avec cet email';
+      }
+
+      final doctorId = profiles[0]['id'] as String;
+      final doctorName = profiles[0]['full_name'] as String? ?? '';
+
+      if (state.clinicGroupId != null) {
+        final existing = await _client
+            .from('clinic_group_members')
+            .select('id')
+            .eq('clinic_group_id', state.clinicGroupId!)
+            .eq('doctor_id', doctorId)
+            .limit(1);
+
+        if (existing.isNotEmpty) {
+          return '${doctorName} est déjà dans la clinique';
+        }
+      }
+
+      String groupId;
+      if (state.clinicGroupId == null) {
+        final user = _client.auth.currentUser;
+        if (user == null) return 'Non connecté';
+
+        final groupResult = await _client.from('clinic_groups').insert({
+          'name': 'Ma clinique',
+        }).select('id').single();
+
+        groupId = groupResult['id'] as String;
+
+        await _client.from('clinic_group_members').insert({
+          'clinic_group_id': groupId,
+          'doctor_id': user.id,
+        });
+
+        state = state.copyWith(clinicGroupId: groupId);
+      } else {
+        groupId = state.clinicGroupId!;
+      }
+
+      await _client.from('clinic_group_members').insert({
+        'clinic_group_id': groupId,
+        'doctor_id': doctorId,
+      });
+
+      await refresh();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<void> refresh() async {
+    final groupId = state.clinicGroupId;
+    if (groupId == null) return;
+
+    try {
+      final allMembers = await _client
+          .from('clinic_group_members')
+          .select('doctor_id, color')
+          .eq('clinic_group_id', groupId);
+
+      final doctorIds = allMembers.map((m) => m['doctor_id'] as String).toList();
+
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name')
+          .inFilter('id', doctorIds);
+
+      final nameMap = <String, String>{};
+      for (final p in profiles) {
+        nameMap[p['id'] as String] = p['full_name'] as String? ?? '';
+      }
+
+      final colorGen = DoctorColorGenerator();
+      final members = <ClinicGroupMember>[];
+      for (int i = 0; i < allMembers.length; i++) {
+        final m = allMembers[i];
+        final docId = m['doctor_id'] as String;
+        members.add(ClinicGroupMember(
+          doctorId: docId,
+          doctorName: nameMap[docId] ?? '',
+          color: colorGen.getColor(i),
+        ));
+      }
+
+      state = state.copyWith(members: members);
+      await _loadAppointments(doctorIds, nameMap, colorGen);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  void _subscribe() {
+    _channel?.unsubscribe();
+    _channel = _client
+        .channel('clinic_appointments_${state.clinicGroupId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          callback: (_) {
+            refresh();
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
+  }
+}
+
+
+================================================================================
+FILE 3/7: lib/features/clinic/presentation/widgets/add_doctor_dialog.dart
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
+import '../providers/clinic_provider.dart';
+
+class AddDoctorDialog extends ConsumerStatefulWidget {
+  const AddDoctorDialog({super.key});
+
+  @override
+  ConsumerState<AddDoctorDialog> createState() => _AddDoctorDialogState();
+}
+
+class _AddDoctorDialogState extends ConsumerState<AddDoctorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final error = await ref.read(clinicProvider.notifier).addDoctorByEmail(
+      _emailCtrl.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (error == null) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Médecin ajouté à la clinique', style: TextStyle(color: AppColors.white)),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error, style: const TextStyle(color: AppColors.white)),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Ajouter un médecin', style: AppTextStyles.sectionTitle),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(LucideIcons.x, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Email du médecin',
+                style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  hintText: 'email@exemple.com',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Requis';
+                  if (!v.contains('@')) return 'Email invalide';
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Ajouter',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+================================================================================
+FILE 4/7: lib/features/clinic/presentation/widgets/walk_in_dialog.dart
+================================================================================
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
+import '../providers/clinic_provider.dart';
+
+class WalkInDialog extends ConsumerStatefulWidget {
+  final DateTime initialDate;
+  final List<ClinicGroupMember> members;
+
+  const WalkInDialog({
+    super.key,
+    required this.initialDate,
+    required this.members,
+  });
+
+  @override
+  ConsumerState<WalkInDialog> createState() => _WalkInDialogState();
+}
+
+class _WalkInDialogState extends ConsumerState<WalkInDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
+  String? _selectedDoctorId;
+  int _duration = 20;
+  bool _isConsultation = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+    _selectedTime = TimeOfDay.fromDateTime(widget.initialDate);
+    if (widget.members.isNotEmpty) {
+      _selectedDoctorId = widget.members.first.doctorId;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedDoctorId == null) return;
+
+    setState(() => _isLoading = true);
+
+    final scheduledAt = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
+    try {
+      await ref.read(clinicProvider.notifier).createWalkIn(
+        doctorId: _selectedDoctorId!,
+        patientName: _nameCtrl.text.trim(),
+        patientPhone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        scheduledAt: scheduledAt,
+        duration: _duration,
+        isConsultation: _isConsultation,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Rendez-vous créé', style: TextStyle(color: AppColors.white)),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e', style: TextStyle(color: AppColors.white)),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        width: 400,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Nouveau rendez-vous', style: AppTextStyles.sectionTitle),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(LucideIcons.x, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('Médecin', style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedDoctorId,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+                items: widget.members.map((m) {
+                  return DropdownMenuItem(
+                    value: m.doctorId,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(color: m.color, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(m.doctorName),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) => setState(() => _selectedDoctorId = value),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text('Patient', style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Nom du patient',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text('Téléphone (optionnel)', style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: 'Numéro de téléphone',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: AppColors.white,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Date', style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () async {
+                            final date = await showDatePicker(
+                              context: context,
+                              initialDate: _selectedDate,
+                              firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                              lastDate: DateTime.now().add(const Duration(days: 90)),
+                            );
+                            if (date != null) setState(() => _selectedDate = date);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(12),
+                              color: AppColors.white,
+                            ),
+                            child: Text(
+                              '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Heure', style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () async {
+                            final time = await showTimePicker(
+                              context: context,
+                              initialTime: _selectedTime,
+                            );
+                            if (time != null) setState(() => _selectedTime = time);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(12),
+                              color: AppColors.white,
+                            ),
+                            child: Text(
+                              '${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}',
+                              style: AppTextStyles.bodyMedium,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text('Type', style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('RDV'), icon: Icon(LucideIcons.user, size: 16)),
+                  ButtonSegment(value: true, label: Text('Visio'), icon: Icon(LucideIcons.video, size: 16)),
+                ],
+                selected: {_isConsultation},
+                onSelectionChanged: (v) => setState(() => _isConsultation = v.first),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text('Durée', style: AppTextStyles.labelMedium.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [10, 20, 30, 40, 50, 60].map((d) {
+                  final selected = _duration == d;
+                  return ChoiceChip(
+                    label: Text('$d min'),
+                    selected: selected,
+                    onSelected: (_) => setState(() => _duration = d),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
+                      : const Text('Créer le rendez-vous', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+================================================================================
+FILE 5/7: lib/features/doctor/presentation/pages/doctor_dashboard_page.dart
+================================================================================
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:eyadati/core/constants/app_colors.dart';
+import 'package:eyadati/core/constants/app_breakpoints.dart';
+import 'package:eyadati/core/theme/text_styles.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/services/notification_service.dart';
+import 'package:eyadati/features/doctor/presentation/pages/doctor_calendar_page.dart';
+import 'package:eyadati/features/doctor/presentation/providers/doctor_provider.dart';
+import 'package:eyadati/features/doctor/presentation/providers/doctor_call_provider.dart';
+import 'package:eyadati/features/doctor/presentation/widgets/doctor_notification_sidebar.dart';
+import 'package:eyadati/features/doctor/presentation/widgets/doctor_add_appointment_dialog.dart';
+import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+
+class DoctorDashboardPage extends ConsumerStatefulWidget {
+  const DoctorDashboardPage({super.key});
+
+  @override
+  ConsumerState<DoctorDashboardPage> createState() =>
+      _DoctorDashboardPageState();
+}
+
+class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ValueNotifier<DateTime> _selectedDate = ValueNotifier(DateTime.now());
+  String? _lastProcessedLogId;
+  bool _notificationInitialized = false;
+  StreamSubscription? _fcmSubscription;
+
+  void _showAddAppointmentDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => DoctorAddAppointmentDialog(
+        initialDate: _selectedDate.value,
+      ),
+    );
+  }
+
+  void _initNotificationService() {
+    if (_notificationInitialized) return;
+    _notificationInitialized = true;
+
+    final isMobile = AppBreakpoints.isMobile(MediaQuery.of(context).size.width);
+    notificationService.init(isMobile: isMobile);
+
+    _fcmSubscription = notificationService.onMessage.listen((message) {
+      final phone = message.data['phone'];
+      final name = message.data['name'] ?? '';
+      if (phone == null || phone.isEmpty) return;
+      if (!mounted || !AppBreakpoints.isMobile(MediaQuery.of(context).size.width)) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('📞 Call patient'),
+          content: Text('Call ${name.isNotEmpty ? name : "patient"} at $phone?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Dismiss')),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                launchUrl(Uri.parse('tel:$phone'));
+              },
+              child: Text('Call now', style: TextStyle(color: AppColors.primary)),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  void _handleIncomingCallLog() {
+    final logs = ref.read(callLogProvider).logs;
+    if (logs.isEmpty) return;
+    final latest = logs.last;
+    if (latest.id == _lastProcessedLogId) return;
+    _lastProcessedLogId = latest.id;
+    if (!AppBreakpoints.isMobile(MediaQuery.of(context).size.width)) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('📞 Call patient'),
+        content: Text('Call ${latest.patientName ?? "patient"} at ${latest.patientPhone}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Dismiss')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              launchUrl(Uri.parse('tel:${latest.patientPhone}'));
+            },
+            child: Text('Call now', style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _initNotificationService();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fcmSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final doctorState = ref.watch(doctorProvider);
+    final pending = doctorState.allAppointments
+        .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
+        .toList();
+
+    ref.listen<CallLogState>(callLogProvider, (previous, next) {
+      if (next.logs.length > (previous?.logs.length ?? 0)) {
+        _handleIncomingCallLog();
+      }
+    });
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
+      endDrawer: DoctorNotificationSidebar(appointments: pending),
+      body: doctorState.errorMessage != null
+          ? _buildErrorView(doctorState)
+          : Skeletonizer(
+              enabled: doctorState.isLoading,
+              child: DoctorCalendarPage(
+                onBellPressed: () =>
+                    _scaffoldKey.currentState?.openEndDrawer(),
+                selectedDateNotifier: _selectedDate,
+              ),
+            ),
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= AppBreakpoints.mobile) {
+            return const SizedBox.shrink();
+          }
+          return FloatingActionButton(
+            onPressed: _showAddAppointmentDialog,
+            backgroundColor: AppColors.primary,
+            child: const Icon(LucideIcons.plus, color: Colors.white),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorView(DoctorState doctorState) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.alertCircle,
+              size: 48,
+              color: AppColors.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Erreur de chargement',
+              style: AppTextStyles.titleMedium.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              doctorState.errorMessage ?? '',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textHint,
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                ref.read(doctorProvider.notifier).clearError();
+                ref.read(doctorProvider.notifier).refresh();
+              },
+              icon: const Icon(LucideIcons.refreshCw),
+              label: const Text('Réessayer'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+================================================================================
+FILE 6/7: lib/features/doctor/presentation/providers/doctor_provider.dart
+================================================================================
+
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/core/engine/availability_service.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/core/utils/maps_utils.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class DoctorState {
+  final String? userId;
+  final String name;
+  final String email;
+  final String specialty;
+  final String city;
+  final String phone;
+  final String address;
+  final int consultationDuration;
+  final int appointmentDuration;
+  final String avatarUrl;
+  final String? mapsLink;
+  final bool isPaused;
+  final bool isTest;
+  final int todayAppointments;
+  final int weekAppointments;
+  final int totalPatients;
+  final List<AppointmentData> allAppointments;
+  final List<AppointmentData> upcomingAppointments;
+  final List<ScheduleSlot> scheduleSlots;
+  final List<PatientVisitData> patients;
+  final bool isLoading;
+  final bool setupCompleted;
+  final String? errorMessage;
+
+  const DoctorState({
+    this.userId,
+    this.name = '',
+    this.email = '',
+    this.specialty = '',
+    this.city = '',
+    this.phone = '',
+    this.address = '',
+    this.consultationDuration = 30,
+    this.appointmentDuration = 20,
+    this.avatarUrl = '',
+    this.mapsLink,
+    this.isPaused = false,
+    this.isTest = false,
+    this.todayAppointments = 0,
+    this.weekAppointments = 0,
+    this.totalPatients = 0,
+    this.allAppointments = const [],
+    this.upcomingAppointments = const [],
+    this.scheduleSlots = const [],
+    this.patients = const [],
+    this.isLoading = false,
+    this.setupCompleted = false,
+    this.errorMessage,
+  });
+
+  AvailabilityService get availabilityService => AvailabilityService(
+    scheduleSlots: scheduleSlots,
+    appointmentDuration: appointmentDuration,
+    consultationDuration: consultationDuration,
+  );
+
+  List<AppointmentData> getAppointmentsForDay(DateTime date) {
+    return allAppointments.where((apt) {
+      return apt.startTime.year == date.year &&
+          apt.startTime.month == date.month &&
+          apt.startTime.day == date.day;
+    }).toList()..sort((a, b) => a.startTime.compareTo(b.startTime));
+  }
+
+  // Per supabase_checklist: Single source list + computed getters (not stored independently)
+  int get todayAppointmentsCount {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    return allAppointments
+        .where(
+          (apt) =>
+              apt.startTime.isAfter(startOfDay) &&
+              apt.startTime.isBefore(endOfDay) &&
+              apt.status == 'upcoming',
+        )
+        .length;
+  }
+
+  int get weekAppointmentsCount {
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeekDay = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
+    final endOfWeek = startOfWeekDay.add(const Duration(days: 7));
+    return allAppointments
+        .where(
+          (apt) =>
+              apt.startTime.isAfter(startOfWeekDay) &&
+              apt.startTime.isBefore(endOfWeek) &&
+              apt.status == 'upcoming',
+        )
+        .length;
+  }
+
+  List<AppointmentData> get upcomingAppointmentsList {
+    final now = DateTime.now();
+    return allAppointments
+        .where((apt) => apt.startTime.isAfter(now) && apt.status == 'upcoming')
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+  }
+
+  DoctorState copyWith({
+    String? userId,
+    String? name,
+    String? email,
+    String? specialty,
+    String? city,
+    String? phone,
+    String? address,
+    int? consultationDuration,
+    int? appointmentDuration,
+    String? avatarUrl,
+    String? mapsLink,
+    bool? isPaused,
+    bool? isTest,
+    int? todayAppointments,
+    int? weekAppointments,
+    int? totalPatients,
+    List<AppointmentData>? allAppointments,
+    List<AppointmentData>? upcomingAppointments,
+    List<ScheduleSlot>? scheduleSlots,
+    List<PatientVisitData>? patients,
+    bool? isLoading,
+    bool? setupCompleted,
+    String? errorMessage,
+  }) {
+    return DoctorState(
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      specialty: specialty ?? this.specialty,
+      city: city ?? this.city,
+      phone: phone ?? this.phone,
+      address: address ?? this.address,
+      consultationDuration: consultationDuration ?? this.consultationDuration,
+      appointmentDuration: appointmentDuration ?? this.appointmentDuration,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      mapsLink: mapsLink ?? this.mapsLink,
+      isPaused: isPaused ?? this.isPaused,
+      isTest: isTest ?? this.isTest,
+      todayAppointments: todayAppointments ?? this.todayAppointments,
+      weekAppointments: weekAppointments ?? this.weekAppointments,
+      totalPatients: totalPatients ?? this.totalPatients,
+      allAppointments: allAppointments ?? this.allAppointments,
+      upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
+      scheduleSlots: scheduleSlots ?? this.scheduleSlots,
+      patients: patients ?? this.patients,
+      isLoading: isLoading ?? this.isLoading,
+      setupCompleted: setupCompleted ?? this.setupCompleted,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
+class PatientVisitData {
+  final String? patientId;
+  final String patientName;
+  final String? patientPhone;
+  final int totalVisits;
+  final DateTime? lastVisit;
+
+  PatientVisitData({
+    this.patientId,
+    required this.patientName,
+    this.patientPhone,
+    required this.totalVisits,
+    this.lastVisit,
+  });
+}
+
+final doctorProvider = StateNotifierProvider<DoctorNotifier, DoctorState>((
+  ref,
+) {
+  return DoctorNotifier(ref);
+});
+
+class DoctorNotifier extends StateNotifier<DoctorState> {
+  final Ref _ref;
+  SupabaseClient get _client => SupabaseInitializer.client;
+  RealtimeChannel? _appointmentsChannel;
+  RealtimeChannel? _scheduleChannel;
+  Timer? _debounceTimer;
+
+  DoctorNotifier(this._ref) : super(const DoctorState()) {
+    _subscribeToAppointments();
+    _subscribeToSchedule();
+    loadDoctorData();
+  }
+
+  @override
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribeToAppointments() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _appointmentsChannel = _client
+        .channel('doctor_appointments_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          callback: (payload) => _silentRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _subscribeToSchedule() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _scheduleChannel = _client
+        .channel('doctor_schedule_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'doctor_schedule',
+          callback: (payload) => _silentRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _silentRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      loadDoctorData(silent: true);
+    });
+  }
+
+  AppointmentData _parseAppointmentRow(Map<String, dynamic> a) {
+    final start = DateTime.parse(a['scheduled_at'] as String);
+
+    final durationValue = a['duration'];
+    if (durationValue == null) {
+      throw Exception('Appointment ${a['id']} missing duration from database');
+    }
+    final duration = durationValue as int;
+
+    final patientNameSnapshot = a['patient_name_snapshot'] as String?;
+    final patientData = a['patient'] as Map<String, dynamic>?;
+    final patientFullName = patientData?['full_name'] as String?;
+
+    final resolvedName = patientNameSnapshot ?? patientFullName;
+    if (resolvedName == null) {
+      throw Exception(
+        'Appointment ${a['id']} has no patient name (snapshot or profile)',
+      );
+    }
+
+    return AppointmentData(
+      id: a['id'] as String,
+      startTime: start,
+      endTime: start.add(Duration(minutes: duration)),
+      patientName: resolvedName,
+      patientAvatar:
+          (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
+      patientPhone: a['patient_phone_snapshot'] as String?,
+      status: a['status'] as String,
+      isConsultation: a['is_consultation'] as bool? ?? false,
+      notes: a['notes'] as String?,
+      duration: duration,
+      patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
+      bookingType: a['booking_type'] as String? ?? 'online',
+      doctorId: a['doctor_id'] as String? ?? '',
+      doctorName: state.name,
+    );
+  }
+
+  Future<void> loadDoctorData({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true);
+    }
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        state = state.copyWith(isLoading: false, setupCompleted: false);
+        return;
+      }
+
+      // Per supabase_checklist: Use explicit column selection to ensure data is fetched
+      final doctorData = await _client
+          .from('doctors')
+          .select(
+            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration, manual_pause, is_test',
+          )
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (doctorData == null) {
+        state = state.copyWith(
+          isLoading: false,
+          setupCompleted: false,
+          userId: user.id,
+          email: user.email ?? '',
+        );
+        return;
+      }
+
+      final profile = await _client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final startOfWeek = startOfDay.subtract(Duration(days: now.weekday - 1));
+      final endOfWeek = startOfWeek.add(const Duration(days: 7));
+
+      final todayAppts = await _client
+          .from('appointments')
+          .select()
+          .eq('doctor_id', user.id)
+          .eq('status', 'upcoming')
+          .gte('scheduled_at', startOfDay.toIso8601String())
+          .lt('scheduled_at', endOfDay.toIso8601String())
+          .count();
+
+      final weekAppts = await _client
+          .from('appointments')
+          .select()
+          .eq('doctor_id', user.id)
+          .eq('status', 'upcoming')
+          .gte('scheduled_at', startOfWeek.toIso8601String())
+          .lt('scheduled_at', endOfWeek.toIso8601String())
+          .count();
+
+      // Per supabase_checklist: Use explicit columns to ensure all data is fetched
+      final allApptsData = await _client
+          .from('appointments')
+          .select('''
+            id,
+            scheduled_at,
+            duration,
+            status,
+            is_consultation,
+            booking_type,
+            notes,
+            patient_name_snapshot,
+            patient_phone_snapshot,
+            patient:profiles!patient_id (
+              id,
+              full_name,
+              avatar_url
+            ),
+            doctor_id
+          ''')
+          .eq('doctor_id', user.id)
+          .order('scheduled_at', ascending: false);
+
+      final allAppointments = allApptsData.map(_parseAppointmentRow).toList();
+
+      final upcomingAppointments =
+          allAppointments.where((a) => a.startTime.isAfter(now)).toList()
+            ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      final scheduleSlots = await _client
+          .from('doctor_schedule')
+          .select()
+          .eq('doctor_id', user.id)
+          .eq('is_active', true)
+          .order('day_of_week');
+
+      final schedule = scheduleSlots
+          .map((s) => ScheduleSlot.fromDbMap(s))
+          .toList();
+
+      state = state.copyWith(
+        setupCompleted: true,
+        userId: user.id,
+        name:
+            profile?['full_name'] as String? ??
+            doctorData['specialty'] as String? ??
+            'Docteur',
+        email: user.email ?? '',
+        specialty: doctorData['specialty'] as String? ?? '',
+        city: doctorData['city'] as String? ?? '',
+        phone: profile?['phone'] as String? ?? '',
+        address: doctorData['address'] as String? ?? '',
+
+        consultationDuration: (doctorData['consultation_duration'] as int?) ?? 30,
+        appointmentDuration: (doctorData['appointment_duration'] as int?) ?? 20,
+        avatarUrl:
+            profile?['avatar_url'] as String? ??
+            doctorData['photo_url'] as String? ??
+            '',
+        mapsLink: doctorData['maps_link'] as String?,
+        isPaused: doctorData['manual_pause'] as bool? ?? false,
+        isTest: doctorData['is_test'] as bool? ?? false,
+        todayAppointments: todayAppts.count,
+        weekAppointments: weekAppts.count,
+        totalPatients: 0,
+        allAppointments: allAppointments,
+        upcomingAppointments: upcomingAppointments,
+        scheduleSlots: schedule,
+        isLoading: false,
+      );
+      if (!silent) {
+        await loadPatients();
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> saveSetup({
+    required int startTime,
+    required int endTime,
+    required int consultationDuration,
+    required int appointmentDuration,
+    required String specialty,
+    required String city,
+    required String address,
+    required List<String> workingDays,
+    String? phone,
+    String? mapsLink,
+    String? photoUrl,
+    int? breakStart,
+    int? breakEnd,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      final role = user.userMetadata?['role'] as String? ?? 'doctor';
+      final fullName = user.userMetadata?['full_name'] as String? ?? '';
+
+      await _client.from('profiles').upsert({
+        'id': user.id,
+        'role': role,
+        'full_name': fullName,
+        'phone': phone,
+        'city': city,
+        'avatar_url': photoUrl,
+      }, onConflict: 'id');
+
+      double? latitude;
+      double? longitude;
+      if (mapsLink != null && mapsLink.isNotEmpty) {
+        final coords = parseGoogleMapsLink(mapsLink);
+        latitude = coords.lat;
+        longitude = coords.lng;
+      }
+
+      await _client.from('doctors').upsert({
+        'id': user.id,
+        'specialty': specialty,
+        'address': address,
+        'city': city,
+        'maps_link': mapsLink,
+        'photo_url': photoUrl,
+        'latitude': latitude,
+        'longitude': longitude,
+        'consultation_duration': consultationDuration,
+        'appointment_duration': appointmentDuration,
+      }, onConflict: 'id');
+
+      await _client.from('doctor_schedule').delete().eq('doctor_id', user.id);
+
+      final dayMapping = {
+        'lundi': 1,
+        'mardi': 2,
+        'mercredi': 3,
+        'jeudi': 4,
+        'vendredi': 5,
+        'samedi': 6,
+        'dimanche': 0,
+      };
+
+      for (final day in workingDays) {
+        final dayOfWeek = dayMapping[day] ?? 1;
+        await _client.from('doctor_schedule').insert({
+          'doctor_id': user.id,
+          'day_of_week': dayOfWeek,
+          'start_time': startTime,
+          'end_time': endTime,
+          if (breakStart != null) 'break_start': breakStart,
+          if (breakEnd != null) 'break_end': breakEnd,
+          'is_active': true,
+        });
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        setupCompleted: true,
+        specialty: specialty,
+        city: city,
+        phone: phone,
+        address: address,
+        consultationDuration: consultationDuration,
+        appointmentDuration: appointmentDuration,
+        mapsLink: mapsLink,
+        avatarUrl: photoUrl ?? '',
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        setupCompleted: false,
+        errorMessage: e.toString(),
+      );
+      rethrow;
+    }
+  }
+
+  Future<List<ScheduleSlot>> loadScheduleForDay(int dayOfWeek) async {
+    final userId = state.userId;
+    if (userId == null) return [];
+
+    try {
+      final slots = await _client
+          .from('doctor_schedule')
+          .select()
+          .eq('doctor_id', userId)
+          .eq('day_of_week', dayOfWeek)
+          .eq('is_active', true);
+
+      return slots.map((s) => ScheduleSlot.fromDbMap(s)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addScheduleSlot({
+    required int dayOfWeek,
+    required int startTime,
+    required int endTime,
+    int? breakStart,
+    int? breakEnd,
+  }) async {
+    try {
+      final result = await _client
+          .from('doctor_schedule')
+          .insert({
+            'doctor_id': state.userId,
+            'day_of_week': dayOfWeek,
+            'start_time': startTime,
+            'end_time': endTime,
+            if (breakStart != null) 'break_start': breakStart,
+            if (breakEnd != null) 'break_end': breakEnd,
+            'is_active': true,
+          })
+          .select()
+          .maybeSingle();
+
+      if (result != null) {
+        final newSlot = ScheduleSlot.fromDbMap(result);
+        state = state.copyWith(
+          scheduleSlots: [...state.scheduleSlots, newSlot],
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> updateScheduleSlot({
+    required String slotId,
+    int? startTime,
+    int? endTime,
+    int? breakStart,
+    int? breakEnd,
+    bool? isActive,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (startTime != null) updates['start_time'] = startTime;
+      if (endTime != null) updates['end_time'] = endTime;
+      if (breakStart != null) updates['break_start'] = breakStart;
+      if (breakEnd != null) updates['break_end'] = breakEnd;
+      if (isActive != null) updates['is_active'] = isActive;
+
+      await _client.from('doctor_schedule').update(updates).eq('id', slotId);
+
+      final updatedSlots = state.scheduleSlots.map((slot) {
+        if (slot.id == slotId) {
+          return slot.copyWith(
+            startTime: startTime,
+            endTime: endTime,
+            breakStart: breakStart,
+            breakEnd: breakEnd,
+            isActive: isActive,
+          );
+        }
+        return slot;
+      }).toList();
+      state = state.copyWith(scheduleSlots: updatedSlots);
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> deleteScheduleSlot(String slotId) async {
+    try {
+      await _client.from('doctor_schedule').delete().eq('id', slotId);
+      final updatedSlots = state.scheduleSlots
+          .where((s) => s.id != slotId)
+          .toList();
+      state = state.copyWith(scheduleSlots: updatedSlots);
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> loadPatients() async {
+    if (state.userId == null) return;
+    try {
+      final result = await _client
+          .from('appointments')
+          .select(
+            'patient_id, patient_name_snapshot, patient_phone_snapshot, scheduled_at, status',
+          )
+          .eq('doctor_id', state.userId!)
+          .eq('status', 'upcoming')
+          .order('scheduled_at', ascending: false);
+
+      final Map<String, PatientVisitData> patientMap = {};
+
+      for (final row in result as List) {
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
+        final pid = row['patient_id'] as String?;
+        final patientNameSnapshot = row['patient_name_snapshot'] as String?;
+        if (patientNameSnapshot == null && pid == null) {
+          // Skip appointments with no patient identification
+          continue;
+        }
+        final key = pid ?? patientNameSnapshot ?? 'unknown';
+        final name = patientNameSnapshot ?? 'Unknown Patient';
+        final phone = row['patient_phone_snapshot'] as String?;
+        final scheduledAt = DateTime.parse(row['scheduled_at'] as String);
+
+        if (patientMap.containsKey(key)) {
+          final existing = patientMap[key]!;
+          patientMap[key] = PatientVisitData(
+            patientId: existing.patientId ?? pid,
+            patientName: existing.patientName,
+            patientPhone: existing.patientPhone ?? phone,
+            totalVisits: existing.totalVisits + 1,
+            lastVisit: scheduledAt.isAfter(existing.lastVisit!)
+                ? scheduledAt
+                : existing.lastVisit,
+          );
+        } else {
+          patientMap[key] = PatientVisitData(
+            patientId: pid,
+            patientName: name,
+            patientPhone: phone,
+            totalVisits: 1,
+            lastVisit: scheduledAt,
+          );
+        }
+      }
+
+      final sortedPatients = patientMap.values.toList()
+        ..sort(
+          (a, b) => (b.lastVisit ?? DateTime(2000)).compareTo(
+            a.lastVisit ?? DateTime(2000),
+          ),
+        );
+
+      state = state.copyWith(
+        patients: sortedPatients,
+        totalPatients: sortedPatients.length,
+      );
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchPatients(String query) async {
+    if (query.length < 2) return [];
+    try {
+      final results = await _client
+          .from('profiles')
+          .select('id, full_name, phone')
+          .eq('role', 'patient')
+          .ilike('full_name', '%$query%')
+          .limit(10);
+      return (results as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> createAppointment({
+    required DateTime scheduledAt,
+    String? patientId,
+    String? patientName,
+    String? patientPhone,
+    String? notes,
+    int? duration,
+    bool isConsultation = false,
+  }) async {
+    try {
+      final effectiveDuration =
+          duration ??
+          (isConsultation
+              ? state.consultationDuration
+              : state.appointmentDuration);
+
+      final insertData = <String, dynamic>{
+        'doctor_id': state.userId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': effectiveDuration,
+        'status': 'upcoming',
+        'booking_type': patientId != null ? 'online' : 'manual',
+        'is_consultation': isConsultation,
+      };
+
+      if (patientId != null) {
+        insertData['patient_id'] = patientId;
+      }
+
+      if (patientName != null) {
+        insertData['patient_name_snapshot'] = patientName;
+        insertData['patient_phone_snapshot'] = patientPhone ?? '';
+      }
+
+      if (notes != null && notes.isNotEmpty) {
+        insertData['notes'] = notes;
+      }
+
+      final result = await _client
+          .from('appointments')
+          .insert(insertData)
+          .select(
+            'id, scheduled_at, duration, status, patient_name_snapshot, patient_phone_snapshot',
+          )
+          .maybeSingle();
+
+      if (result != null) {
+        final start = DateTime.parse(result['scheduled_at'] as String);
+        final dur = result['duration'] as int? ?? state.appointmentDuration;
+        final newAppt = AppointmentData(
+          id: result['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: dur)),
+          patientName:
+              patientName ??
+              result['patient_name_snapshot'] as String? ??
+              'Patient',
+          patientPhone:
+              patientPhone ?? result['patient_phone_snapshot'] as String?,
+          status: 'upcoming',
+          isConsultation: isConsultation,
+          duration: dur,
+          patientId: patientId,
+          bookingType: patientId != null ? 'online' : 'manual',
+        );
+        state = state.copyWith(
+          upcomingAppointments: [...state.upcomingAppointments, newAppt]
+            ..sort((a, b) => a.startTime.compareTo(b.startTime)),
+          allAppointments: [newAppt, ...state.allAppointments],
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('[DoctorNotifier] Error in createAppointment: $e');
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> updateAppointmentStatus(
+    String appointmentId,
+    String status,
+  ) async {
+    try {
+      final updated = await _client
+          .from('appointments')
+          .update({'status': status})
+          .eq('id', appointmentId)
+          .select();
+      if (updated.isEmpty) return false;
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: status,
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+            bookingType: a.bookingType,
+          );
+        }
+        return a;
+      }).toList();
+
+      List<AppointmentData> updatedUpcoming;
+      if (status == 'cancelled' || status == 'completed') {
+        updatedUpcoming = state.upcomingAppointmentsList
+            .where((a) => a.id != appointmentId)
+            .toList();
+      } else {
+        updatedUpcoming = state.upcomingAppointmentsList.map((a) {
+          if (a.id == appointmentId) {
+            return AppointmentData(
+              id: a.id,
+              startTime: a.startTime,
+              endTime: a.endTime,
+              patientName: a.patientName,
+              patientAvatar: a.patientAvatar,
+              patientPhone: a.patientPhone,
+              status: status,
+              isConsultation: a.isConsultation,
+              notes: a.notes,
+              duration: a.duration,
+              patientId: a.patientId,
+              bookingType: a.bookingType,
+            );
+          }
+          return a;
+        }).toList();
+      }
+
+      state = state.copyWith(
+        upcomingAppointments: updatedUpcoming,
+        allAppointments: updatedAll,
+      );
+      return true;
+    } catch (e) {
+      print('[DoctorNotifier] Error in updateAppointmentStatus: $e');
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> confirmAppointment(String appointmentId) async {
+    try {
+      await _client
+          .from('appointments')
+          .update({'status': 'upcoming'})
+          .eq('id', appointmentId);
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: 'upcoming',
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+            bookingType: a.bookingType,
+          );
+        }
+        return a;
+      }).toList();
+
+      final updatedUpcoming =
+          state.upcomingAppointments
+              .where((a) => a.id != appointmentId)
+              .toList()
+            ..addAll(
+              updatedAll.where(
+                (a) =>
+                    a.status == 'upcoming' &&
+                    a.startTime.isAfter(DateTime.now()),
+              ),
+            );
+
+      state = state.copyWith(
+        allAppointments: updatedAll,
+        upcomingAppointments: updatedUpcoming,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> cancelAppointmentStatus(String appointmentId) async {
+    return updateAppointmentStatus(appointmentId, 'cancelled');
+  }
+
+  Future<bool> deleteAppointment(String appointmentId) async {
+    try {
+      final deleted = await _client
+          .from('appointments')
+          .delete()
+          .eq('id', appointmentId)
+          .select();
+      if (deleted.isEmpty) return false;
+      final updatedUpcoming = state.upcomingAppointments
+          .where((a) => a.id != appointmentId)
+          .toList();
+      final updatedAll = state.allAppointments
+          .where((a) => a.id != appointmentId)
+          .toList();
+      state = state.copyWith(
+        upcomingAppointments: updatedUpcoming,
+        allAppointments: updatedAll,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> togglePause(bool paused) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      await _client.from('doctors').update({'manual_pause': paused}).eq('id', userId);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> refresh() async {
+    await loadDoctorData();
+    await loadPatients();
+  }
+
+  void clearError() {
+    state = state.copyWith(errorMessage: null);
+  }
+
+
+}
+
+
+================================================================================
+FILE 7/7: lib/features/doctor/presentation/providers/doctor_call_provider.dart
+================================================================================
+
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/models/call_log.dart';
+
+class CallLogState {
+  final List<CallLog> logs;
+  final bool isLoading;
+  final String? error;
+  final String? notificationError;
+
+  const CallLogState({
+    this.logs = const [],
+    this.isLoading = false,
+    this.error,
+    this.notificationError,
+  });
+
+  CallLogState copyWith({
+    List<CallLog>? logs,
+    bool? isLoading,
+    String? error,
+    String? notificationError,
+  }) {
+    return CallLogState(
+      logs: logs ?? this.logs,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
+      notificationError: notificationError ?? this.notificationError,
+    );
+  }
+}
+
+final callLogProvider = StateNotifierProvider<CallLogNotifier, CallLogState>((ref) {
+  return CallLogNotifier();
+});
+
+class CallLogNotifier extends StateNotifier<CallLogState> {
+  RealtimeChannel? _channel;
+  StreamSubscription? _authSubscription;
+
+  SupabaseClient get _client => SupabaseInitializer.client;
+
+  CallLogNotifier() : super(const CallLogState()) {
+    _init();
+  }
+
+  void _init() {
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      _subscribe(user.id);
+    }
+    _authSubscription = _client.auth.onAuthStateChange.listen((data) {
+      if (data.session?.user != null) {
+        _subscribe(data.session!.user.id);
+      } else {
+        _unsubscribe();
+      }
+    });
+  }
+
+  void _subscribe(String userId) {
+    _unsubscribe();
+    _channel = _client
+        .channel('call_logs_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'call_logs',
+          callback: (payload) {
+            try {
+              final record = payload.newRecord;
+              final log = CallLog.fromJson(record);
+              state = state.copyWith(logs: [...state.logs, log]);
+            } catch (e) {
+              debugPrint('Realtime callback error: $e');
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void _unsubscribe() {
+    _channel?.unsubscribe();
+    _channel = null;
+  }
+
+  Future<void> requestCall({
+    required String patientPhone,
+    String? patientName,
+    String? patientId,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null, notificationError: null);
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      await _client.from('call_logs').insert({
+        'doctor_id': user.id,
+        'patient_phone': patientPhone,
+        'patient_name': patientName,
+        'patient_id': patientId,
+      });
+
+      try {
+        await _client.functions.invoke('send-call-notification', body: {
+          'patient_phone': patientPhone,
+          'patient_name': patientName ?? '',
+        });
+      } catch (e) {
+        debugPrint('Notification error: $e');
+        state = state.copyWith(notificationError: e.toString());
+      }
+
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
+
+  void clearNotificationError() {
+    state = state.copyWith(notificationError: null);
+  }
+
+  @override
+  void dispose() {
+    _unsubscribe();
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+}

@@ -49,6 +49,8 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(appointment.patientName, style: AppTextStyles.sectionTitle),
+                      if (appointment.doctorName.isNotEmpty)
+                        Text('Dr. ${appointment.doctorName}', style: AppTextStyles.patientId.copyWith(color: AppColors.textHint)),
                       if (appointment.patientId != null)
                         Text('ID: ${appointment.patientId}', style: AppTextStyles.patientId),
                       if (appointment.patientPhone != null)

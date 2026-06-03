@@ -11,6 +11,8 @@ class AppointmentData {
   final int duration;
   final String? patientId;
   final String bookingType;
+  final String doctorId;
+  final String doctorName;
 
   AppointmentData({
     required this.id,
@@ -25,5 +27,7 @@ class AppointmentData {
     this.duration = 30,
     this.patientId,
     this.bookingType = 'online',
+    this.doctorId = '',
+    this.doctorName = '',
   });
 }

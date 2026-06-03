@@ -282,6 +282,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       duration: duration,
       patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
       bookingType: a['booking_type'] as String? ?? 'online',
+      doctorId: a['doctor_id'] as String? ?? '',
+      doctorName: state.name,
     );
   }
 
@@ -362,7 +364,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
               id,
               full_name,
               avatar_url
-            )
+            ),
+            doctor_id
           ''')
           .eq('doctor_id', user.id)
           .order('scheduled_at', ascending: false);

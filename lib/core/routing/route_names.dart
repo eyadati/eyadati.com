@@ -22,4 +22,6 @@ class RouteNames {
   static const String doctorSettings = '/doctor/settings';
   static const String paymentSuccess = '/payment/success';
   static const String paymentFailure = '/payment/failure';
+
+  static const String clinicCalendar = '/clinic/calendar';
 }

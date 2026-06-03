@@ -6,7 +6,11 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SECRET_KEYS = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')
 const SECRET_KEY = SUPABASE_SECRET_KEYS['default'] || ''
 
-const SUBSCRIPTION_DAYS = 30
+const PLAN_DURATIONS: Record<string, number> = {
+  monthly: 30,
+  semiannual: 180,
+  annual: 390,
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -79,10 +83,17 @@ serve(async (req) => {
 
   const checkoutData = event.data
   const doctorId = checkoutData.metadata?.doctor_id
+  const planType = checkoutData.metadata?.plan_type || 'monthly'
+  const durationDays = PLAN_DURATIONS[planType] || 30
 
   if (!doctorId) {
     console.error('Missing doctor_id in metadata')
     return new Response('Missing doctor_id', { status: 400 })
+  }
+
+  if (!PLAN_DURATIONS[planType]) {
+    console.error('Invalid plan_type in metadata:', planType)
+    return new Response('Invalid plan_type', { status: 400 })
   }
 
   const supabase = createClient(SUPABASE_URL, SECRET_KEY)
@@ -116,16 +127,16 @@ serve(async (req) => {
     const currentEndDate = currentEndVal ? new Date(currentEndVal) : new Date()
     const now = new Date()
 
-    // Calculate new end date
+    // Calculate new end date based on plan duration
     let newEndDate: Date
     if (currentEndDate > now) {
       // Extend from current end
       newEndDate = new Date(currentEndDate)
-      newEndDate.setDate(newEndDate.getDate() + SUBSCRIPTION_DAYS)
+      newEndDate.setDate(newEndDate.getDate() + durationDays)
     } else {
       // Start new subscription from now
       newEndDate = new Date(now)
-      newEndDate.setDate(now.getDate() + SUBSCRIPTION_DAYS)
+      newEndDate.setDate(now.getDate() + durationDays)
     }
 
     const periodStart = currentEndDate > now ? currentEndDate : now
@@ -134,11 +145,12 @@ serve(async (req) => {
       `Doctor ${doctorId}: extending subscription to ${newEndDate.toISOString()}`
     )
 
-    // Update doctor subscription
+    // Update doctor subscription with plan type
     const { error: updateError } = await supabase
       .from('doctors')
       .update({
         subscription_end: newEndDate.toISOString(),
+        plan_type: planType,
         manual_pause: false,
       })
       .eq('id', doctorId)
@@ -148,16 +160,18 @@ serve(async (req) => {
       return new Response('Failed to update doctor', { status: 500 })
     }
 
-    // Record payment history
+    // Record payment history with plan details
     const { error: insertError } = await supabase
       .from('payment_history')
       .insert({
         doctor_id: doctorId,
-        amount: checkoutData.amount || 6000,
+        amount: checkoutData.amount || 5000,
         currency: 'dzd',
         chargily_checkout_id: checkoutData.id,
         chargily_event_id: event.id,
         status: 'completed',
+        plan_type: planType,
+        duration_days: durationDays,
         period_start: periodStart.toISOString(),
         period_end: newEndDate.toISOString(),
       })

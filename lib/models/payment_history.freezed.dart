@@ -28,6 +28,8 @@ mixin _$PaymentHistory {
   String? get chargilyCheckoutId => throw _privateConstructorUsedError;
   String? get chargilyEventId => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
+  String get planType => throw _privateConstructorUsedError;
+  int get durationDays => throw _privateConstructorUsedError;
   DateTime get periodStart => throw _privateConstructorUsedError;
   DateTime get periodEnd => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -57,6 +59,8 @@ abstract class $PaymentHistoryCopyWith<$Res> {
     String? chargilyCheckoutId,
     String? chargilyEventId,
     String status,
+    String planType,
+    int durationDays,
     DateTime periodStart,
     DateTime periodEnd,
     DateTime createdAt,
@@ -85,6 +89,8 @@ class _$PaymentHistoryCopyWithImpl<$Res, $Val extends PaymentHistory>
     Object? chargilyCheckoutId = freezed,
     Object? chargilyEventId = freezed,
     Object? status = null,
+    Object? planType = null,
+    Object? durationDays = null,
     Object? periodStart = null,
     Object? periodEnd = null,
     Object? createdAt = null,
@@ -119,6 +125,14 @@ class _$PaymentHistoryCopyWithImpl<$Res, $Val extends PaymentHistory>
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                       as String,
+            planType: null == planType
+                ? _value.planType
+                : planType // ignore: cast_nullable_to_non_nullable
+                      as String,
+            durationDays: null == durationDays
+                ? _value.durationDays
+                : durationDays // ignore: cast_nullable_to_non_nullable
+                      as int,
             periodStart: null == periodStart
                 ? _value.periodStart
                 : periodStart // ignore: cast_nullable_to_non_nullable
@@ -154,6 +168,8 @@ abstract class _$$PaymentHistoryImplCopyWith<$Res>
     String? chargilyCheckoutId,
     String? chargilyEventId,
     String status,
+    String planType,
+    int durationDays,
     DateTime periodStart,
     DateTime periodEnd,
     DateTime createdAt,
@@ -181,6 +197,8 @@ class __$$PaymentHistoryImplCopyWithImpl<$Res>
     Object? chargilyCheckoutId = freezed,
     Object? chargilyEventId = freezed,
     Object? status = null,
+    Object? planType = null,
+    Object? durationDays = null,
     Object? periodStart = null,
     Object? periodEnd = null,
     Object? createdAt = null,
@@ -215,6 +233,14 @@ class __$$PaymentHistoryImplCopyWithImpl<$Res>
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as String,
+        planType: null == planType
+            ? _value.planType
+            : planType // ignore: cast_nullable_to_non_nullable
+                  as String,
+        durationDays: null == durationDays
+            ? _value.durationDays
+            : durationDays // ignore: cast_nullable_to_non_nullable
+                  as int,
         periodStart: null == periodStart
             ? _value.periodStart
             : periodStart // ignore: cast_nullable_to_non_nullable
@@ -243,6 +269,8 @@ class _$PaymentHistoryImpl implements _PaymentHistory {
     this.chargilyCheckoutId,
     this.chargilyEventId,
     required this.status,
+    required this.planType,
+    required this.durationDays,
     required this.periodStart,
     required this.periodEnd,
     required this.createdAt,
@@ -266,6 +294,10 @@ class _$PaymentHistoryImpl implements _PaymentHistory {
   @override
   final String status;
   @override
+  final String planType;
+  @override
+  final int durationDays;
+  @override
   final DateTime periodStart;
   @override
   final DateTime periodEnd;
@@ -274,7 +306,7 @@ class _$PaymentHistoryImpl implements _PaymentHistory {
 
   @override
   String toString() {
-    return 'PaymentHistory(id: $id, doctorId: $doctorId, amount: $amount, currency: $currency, chargilyCheckoutId: $chargilyCheckoutId, chargilyEventId: $chargilyEventId, status: $status, periodStart: $periodStart, periodEnd: $periodEnd, createdAt: $createdAt)';
+    return 'PaymentHistory(id: $id, doctorId: $doctorId, amount: $amount, currency: $currency, chargilyCheckoutId: $chargilyCheckoutId, chargilyEventId: $chargilyEventId, status: $status, planType: $planType, durationDays: $durationDays, periodStart: $periodStart, periodEnd: $periodEnd, createdAt: $createdAt)';
   }
 
   @override
@@ -293,6 +325,10 @@ class _$PaymentHistoryImpl implements _PaymentHistory {
             (identical(other.chargilyEventId, chargilyEventId) ||
                 other.chargilyEventId == chargilyEventId) &&
             (identical(other.status, status) || other.status == status) &&
+            (identical(other.planType, planType) ||
+                other.planType == planType) &&
+            (identical(other.durationDays, durationDays) ||
+                other.durationDays == durationDays) &&
             (identical(other.periodStart, periodStart) ||
                 other.periodStart == periodStart) &&
             (identical(other.periodEnd, periodEnd) ||
@@ -312,6 +348,8 @@ class _$PaymentHistoryImpl implements _PaymentHistory {
     chargilyCheckoutId,
     chargilyEventId,
     status,
+    planType,
+    durationDays,
     periodStart,
     periodEnd,
     createdAt,
@@ -343,6 +381,8 @@ abstract class _PaymentHistory implements PaymentHistory {
     final String? chargilyCheckoutId,
     final String? chargilyEventId,
     required final String status,
+    required final String planType,
+    required final int durationDays,
     required final DateTime periodStart,
     required final DateTime periodEnd,
     required final DateTime createdAt,
@@ -365,6 +405,10 @@ abstract class _PaymentHistory implements PaymentHistory {
   String? get chargilyEventId;
   @override
   String get status;
+  @override
+  String get planType;
+  @override
+  int get durationDays;
   @override
   DateTime get periodStart;
   @override

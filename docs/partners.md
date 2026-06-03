@@ -1,202 +1,385 @@
-# EYADATI PARTNERS / CLINIC CALENDAR CHECKLIST
 
-## PURPOSE
-- [ ] Keep doctors as independent solo accounts on the patient side
-- [ ] Add a receptionist-only clinic calendar that merges visibility for multiple doctors
+
+Use **one calendar system**, then switch the **view mode** by routing so it feels like the doctor calendar is being upgraded, not replaced.
+
+# Best approach
+
+## Keep the same scheduler
+
+Do not build a second calendar engine.
+
+Use:
+
+* same week/day grid
+* same appointment rendering
+* same availability engine
+* same realtime updates
+
+Then change only:
+
+* data source
+* card content
+* tooltip content
+* header summary
+* doctor ownership display
+
+---
+
+# Transition idea
+
+Route from:
+
+* `/doctor/calendar`
+
+to:
+
+* `/clinic/calendar`
+
+with:
+
+* same selected date
+* same week position
+* same visual layout
+* same animation style
+
+That gives the feeling of:
+
+```text
+doctor calendar → expanded clinic calendar
+```
+
+
+
+---
+
+# For multiple appointments in one card
+
+
+
+## Card content
+
+Show only:
+
+* time
+* small doctor avatars
+
+
+---
+
+# Important rule
+
+If a time block has more than one item, do not cram full text into the card.
+
+Use:
+
+* stacked avatars
+* small count badge like `+2`
+* tooltip or popover for details
+
+Example:
+
+* 2 doctors → show two avatars
+* 3+ items → show avatars + `+3`
+
+That prevents visual clutter.
+
+---
+
+# Best UI structure for the multi-doctor mode
+
+## Top bar
+
+Add:
+
+* clinic name
+* “All doctors” filter(to hide a specific doctor)
+* doctor add and remove icon that opens a dialogue
+
+
+## Appointment card
+
+Show:
+
+* if one doctor show name and time 2+ doctors show only avatars if one appointment from doc A overlaps with doc B split the appointments and make the smallest duration appointment count as 2 appointments
+* same 
+
+
+## Tooltip
+
+Show:
+
+* full appointment list inside that time block using the existing appointment design in tooltip
+* doctor avatar as a leading
+
+
+---
+
+# Best technical structure
+
+Keep:
+
+* `DoctorCalendarPage`
+* `ClinicCalendarPage`
+
+but both should use the same shared:
+
+* scheduler widget
+* appointment mapper
+* availability logic
+
+Only the view wrapper changes.
+
+That is cleaner than trying to overload the doctor page itself.
+
+---
+
+# Good detail to preserve
+
+When routing between views:
+
+* keep selected day
+* keep week offset
+* keep scroll position if possible
+
+That makes the transition feel smooth and intentional.
+
+---
+
+# IMPROVEMENT
+# EYADATI PARTNERS / CLINIC CALENDAR IMPROVEMENT CHECKLIST
+
+## GOAL
+- [ ] Turn the current partners feature into a stable receptionist-first clinic calendar
+- [ ] Keep doctors as separate solo accounts on the patient side
 - [ ] Keep every appointment owned by exactly one doctor
-- [ ] Avoid merged doctor identities, merged profiles, or shared auth
+- [ ] Make the shared clinic calendar faster, clearer, and easier to maintain
+- [ ] Reduce UX friction for walk-ins and multi-doctor scanning
 
 ---
 
-## CORE RULES
-- [ ] Do not change patient-side doctor browsing
-- [ ] Do not change patient-side booking behavior unless required for receptionist workflows
-- [ ] Do not merge doctor schedules into one shared doctor
-- [ ] Do not create a shared availability pool
-- [ ] Do not auto-route appointments without explicit rules
-- [ ] Keep booking validation per doctor
-- [ ] Keep all appointments tied to a single `doctor_id`
+## 1. ARCHITECTURE RULES
+- [ ] Keep the same calendar engine for both doctor and clinic modes
+- [ ] Use a dedicated clinic view instead of overloading the doctor view
+- [ ] Keep doctor schedules separate internally
+- [ ] Keep appointment ownership tied to a single doctor_id
+- [ ] Keep receptionist view as a presentation layer on top of the existing data
+- [ ] Do not merge doctor accounts or identities
+- [ ] Do not create shared doctor auth or shared doctor profiles
+- [ ] Do not create shared availability pools unless explicitly needed later
+- [ ] Do not let UI logic replace backend validation
 
 ---
 
-## DATA MODEL
-- [ ] Create a lightweight clinic grouping layer
-- [ ] Add `clinic_groups`
-- [ ] Add `clinic_group_members`
-- [ ] Keep membership separate from doctor profile data
-- [ ] Keep receptionist permissions separate from doctor permissions
-- [ ] Add clinic identity only for shared receptionist view
-- [ ] Do not create shared doctor accounts
+## 2. DATA MODEL REVIEW
+- [ ] Confirm clinic group tables exist and are minimal
+- [ ] Keep clinic group membership separate from doctor identity
+- [ ] Keep receptionist access separate from doctor access
+- [ ] Store doctor ownership for every appointment
+- [ ] Store clinic membership for doctors in the receptionist view
+- [ ] Make doctor color or avatar identity stable and consistent
+- [ ] Keep filtering state separate from stored appointment data
+- [ ] Ensure removing a doctor from a clinic does not delete historical appointments
+- [ ] Ensure adding a doctor to a clinic does not rewrite old appointment ownership
 
 ---
 
-## CLINIC GROUP TABLES
-- [ ] `clinic_groups` stores clinic identity
-- [ ] `clinic_group_members` stores which doctors belong to the clinic group
-- [ ] Optional receptionist role support is explicit
-- [ ] Membership changes do not alter doctor identity
-- [ ] Membership changes do not alter patient-side behavior
+## 3. CLINIC CALENDAR VIEW
+- [ ] Create a distinct clinic calendar page or view mode
+- [ ] Reuse the existing calendar engine instead of rebuilding it
+- [ ] Show all clinic doctors in one calendar for receptionist mode
+- [ ] Show each appointment’s doctor identity clearly
+- [ ] Support one-day and week views consistently
+- [ ] Keep navigation behavior consistent with the current app
+- [ ] Keep the transition from doctor calendar to clinic calendar smooth
+- [ ] Preserve selected date and week position when switching views
+- [ ] Preserve scroll position where possible
 
 ---
 
-## CALENDAR BEHAVIOR
-- [ ] Build one receptionist-facing clinic calendar
-- [ ] Show appointments from all doctors in the clinic group
-- [ ] Show each appointment’s doctor owner clearly
-- [ ] Use doctor avatar, initials, or a color marker on each card
-- [ ] Keep the doctor identity visible in the card and details view
-- [ ] Prevent confusion between doctors in the shared calendar
-- [ ] Keep the current week/day layout behavior consistent with the app
-
----
-
-## BOOKING BEHAVIOR
-- [ ] Receptionist can create walk-in appointments from the clinic calendar
-- [ ] Receptionist must choose a doctor for each walk-in
-- [ ] Appointment creation must validate the chosen doctor’s availability
-- [ ] Appointment creation must respect that doctor’s schedule
-- [ ] Appointment creation must respect that doctor’s durations
-- [ ] Appointment creation must respect breaks and pauses
-- [ ] Appointment creation must reject overlaps
-- [ ] Appointment creation must fail clearly if the doctor is not free
-- [ ] Appointment creation must never silently switch doctors
-
----
-
-## VISIBILITY RULES
-- [ ] Receptionist sees both doctors in one calendar
-- [ ] Receptionist sees online appointments and walk-ins in one view
-- [ ] Patient-side views remain solo-doctor only
-- [ ] Doctor-side views can stay solo or can optionally filter to own appointments
-- [ ] Shared calendar is a receptionist convenience layer only
-
----
-
-## REALTIME RULES
-- [ ] Shared calendar updates when Doctor A changes
-- [ ] Shared calendar updates when Doctor B changes
-- [ ] Shared calendar updates when a walk-in is added
-- [ ] Shared calendar updates when an appointment is cancelled
-- [ ] Shared calendar updates when a schedule changes
-- [ ] Shared calendar updates when a doctor pauses or returns
-- [ ] Realtime refresh must not duplicate appointments
-- [ ] Realtime refresh must not leave stale cards on screen
-
----
-
-## PER-DOCTOR VALIDATION
-- [ ] Each doctor keeps their own schedule
-- [ ] Each doctor keeps their own working hours
-- [ ] Each doctor keeps their own breaks
-- [ ] Each doctor keeps their own appointment durations
-- [ ] Each doctor keeps their own consultation durations
-- [ ] Each doctor keeps their own pause and subscription rules
-- [ ] Availability checks always use the selected doctor only
-
----
-
-## EDGE CASES
-- [ ] One doctor free, one doctor busy
-- [ ] Both doctors free
-- [ ] Both doctors busy
-- [ ] One doctor paused
-- [ ] One doctor expired
-- [ ] One doctor has only short gaps
-- [ ] One doctor has online appointments already on the calendar
-- [ ] A walk-in gets assigned during a crowded period
-- [ ] A receptionist opens the modal from a day where no doctor is free
-- [ ] A doctor changes schedule while receptionist is booking
-- [ ] Realtime update arrives while receptionist modal is open
-
----
-
-## PERMISSIONS
-- [ ] Receptionist can view clinic calendar
-- [ ] Receptionist can create walk-ins
-- [ ] Receptionist can assign doctor for walk-ins
-- [ ] Receptionist can edit appointments only if allowed
-- [ ] Doctors should not gain unexpected access to other doctors’ private workflow
-- [ ] Patient-side access must remain unchanged
-- [ ] Permission rules must be explicit and tested
-
----
-
-## UI / UX FOR THE FEATURE
-- [ ] Keep the current clinic calendar style
-- [ ] Use a clear doctor badge or avatar on each appointment card
-- [ ] Use one subtle color identity per doctor
+## 4. APPOINTMENT CARD UX
+- [ ] Show doctor avatar or initials on every appointment card
+- [ ] Use a stable color identity per doctor
 - [ ] Keep cards compact and readable
-- [ ] Keep the week calendar the primary receptionist view
-- [ ] Keep the modal fast and minimal
-- [ ] Do not add a separate complex admin dashboard for this feature
-- [ ] Do not force the receptionist to open two calendars
-- [ ] Do not hide doctor ownership
-- [ ] Do not overcrowd the interface
+- [ ] Show patient name clearly
+- [ ] Show appointment time clearly
+- [ ] Show booking type clearly
+- [ ] Show status clearly
+- [ ] Do not overload cards with too much text
+- [ ] Do not hide doctor ownership behind hover only
+- [ ] Make multi-doctor ownership visible at a glance
+- [ ] Support stacked avatars or avatar + count when needed
+- [ ] Show doctor name in details or tooltip for confirmation
 
 ---
 
-## RECEPTIONIST MODAL FLOW
-- [ ] Tap empty time block
-- [ ] Open modal instantly
-- [ ] Preselect date and time
-- [ ] Choose patient
-- [ ] Choose doctor
-- [ ] Choose appointment type
-- [ ] Choose duration
-- [ ] Show only valid available times
-- [ ] Confirm with one click
-- [ ] Save and refresh calendar instantly
+## 5. MULTIPLE APPOINTMENTS / DENSE SLOTS
+- [ ] Handle multiple appointments in the same visible time area cleanly
+- [ ] Use compact stacking or overlap rules that remain readable
+- [ ] Add a count badge when too many appointments are in one block
+- [ ] Expand or tooltip the full list when a block contains more than one item
+- [ ] Ensure hover details remain readable on desktop
+- [ ] Ensure tap details remain readable on mobile
+- [ ] Prevent visual clutter when the clinic is busy
+- [ ] Ensure doctor color remains visible even in dense blocks
 
 ---
 
-## SAFEST MVP VERSION
-- [ ] Shared calendar view only
-- [ ] Separate doctor schedules
-- [ ] Separate doctor appointment ownership
-- [ ] Manual walk-in assignment by receptionist
-- [ ] Doctor avatar or initials on every card
-- [ ] Realtime sync
-- [ ] No shared availability engine
-- [ ] No auto-balancing
-- [ ] No smart doctor routing
-- [ ] No merged accounts
+## 6. RECEPTIONIST BOOKING FLOW
+- [ ] Keep tap-to-create behavior instant
+- [ ] Open the booking dialog with the selected date/time already set
+- [ ] Let receptionist choose patient name
+- [ ] Let receptionist choose phone number
+- [ ] Let receptionist choose appointment type
+- [ ] Let receptionist choose duration
+- [ ] Let receptionist choose doctor explicitly
+- [ ] Suggest the most available doctor when possible
+- [ ] Validate selected doctor availability before save
+- [ ] Reject invalid or conflicting bookings clearly
+- [ ] Prevent silent reassignment to another doctor
+- [ ] Keep the save flow faster than writing on paper
 
 ---
 
-## THINGS TO AVOID
-- [ ] Shared doctor identity
-- [ ] Shared doctor login
-- [ ] Shared schedule rows
-- [ ] Shared appointment ownership
-- [ ] Automatic doctor reassignment without consent
-- [ ] Load balancing logic
-- [ ] AI-driven routing
-- [ ] Hidden appointment ownership
-- [ ] Complex partner-specific billing logic
-- [ ] Overengineering the receptionist workflow
+## 7. DOCTOR ASSIGNMENT UX
+- [ ] Show available doctors prominently in walk-in dialog
+- [ ] Hide or disable doctors who are paused, expired, or unavailable
+- [ ] Show busy doctors clearly instead of hiding all context
+- [ ] Show doctor names and colors in the selector
+- [ ] Prefer a visual doctor picker over a plain dropdown when possible
+- [ ] Preserve the last selected doctor for faster repeated booking
+- [ ] Allow receptionist to switch doctors quickly before save
+- [ ] Make doctor ownership obvious in the final appointment card
 
 ---
 
-## UI FIT FOR CURRENT APP
-- [ ] Keep the existing clean calendar layout
-- [ ] Add doctor avatars on appointment blocks
-- [ ] Add a small doctor color tag or initials badge
-- [ ] Keep the receptionist modal consistent with the current appointment dialog
-- [ ] Keep the same soft SaaS theme
-- [ ] Keep the same weekday/week calendar style
-- [ ] Keep the same compact appointment cards
-- [ ] Keep the same quick-create interaction pattern
-- [ ] Keep the same keyboard-fast input behavior
-- [ ] Keep the current app feeling operational, not enterprise-heavy
+## 8. AVAILABILITY AND CONFLICT RULES
+- [ ] Validate appointment against the selected doctor only
+- [ ] Validate working hours before saving
+- [ ] Validate breaks before saving
+- [ ] Validate subscription status before saving
+- [ ] Validate pause state before saving
+- [ ] Prevent overlaps with online appointments
+- [ ] Prevent overlaps with manual walk-ins
+- [ ] Prevent same-time double booking
+- [ ] Recompute availability after every create, update, cancel, or delete
+- [ ] Keep the availability engine as the single source of truth
+- [ ] Do not trust visual calendar free space alone
 
 ---
 
-## FINAL ACCEPTANCE
-- [ ] Receptionist can see both doctors in one calendar
-- [ ] Receptionist can create walk-ins faster than opening separate calendars
-- [ ] Every appointment clearly shows which doctor owns it
-- [ ] No patient-side behavior changes unexpectedly
+## 9. REALTIME SYNC
+- [ ] Refresh clinic calendar when appointments change
+- [ ] Refresh clinic calendar when doctor schedule changes
+- [ ] Refresh clinic calendar when clinic membership changes
+- [ ] Prevent duplicated refresh loops
+- [ ] Prevent stale cards after live updates
+- [ ] Refresh doctor ownership and counts after changes
+- [ ] Handle realtime updates while dialog is open
+- [ ] Handle reconnects without losing state
+- [ ] Keep refresh logic predictable and debounced
+
+---
+
+## 10. FILTERS AND VIEW MODES
+- [ ] Add an all-doctors view
+- [ ] Add per-doctor quick filters
+- [ ] Add a clear selected doctor state
+- [ ] Allow hiding one doctor without removing them from the clinic
+- [ ] Allow showing all doctors again instantly
+- [ ] Keep filter chips readable
+- [ ] Make filter states obvious
+- [ ] Do not let filters destroy the calendar layout
+- [ ] Keep filters responsive on mobile and desktop
+
+---
+
+## 11. RESPONSIVE UI
+- [ ] Keep the current desktop scheduler usable on larger screens
+- [ ] Provide a clean mobile clinic view
+- [ ] Prevent card overcrowding on smaller screens
+- [ ] Ensure doctor avatars remain visible on mobile
+- [ ] Keep modal forms compact on mobile
+- [ ] Keep the doctor selector easy to use on mobile
+- [ ] Keep the calendar readable without hover support
+- [ ] Provide touch-friendly interaction targets
+- [ ] Use the same visual language as the current app
+
+---
+
+## 12. LOADING / EMPTY / ERROR STATES
+- [ ] Show a clean loading state when clinic data is loading
+- [ ] Show an empty state when the clinic has no doctors
+- [ ] Show an empty state when no appointments exist yet
+- [ ] Show an empty state when no doctor is available
+- [ ] Show error state when group loading fails
+- [ ] Show error state when appointment loading fails
+- [ ] Show retry actions for failed loads
+- [ ] Do not silently fail and leave the screen confusing
+
+---
+
+## 13. ADD / REMOVE DOCTOR WORKFLOW
+- [ ] Add doctor by email with clear validation
+- [ ] Prevent duplicate clinic membership
+- [ ] Confirm before removing a doctor from clinic
+- [ ] Do not delete historical appointments on removal
+- [ ] Refresh calendar after add/remove operations
+- [ ] Handle the current user being removed safely
+- [ ] Keep add/remove workflow simple for receptionists
+- [ ] Show feedback after add/remove actions
+
+---
+
+## 14. PERFORMANCE AND MAINTAINABILITY
+- [ ] Reduce logic inside the calendar page widget
+- [ ] Move mapping and transformation logic into helper/services where possible
+- [ ] Avoid rebuilding the full calendar when only one appointment changes
+- [ ] Avoid refreshing more data than needed
+- [ ] Keep the clinic provider focused on data retrieval and state
+- [ ] Keep card rendering separate from appointment parsing
+- [ ] Keep filter logic centralized
+- [ ] Avoid mixing UI state and business state too tightly
+
+---
+
+## 15. UX POLISH
+- [ ] Make doctor ownership visible without forcing hover
+- [ ] Make multi-doctor scanning easier at a glance
+- [ ] Improve tooltip content for dense appointments
+- [ ] Improve the top summary row for clinic mode
+- [ ] Make the page feel like an upgraded version of the doctor calendar
+- [ ] Keep the transition subtle and intentional
+- [ ] Avoid enterprise-heavy visuals
+- [ ] Keep the soft SaaS theme consistent with the rest of the app
+- [ ] Keep the feature convenient, not complicated
+
+---
+
+## 16. EDGE CASES TO HANDLE
+- [ ] Doctor is paused
+- [ ] Doctor subscription expired
+- [ ] Doctor was removed from clinic
+- [ ] Doctor has overlapping online and manual bookings
+- [ ] Two receptionists try booking the same time
+- [ ] Appointment is cancelled while dialog is open
+- [ ] Doctor schedule changes while receptionist is booking
+- [ ] A clinic has only one active doctor left
+- [ ] A clinic has many doctors and cards become crowded
+- [ ] Appointment ownership needs to remain clear when multiple items are visible
+
+---
+
+## 17. FINAL ACCEPTANCE
+- [ ] Receptionist can view all clinic doctors in one calendar
+- [ ] Receptionist can assign walk-ins quickly to the right doctor
+- [ ] Every appointment shows clear doctor ownership
+- [ ] The clinic calendar is easier than opening separate doctor calendars
+- [ ] The booking flow is faster than paper
+- [ ] Realtime updates remain stable
 - [ ] No merged doctor accounts exist
-- [ ] No shared schedule corruption exists
-- [ ] Calendar stays stable during realtime updates
-- [ ] Feature remains simple, convenient, and fast
+- [ ] No shared doctor identity exists
+- [ ] Patient-side behavior remains unchanged
+- [ ] The feature feels simple, stable, and useful
+
+
+

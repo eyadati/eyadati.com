@@ -50,6 +50,13 @@ serve(async (req) => {
   let doctorId: string
   let successUrl: string
   let failureUrl: string
+  let planType: string
+
+  const PLAN_CONFIG: Record<string, { amount: number; durationDays: number; description: string }> = {
+    monthly: { amount: 5000, durationDays: 30, description: 'Abonnement mensuel Eyadati' },
+    semiannual: { amount: 27000, durationDays: 180, description: 'Abonnement 6 mois Eyadati' },
+    annual: { amount: 44000, durationDays: 390, description: 'Abonnement annuel Eyadati (1 mois offert)' },
+  }
 
   try {
     const supabase = createClient(SUPABASE_URL, SECRET_KEY, {
@@ -74,6 +81,14 @@ serve(async (req) => {
     const origin = req.headers.get('Origin') || 'https://eyadati.eyadati-dz.workers.dev'
     successUrl = body.success_url || `${origin}/payment/success`
     failureUrl = body.failure_url || `${origin}/payment/failure`
+
+    planType = body.plan_type || 'monthly'
+    if (!PLAN_CONFIG[planType]) {
+      return new Response(JSON.stringify({ error: 'Invalid plan_type. Must be monthly, semiannual, or annual' }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
   } catch (e) {
     console.error('Request parsing error:', e.message)
     return new Response(JSON.stringify({ error: 'Invalid request body' }), {
@@ -83,15 +98,17 @@ serve(async (req) => {
   }
 
   try {
+    const planConfig = PLAN_CONFIG[planType]
+
     const checkoutBody = {
-      amount: 6000,
+      amount: planConfig.amount,
       currency: 'dzd',
       success_url: successUrl,
       failure_url: failureUrl,
       webhook_endpoint: `${SUPABASE_URL}/functions/v1/chargily-webhook`,
-      metadata: { doctor_id: doctorId },
+      metadata: { doctor_id: doctorId, plan_type: planType, duration_days: planConfig.durationDays },
       locale: 'fr',
-      description: 'Abonnement mensuel Eyadati - Plan Pro',
+      description: planConfig.description,
     }
 
     console.log('Creating Chargily checkout for doctor:', doctorId)

@@ -6,6 +6,7 @@ import 'package:eyadati/models/payment_history.dart';
 class SubscriptionState {
   final DateTime? subscriptionEnd;
   final PaymentHistory? lastPayment;
+  final String? planType;
   final bool isLoading;
   final bool isCreatingCheckout;
   final String? error;
@@ -14,6 +15,7 @@ class SubscriptionState {
   const SubscriptionState({
     this.subscriptionEnd,
     this.lastPayment,
+    this.planType,
     this.isLoading = false,
     this.isCreatingCheckout = false,
     this.error,
@@ -38,6 +40,7 @@ class SubscriptionState {
   SubscriptionState copyWith({
     DateTime? subscriptionEnd,
     PaymentHistory? lastPayment,
+    String? planType,
     bool? isLoading,
     bool? isCreatingCheckout,
     String? error,
@@ -46,6 +49,7 @@ class SubscriptionState {
     return SubscriptionState(
       subscriptionEnd: subscriptionEnd ?? this.subscriptionEnd,
       lastPayment: lastPayment ?? this.lastPayment,
+      planType: planType ?? this.planType,
       isLoading: isLoading ?? this.isLoading,
       isCreatingCheckout: isCreatingCheckout ?? this.isCreatingCheckout,
       error: error,
@@ -75,13 +79,17 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
 
       final doctorResponse = await SupabaseInitializer.client
           .from('doctors')
-          .select('subscription_end')
+          .select('subscription_end, plan_type')
           .eq('id', user.id)
           .maybeSingle();
 
       DateTime? subEnd;
-      if (doctorResponse != null && doctorResponse['subscription_end'] != null) {
-        subEnd = DateTime.parse(doctorResponse['subscription_end'] as String);
+      String? planType;
+      if (doctorResponse != null) {
+        if (doctorResponse['subscription_end'] != null) {
+          subEnd = DateTime.parse(doctorResponse['subscription_end'] as String);
+        }
+        planType = doctorResponse['plan_type'] as String?;
       }
 
       PaymentHistory? lastPayment;
@@ -100,6 +108,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
       state = state.copyWith(
         isLoading: false,
         subscriptionEnd: subEnd,
+        planType: planType,
         lastPayment: lastPayment,
       );
     } catch (e) {
@@ -113,6 +122,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
   Future<String?> createCheckout({
     String? successUrl,
     String? failureUrl,
+    String planType = 'monthly',
   }) async {
     state = state.copyWith(isCreatingCheckout: true, error: null, checkoutUrl: null);
     try {
@@ -134,6 +144,7 @@ class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
         'create-checkout',
         body: {
           'doctor_id': user.id,
+          'plan_type': planType,
           'success_url': successUrl ?? '$baseUrl/payment/success',
           'failure_url': failureUrl ?? '$baseUrl/payment/failure',
         },

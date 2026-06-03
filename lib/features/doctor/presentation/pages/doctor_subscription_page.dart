@@ -10,13 +10,71 @@ import 'package:eyadati/features/doctor/presentation/providers/subscription_prov
 import 'package:eyadati/models/payment_history.dart';
 import 'package:intl/intl.dart';
 
-class DoctorSubscriptionPage extends ConsumerWidget {
+class _PlanOption {
+  final String planType;
+  final String name;
+  final int monthlyPrice;
+  final int totalPrice;
+  final int durationMonths;
+  final int savings;
+  final String? badge;
+
+  const _PlanOption({
+    required this.planType,
+    required this.name,
+    required this.monthlyPrice,
+    required this.totalPrice,
+    required this.durationMonths,
+    required this.savings,
+    this.badge,
+  });
+}
+
+const _planOptions = [
+  _PlanOption(
+    planType: 'monthly',
+    name: 'Mensuel',
+    monthlyPrice: 5000,
+    totalPrice: 5000,
+    durationMonths: 1,
+    savings: 0,
+  ),
+  _PlanOption(
+    planType: 'semiannual',
+    name: '6 mois',
+    monthlyPrice: 4500,
+    totalPrice: 27000,
+    durationMonths: 6,
+    savings: 3000,
+    badge: 'Recommandé',
+  ),
+  _PlanOption(
+    planType: 'annual',
+    name: '1 an',
+    monthlyPrice: 3384,
+    totalPrice: 44000,
+    durationMonths: 13,
+    savings: 16000,
+    badge: '1 mois offert',
+  ),
+];
+
+class DoctorSubscriptionPage extends ConsumerStatefulWidget {
   const DoctorSubscriptionPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DoctorSubscriptionPage> createState() => _DoctorSubscriptionPageState();
+}
+
+class _DoctorSubscriptionPageState extends ConsumerState<DoctorSubscriptionPage> {
+  String _selectedPlan = 'monthly';
+
+  @override
+  Widget build(BuildContext context) {
     final subState = ref.watch(subscriptionProvider);
     final notifier = ref.read(subscriptionProvider.notifier);
+
+    final selectedConfig = _planOptions.firstWhere((p) => p.planType == _selectedPlan);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -40,9 +98,13 @@ class DoctorSubscriptionPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSubscriptionCard(subState),
+                  _buildStatusCard(subState),
                   const SizedBox(height: AppSpacing.lg),
-                  _buildPricingInfo(),
+                  Text('Choisissez votre formule', style: AppTextStyles.sectionTitle),
+                  const SizedBox(height: AppSpacing.md),
+                  _buildPlanCards(subState),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildFeaturesList(),
                   const SizedBox(height: AppSpacing.lg),
                   if (subState.lastPayment != null) ...[
                     Text('Dernier paiement', style: AppTextStyles.sectionTitle),
@@ -50,135 +112,283 @@ class DoctorSubscriptionPage extends ConsumerWidget {
                     _buildLastPayment(subState.lastPayment!),
                     const SizedBox(height: AppSpacing.lg),
                   ],
-                  _buildActionButtons(context, ref, subState),
+                  _buildPayButton(subState, selectedConfig),
+                  const SizedBox(height: AppSpacing.md),
+                  _buildRefreshButton(notifier),
                   if (subState.error != null) ...[
                     const SizedBox(height: AppSpacing.md),
                     _buildErrorBanner(subState.error!, notifier),
                   ],
+                  const SizedBox(height: AppSpacing.lg),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildSubscriptionCard(SubscriptionState state) {
+  Widget _buildStatusCard(SubscriptionState state) {
     final isActive = state.isActive;
-    final remainingDays = state.remainingDays;
 
     Color statusColor;
     String statusText;
-    IconData statusIcon;
 
     if (state.subscriptionEnd == null) {
       statusColor = AppColors.textSecondary;
       statusText = 'Aucun abonnement';
-      statusIcon = LucideIcons.circleAlert;
     } else if (!isActive) {
       statusColor = AppColors.error;
       statusText = 'Expiré';
-      statusIcon = LucideIcons.circleX;
-    } else if (remainingDays <= 7) {
+    } else if (state.remainingDays <= 7) {
       statusColor = AppColors.warning;
-      statusText = 'Expire bientôt ($remainingDays j)';
-      statusIcon = LucideIcons.clock;
+      statusText = 'Expire bientôt (${state.remainingDays} j)';
     } else {
       statusColor = AppColors.secondary;
-      statusText = 'Actif ($remainingDays jours restants)';
-      statusIcon = LucideIcons.circleCheck;
+      statusText = 'Actif (${state.remainingDays} jours restants)';
     }
 
+    final planName = state.planType != null
+        ? _planOptions.firstWhere((p) => p.planType == state.planType!).name
+        : null;
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Icon(
-            LucideIcons.crown,
-            size: 64,
-            color: isActive ? AppColors.warning : AppColors.textSecondary,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text('Plan Pro', style: AppTextStyles.headlineMedium),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '6 000 DZD',
-                style: AppTextStyles.statValue.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
-              Text('/mois', style: AppTextStyles.bodyMedium),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
+              color: isActive ? AppColors.warning.withValues(alpha: 0.15) : AppColors.textSecondary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Icon(
+              LucideIcons.crown,
+              size: 24,
+              color: isActive ? AppColors.warning : AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(statusIcon, size: 14, color: statusColor),
-                const SizedBox(width: AppSpacing.xs),
-                Text(statusText, style: AppTextStyles.badge.copyWith(color: statusColor)),
+                Text(
+                  planName != null ? 'Plan $planName' : 'Aucun abonnement',
+                  style: AppTextStyles.bodyMedium,
+                ),
+                if (state.subscriptionEnd != null)
+                  Text(
+                    'Expire le ${DateFormat('dd MMMM yyyy', 'fr').format(state.subscriptionEnd!)}',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                  ),
               ],
             ),
           ),
-          if (state.subscriptionEnd != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Expire le ${DateFormat('dd MMMM yyyy', 'fr').format(state.subscriptionEnd!)}',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
+            child: Text(statusText, style: AppTextStyles.badge.copyWith(color: statusColor)),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPricingInfo() {
+  Widget _buildPlanCards(SubscriptionState state) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Inclus dans le plan', style: AppTextStyles.sectionTitle),
-        const SizedBox(height: AppSpacing.md),
-        _FeatureItem(
-          icon: LucideIcons.circleCheck,
-          text: 'Rendez-vous illimités',
-          color: AppColors.secondary,
+      children: _planOptions.map((plan) {
+        final isSelected = _selectedPlan == plan.planType;
+        final isCurrent = state.planType == plan.planType && state.isActive;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedPlan = plan.planType),
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : AppColors.card,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected ? AppColors.primary : AppColors.divider,
+                  width: isSelected ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(plan.name, style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                            if (plan.badge != null) ...[
+                              const SizedBox(width: AppSpacing.sm),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.warning.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  plan.badge!,
+                                  style: AppTextStyles.badge.copyWith(color: AppColors.warning, fontSize: 10),
+                                ),
+                              ),
+                            ],
+                            if (isCurrent) ...[
+                              const SizedBox(width: AppSpacing.sm),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.secondary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Actuel',
+                                  style: AppTextStyles.badge.copyWith(color: AppColors.secondary, fontSize: 10),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Row(
+                          children: [
+                            Text(
+                              '${plan.totalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} DA',
+                              style: AppTextStyles.statValue.copyWith(
+                                color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                fontSize: 20,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            Text(
+                              '(${plan.monthlyPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} DA/mois)',
+                              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                        if (plan.durationMonths > 1 && plan.savings > 0) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            'Économisez ${plan.savings.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} DA',
+                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondary),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isSelected ? AppColors.primary : Colors.transparent,
+                      border: Border.all(
+                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                        width: 2,
+                      ),
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check, size: 14, color: Colors.white)
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildFeaturesList() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Inclus dans toutes les formules', style: AppTextStyles.sectionTitle),
+          const SizedBox(height: AppSpacing.md),
+          _FeatureItem(icon: LucideIcons.check, text: 'Rendez-vous illimités'),
+          _FeatureItem(icon: LucideIcons.check, text: 'Calendrier avancé'),
+          _FeatureItem(icon: LucideIcons.check, text: 'Notifications patients'),
+          _FeatureItem(icon: LucideIcons.check, text: 'Support prioritaire'),
+          _FeatureItem(icon: LucideIcons.check, text: 'Rapports détaillés'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPayButton(SubscriptionState state, _PlanOption plan) {
+    final isCreating = state.isCreatingCheckout;
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: isCreating
+            ? null
+            : () async {
+                final notifier = ref.read(subscriptionProvider.notifier);
+                final url = await notifier.createCheckout(planType: plan.planType);
+                if (url != null && context.mounted) {
+                  final uri = Uri.parse(url);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                }
+              },
+        icon: isCreating
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(LucideIcons.creditCard, size: 20),
+        label: Text(
+          isCreating
+              ? 'Création du paiement...'
+              : 'Payer ${plan.totalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} DA — ${plan.name}',
+          style: AppTextStyles.labelLarge,
         ),
-        _FeatureItem(
-          icon: LucideIcons.circleCheck,
-          text: 'Calendrier avancé',
-          color: AppColors.secondary,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
         ),
-        _FeatureItem(
-          icon: LucideIcons.circleCheck,
-          text: 'Notifications patients',
-          color: AppColors.secondary,
-        ),
-        _FeatureItem(
-          icon: LucideIcons.circleCheck,
-          text: 'Support prioritaire',
-          color: AppColors.secondary,
-        ),
-        _FeatureItem(
-          icon: LucideIcons.circleCheck,
-          text: 'Rapports détaillés',
-          color: AppColors.secondary,
-        ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildRefreshButton(SubscriptionNotifier notifier) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => notifier.loadSubscription(),
+        icon: const Icon(LucideIcons.refreshCw, size: 18),
+        label: Text('Actualiser le statut', style: AppTextStyles.labelMedium),
+      ),
     );
   }
 
   Widget _buildLastPayment(PaymentHistory payment) {
+    final planLabel = _planOptions.firstWhere(
+      (p) => p.planType == payment.planType,
+      orElse: () => const _PlanOption(planType: '', name: '', monthlyPrice: 0, totalPrice: 0, durationMonths: 0, savings: 0),
+    );
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -191,8 +401,12 @@ class DoctorSubscriptionPage extends ConsumerWidget {
             children: [
               Icon(LucideIcons.receipt, size: 20, color: AppColors.primary),
               const SizedBox(width: AppSpacing.sm),
-              Text('Paiement du ${DateFormat('dd MMM yyyy', 'fr').format(payment.periodStart)}',
-                  style: AppTextStyles.bodyMedium),
+              Expanded(
+                child: Text(
+                  '${planLabel.name.isNotEmpty ? '${planLabel.name} — ' : ''}${DateFormat('dd MMM yyyy', 'fr').format(payment.periodStart)}',
+                  style: AppTextStyles.bodyMedium,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -211,58 +425,6 @@ class DoctorSubscriptionPage extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context, WidgetRef ref, SubscriptionState state) {
-    final isCreating = state.isCreatingCheckout;
-
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: isCreating
-                ? null
-                : () async {
-                    final url = await ref.read(subscriptionProvider.notifier).createCheckout();
-                    if (url != null && context.mounted) {
-                      final uri = Uri.parse(url);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    }
-                  },
-            icon: isCreating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(LucideIcons.creditCard, size: 20),
-            label: Text(
-              isCreating ? 'Création du paiement...' : 'Payer maintenant — 6 000 DZD',
-              style: AppTextStyles.labelLarge,
-            ),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              ref.read(subscriptionProvider.notifier).loadSubscription();
-            },
-            icon: const Icon(LucideIcons.refreshCw, size: 18),
-            label: Text('Actualiser le statut', style: AppTextStyles.labelMedium),
-          ),
-        ),
-      ],
     );
   }
 
@@ -294,12 +456,10 @@ class DoctorSubscriptionPage extends ConsumerWidget {
 class _FeatureItem extends StatelessWidget {
   final IconData icon;
   final String text;
-  final Color color;
 
   const _FeatureItem({
     required this.icon,
     required this.text,
-    required this.color,
   });
 
   @override
@@ -308,7 +468,7 @@ class _FeatureItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: color),
+          Icon(icon, size: 18, color: AppColors.secondary),
           const SizedBox(width: AppSpacing.sm),
           Text(text, style: AppTextStyles.bodyMedium),
         ],

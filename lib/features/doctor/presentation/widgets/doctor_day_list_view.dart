@@ -176,6 +176,16 @@ class DoctorDayListView extends StatelessWidget {
                           color: AppColors.textHint,
                         ),
                       ),
+                      if (apt.doctorName.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          apt.doctorName,
+                          style: AppTextStyles.badge.copyWith(
+                            color: AppColors.textHint,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                       if (apt.patientPhone != null) ...[
                         const SizedBox(height: 2),
                         Row(
