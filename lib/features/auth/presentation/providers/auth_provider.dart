@@ -35,6 +35,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: email,
           role: role,
           isDoctor: role == 'doctor',
+
           userName: userName,
         );
         return true;
@@ -81,6 +82,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: email,
           role: role,
           isDoctor: role == 'doctor',
+
           userName: name,
         );
         return true;
@@ -170,6 +172,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: user.email,
           role: role,
           isDoctor: role == 'doctor',
+
           userName: userName,
         );
       } else {

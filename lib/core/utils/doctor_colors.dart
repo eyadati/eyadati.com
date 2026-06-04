@@ -14,7 +14,8 @@ class DoctorColorGenerator {
     Color(0xFF16A34A), // green
   ];
 
-  Color getColor(int index) {
-    return _palette[index % _palette.length];
+  Color getColor(String doctorId) {
+    final hash = doctorId.hashCode.abs();
+    return _palette[hash % _palette.length];
   }
 }

@@ -73,7 +73,7 @@ class _AddDoctorDialogState extends ConsumerState<AddDoctorDialog> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(LucideIcons.x, size: 20),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
                   ),
                 ],
               ),

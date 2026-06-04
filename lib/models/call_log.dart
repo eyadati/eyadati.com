@@ -7,12 +7,12 @@ part 'call_log.g.dart';
 class CallLog with _$CallLog {
   const factory CallLog({
     required String id,
-    required String doctorId,
-    required String patientPhone,
-    String? patientName,
-    String? patientId,
+    @JsonKey(name: 'doctor_id') required String doctorId,
+    @JsonKey(name: 'patient_phone') required String patientPhone,
+    @JsonKey(name: 'patient_name') String? patientName,
+    @JsonKey(name: 'patient_id') String? patientId,
     @Default('pending') String status,
-    required DateTime createdAt,
+    @JsonKey(name: 'created_at') required DateTime createdAt,
   }) = _CallLog;
 
   factory CallLog.fromJson(Map<String, dynamic> json) => _$CallLogFromJson(json);

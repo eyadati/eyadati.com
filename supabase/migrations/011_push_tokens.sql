@@ -15,18 +15,22 @@ create index if not exists push_tokens_user_id_idx on public.push_tokens(user_id
 
 alter table public.push_tokens enable row level security;
 
+drop policy if exists "Users insert their own push tokens" on public.push_tokens;
 create policy "Users insert their own push tokens"
   on public.push_tokens for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users view their own push tokens" on public.push_tokens;
 create policy "Users view their own push tokens"
   on public.push_tokens for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users update their own push tokens" on public.push_tokens;
 create policy "Users update their own push tokens"
   on public.push_tokens for update
   using (auth.uid() = user_id);
 
+drop policy if exists "Users delete their own push tokens" on public.push_tokens;
 create policy "Users delete their own push tokens"
   on public.push_tokens for delete
   using (auth.uid() = user_id);

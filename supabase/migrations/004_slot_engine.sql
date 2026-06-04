@@ -31,14 +31,14 @@ drop index if exists idx_schedule_doctor;
 drop index if exists idx_schedule_day;
 drop index if exists idx_schedule_active;
 
-create unique index idx_schedule_unique_active
+create unique index if not exists idx_schedule_unique_active
   on public.doctor_schedule(doctor_id, day_of_week)
   where is_active = true;
 
-create index idx_schedule_doctor
+create index if not exists idx_schedule_doctor
   on public.doctor_schedule(doctor_id);
 
-create index idx_schedule_doctor_day
+create index if not exists idx_schedule_doctor_day
   on public.doctor_schedule(doctor_id, day_of_week)
   where is_active = true;
 
@@ -75,9 +75,9 @@ comment on column public.patients.allergies is 'Comma-separated list of known al
 comment on column public.patients.medical_history is 'General medical history and conditions';
 
 -- Indexes for patient queries
-create index idx_patients_name on public.patients(lower(full_name));
-create index idx_patients_phone on public.patients(phone);
-create index idx_patients_city on public.patients(city);
+create index if not exists idx_patients_name on public.patients(lower(full_name));
+create index if not exists idx_patients_phone on public.patients(phone);
+create index if not exists idx_patients_city on public.patients(city);
 
 -- RLS for patients
 alter table public.patients enable row level security;

@@ -16,13 +16,20 @@ create index if not exists call_logs_created_at_idx on public.call_logs(created_
 
 alter table public.call_logs enable row level security;
 
+drop policy if exists "Doctors can insert their own call_logs" on public.call_logs;
 create policy "Doctors can insert their own call_logs"
   on public.call_logs for insert
   with check (auth.uid() = doctor_id);
 
+drop policy if exists "Doctors can view their own call_logs" on public.call_logs;
 create policy "Doctors can view their own call_logs"
   on public.call_logs for select
   using (auth.uid() = doctor_id);
 
 -- Enable Realtime replication for this table
-alter publication supabase_realtime add table public.call_logs;
+do $$
+begin
+  alter publication supabase_realtime add table public.call_logs;
+exception
+  when duplicate_object then null;
+end $$;

@@ -22,11 +22,16 @@ CallLog _$CallLogFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$CallLog {
   String get id => throw _privateConstructorUsedError;
+  @JsonKey(name: 'doctor_id')
   String get doctorId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'patient_phone')
   String get patientPhone => throw _privateConstructorUsedError;
+  @JsonKey(name: 'patient_name')
   String? get patientName => throw _privateConstructorUsedError;
+  @JsonKey(name: 'patient_id')
   String? get patientId => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
   DateTime get createdAt => throw _privateConstructorUsedError;
 
   /// Serializes this CallLog to a JSON map.
@@ -45,12 +50,12 @@ abstract class $CallLogCopyWith<$Res> {
   @useResult
   $Res call({
     String id,
-    String doctorId,
-    String patientPhone,
-    String? patientName,
-    String? patientId,
+    @JsonKey(name: 'doctor_id') String doctorId,
+    @JsonKey(name: 'patient_phone') String patientPhone,
+    @JsonKey(name: 'patient_name') String? patientName,
+    @JsonKey(name: 'patient_id') String? patientId,
     String status,
-    DateTime createdAt,
+    @JsonKey(name: 'created_at') DateTime createdAt,
   });
 }
 
@@ -123,12 +128,12 @@ abstract class _$$CallLogImplCopyWith<$Res> implements $CallLogCopyWith<$Res> {
   @useResult
   $Res call({
     String id,
-    String doctorId,
-    String patientPhone,
-    String? patientName,
-    String? patientId,
+    @JsonKey(name: 'doctor_id') String doctorId,
+    @JsonKey(name: 'patient_phone') String patientPhone,
+    @JsonKey(name: 'patient_name') String? patientName,
+    @JsonKey(name: 'patient_id') String? patientId,
     String status,
-    DateTime createdAt,
+    @JsonKey(name: 'created_at') DateTime createdAt,
   });
 }
 
@@ -194,12 +199,12 @@ class __$$CallLogImplCopyWithImpl<$Res>
 class _$CallLogImpl implements _CallLog {
   const _$CallLogImpl({
     required this.id,
-    required this.doctorId,
-    required this.patientPhone,
-    this.patientName,
-    this.patientId,
+    @JsonKey(name: 'doctor_id') required this.doctorId,
+    @JsonKey(name: 'patient_phone') required this.patientPhone,
+    @JsonKey(name: 'patient_name') this.patientName,
+    @JsonKey(name: 'patient_id') this.patientId,
     this.status = 'pending',
-    required this.createdAt,
+    @JsonKey(name: 'created_at') required this.createdAt,
   });
 
   factory _$CallLogImpl.fromJson(Map<String, dynamic> json) =>
@@ -208,17 +213,22 @@ class _$CallLogImpl implements _CallLog {
   @override
   final String id;
   @override
+  @JsonKey(name: 'doctor_id')
   final String doctorId;
   @override
+  @JsonKey(name: 'patient_phone')
   final String patientPhone;
   @override
+  @JsonKey(name: 'patient_name')
   final String? patientName;
   @override
+  @JsonKey(name: 'patient_id')
   final String? patientId;
   @override
   @JsonKey()
   final String status;
   @override
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
 
   @override
@@ -275,12 +285,12 @@ class _$CallLogImpl implements _CallLog {
 abstract class _CallLog implements CallLog {
   const factory _CallLog({
     required final String id,
-    required final String doctorId,
-    required final String patientPhone,
-    final String? patientName,
-    final String? patientId,
+    @JsonKey(name: 'doctor_id') required final String doctorId,
+    @JsonKey(name: 'patient_phone') required final String patientPhone,
+    @JsonKey(name: 'patient_name') final String? patientName,
+    @JsonKey(name: 'patient_id') final String? patientId,
     final String status,
-    required final DateTime createdAt,
+    @JsonKey(name: 'created_at') required final DateTime createdAt,
   }) = _$CallLogImpl;
 
   factory _CallLog.fromJson(Map<String, dynamic> json) = _$CallLogImpl.fromJson;
@@ -288,16 +298,21 @@ abstract class _CallLog implements CallLog {
   @override
   String get id;
   @override
+  @JsonKey(name: 'doctor_id')
   String get doctorId;
   @override
+  @JsonKey(name: 'patient_phone')
   String get patientPhone;
   @override
+  @JsonKey(name: 'patient_name')
   String? get patientName;
   @override
+  @JsonKey(name: 'patient_id')
   String? get patientId;
   @override
   String get status;
   @override
+  @JsonKey(name: 'created_at')
   DateTime get createdAt;
 
   /// Create a copy of CallLog

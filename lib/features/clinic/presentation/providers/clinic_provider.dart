@@ -5,23 +5,49 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/core/utils/doctor_colors.dart';
 import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/features/clinic/data/clinic_booking_service.dart';
+import 'package:uuid/uuid.dart';
 
 class ClinicGroupMember {
   final String doctorId;
   final String doctorName;
   final Color color;
+  final DateTime? subscriptionEnd;
+  final bool isPaused;
+  final bool isTest;
+  final List<DaySchedule> schedules;
 
   ClinicGroupMember({
     required this.doctorId,
     required this.doctorName,
     this.color = Colors.blueGrey,
+    this.subscriptionEnd,
+    this.isPaused = false,
+    this.isTest = false,
+    this.schedules = const [],
   });
+
+  bool get isAvailable {
+    if (isTest) return false;
+    if (isPaused) return false;
+    if (subscriptionEnd != null && subscriptionEnd!.isBefore(DateTime.now())) return false;
+    return true;
+  }
+
+  String? get unavailabilityReason {
+    if (isTest) return 'Profil test';
+    if (isPaused) return 'Profil suspendu';
+    if (subscriptionEnd != null && subscriptionEnd!.isBefore(DateTime.now())) return 'Abonnement expiré';
+    return null;
+  }
 }
 
 class ClinicState {
   final List<ClinicGroupMember> members;
   final List<AppointmentData> appointments;
   final String? clinicGroupId;
+  final String clinicName;
   final bool isLoading;
   final String? error;
   final Set<String> hiddenDoctorIds;
@@ -30,10 +56,19 @@ class ClinicState {
     this.members = const [],
     this.appointments = const [],
     this.clinicGroupId,
+    this.clinicName = '',
     this.isLoading = false,
     this.error,
     this.hiddenDoctorIds = const {},
   });
+
+  int get pendingCount {
+    return appointments.where((a) => a.status == 'upcoming' && a.bookingType == 'online').length;
+  }
+
+  int get availableDoctorCount {
+    return members.where((m) => m.isAvailable).length;
+  }
 
   List<AppointmentData> get filteredAppointments {
     if (hiddenDoctorIds.isEmpty) return appointments;
@@ -44,6 +79,7 @@ class ClinicState {
     List<ClinicGroupMember>? members,
     List<AppointmentData>? appointments,
     String? clinicGroupId,
+    String? clinicName,
     bool? isLoading,
     String? error,
     Set<String>? hiddenDoctorIds,
@@ -53,6 +89,7 @@ class ClinicState {
       members: members ?? this.members,
       appointments: appointments ?? this.appointments,
       clinicGroupId: clinicGroupId ?? this.clinicGroupId,
+      clinicName: clinicName ?? this.clinicName,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : error ?? this.error,
       hiddenDoctorIds: hiddenDoctorIds ?? this.hiddenDoctorIds,
@@ -65,11 +102,28 @@ final clinicProvider = StateNotifierProvider<ClinicNotifier, ClinicState>((ref) 
 });
 
 class ClinicNotifier extends StateNotifier<ClinicState> {
-  RealtimeChannel? _channel;
+  RealtimeChannel? _appointmentChannel;
+  RealtimeChannel? _scheduleChannel;
+  RealtimeChannel? _membersChannel;
+  RealtimeChannel? _healthChannel;
+  Timer? _debounceTimer;
+  String? lastSelectedDoctorId;
 
   SupabaseClient get _client => SupabaseInitializer.client;
 
   ClinicNotifier() : super(const ClinicState());
+
+  void clearError() {
+    state = state.copyWith(clearError: true);
+  }
+
+  String? suggestMostAvailableDoctor(DateTime dateTime) {
+    return ClinicBookingService.suggestMostAvailableDoctor(
+      members: state.members,
+      appointments: state.appointments,
+      dateTime: dateTime,
+    );
+  }
 
   Future<void> loadClinicGroup() async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -94,6 +148,14 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
 
       final groupId = memberRows[0]['clinic_group_id'] as String;
 
+      final groupInfo = await _client
+          .from('clinic_groups')
+          .select('name')
+          .eq('id', groupId)
+          .limit(1)
+          .maybeSingle();
+      final clinicName = groupInfo?['name'] as String? ?? '';
+
       final allMembers = await _client
           .from('clinic_group_members')
           .select('doctor_id, color')
@@ -114,24 +176,34 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
       }
 
       final colorGen = DoctorColorGenerator();
+      final scheduleMap = await _fetchDoctorSchedules(doctorIds);
+      final healthMap = await _fetchDoctorHealth(doctorIds);
       final members = <ClinicGroupMember>[];
       for (int i = 0; i < allMembers.length; i++) {
         final m = allMembers[i];
         final docId = m['doctor_id'] as String;
+        final health = healthMap[docId] ?? {};
         members.add(ClinicGroupMember(
           doctorId: docId,
           doctorName: nameMap[docId] ?? '',
-          color: colorGen.getColor(i),
+          color: colorGen.getColor(docId),
+          subscriptionEnd: health['subscription_end'] != null
+              ? DateTime.parse(health['subscription_end'] as String)
+              : null,
+          isPaused: health['manual_pause'] as bool? ?? false,
+          isTest: health['is_test'] as bool? ?? false,
+          schedules: scheduleMap[docId] ?? [],
         ));
       }
 
       state = state.copyWith(
         members: members,
         clinicGroupId: groupId,
+        clinicName: clinicName,
       );
 
       await _loadAppointments(doctorIds, nameMap, colorGen);
-      _subscribe();
+      _subscribeAll(groupId, doctorIds: doctorIds);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -162,7 +234,9 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
             ),
             doctor_id
           ''')
-          .inFilter('doctor_id', doctorIds)
+           .inFilter('doctor_id', doctorIds)
+          .gte('scheduled_at', DateTime.now().subtract(const Duration(days: 30)).toUtc().toIso8601String())
+          .lte('scheduled_at', DateTime.now().add(const Duration(days: 90)).toUtc().toIso8601String())
           .order('scheduled_at', ascending: false);
 
       final appointments = data.map((a) {
@@ -201,6 +275,42 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
     }
   }
 
+  Future<Map<String, List<DaySchedule>>> _fetchDoctorSchedules(List<String> doctorIds) async {
+    try {
+      final rows = await _client
+          .from('doctor_schedule')
+          .select()
+          .inFilter('doctor_id', doctorIds)
+          .eq('is_active', true);
+      final map = <String, List<DaySchedule>>{};
+      for (final row in rows) {
+        final slot = DaySchedule.fromDbMap(row);
+        map.putIfAbsent(slot.doctorId, () => []).add(slot);
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _fetchDoctorHealth(List<String> doctorIds) async {
+    try {
+      final rows = await _client
+          .from('doctors')
+          .select('id, subscription_end, manual_pause, is_test')
+          .inFilter('id', doctorIds);
+      final map = <String, Map<String, dynamic>>{};
+      for (final row in rows) {
+        map[row['id'] as String] = row;
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Creates a walk-in appointment after validating availability.
+  /// Throws with a user-friendly message if the slot is invalid.
   Future<void> createWalkIn({
     required String doctorId,
     required String patientName,
@@ -209,22 +319,35 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
     required int duration,
     bool isConsultation = false,
   }) async {
+    final validationError = ClinicBookingService.validateWalkInSlot(
+      members: state.members,
+      appointments: state.appointments,
+      doctorId: doctorId,
+      scheduledAt: scheduledAt,
+      duration: duration,
+    );
+    if (validationError != null) {
+      throw Exception(validationError);
+    }
+
     state = state.copyWith(isLoading: true);
 
     try {
       final user = _client.auth.currentUser;
-      if (user == null) throw Exception('Not authenticated');
+      if (user == null) throw Exception('Non connecté');
 
-      await _client.from('appointments').insert({
-        'doctor_id': doctorId,
-        'patient_name_snapshot': patientName,
-        'patient_phone_snapshot': patientPhone ?? '',
-        'scheduled_at': scheduledAt.toUtc().toIso8601String(),
-        'duration': duration,
-        'status': 'upcoming',
-        'booking_type': 'manual',
-        'is_consultation': isConsultation,
+      final result = await _client.rpc('create_clinic_appointment', params: {
+        'p_doctor_id': doctorId,
+        'p_scheduled_at': scheduledAt.toUtc().toIso8601String(),
+        'p_duration': duration,
+        'p_patient_name': patientName,
+        'p_patient_phone': patientPhone ?? '',
+        'p_is_consultation': isConsultation,
       });
+
+      if (result is Map && result['success'] == false) {
+        throw Exception(result['error'] ?? 'Créneau non disponible');
+      }
 
       state = state.copyWith(isLoading: false);
       await refresh();
@@ -272,11 +395,14 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
 
   Future<String?> addDoctorByEmail(String email) async {
     try {
+      final user = _client.auth.currentUser;
+      if (user == null) return 'Non connecté';
+
       final profiles = await _client
           .from('profiles')
           .select('id, full_name')
           .eq('email', email)
-          .eq('role', 'doctor')
+          .or('role.eq.doctor,id.eq.${user.id}')
           .limit(1);
 
       if (profiles.isEmpty) {
@@ -285,6 +411,8 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
 
       final doctorId = profiles[0]['id'] as String;
       final doctorName = profiles[0]['full_name'] as String? ?? '';
+
+      late final String groupId;
 
       if (state.clinicGroupId != null) {
         final existing = await _client
@@ -297,33 +425,52 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
         if (existing.isNotEmpty) {
           return '${doctorName} est déjà dans la clinique';
         }
+        groupId = state.clinicGroupId!;
+      } else {
+        final existingGroup = await _client
+            .from('clinic_group_members')
+            .select('clinic_group_id')
+            .eq('doctor_id', user.id)
+            .limit(1);
+
+        if (existingGroup.isNotEmpty) {
+          groupId = existingGroup[0]['clinic_group_id'] as String;
+          state = state.copyWith(clinicGroupId: groupId);
+
+          final existingMember = await _client
+              .from('clinic_group_members')
+              .select('id')
+              .eq('clinic_group_id', groupId)
+              .eq('doctor_id', doctorId)
+              .limit(1);
+
+          if (existingMember.isNotEmpty) {
+            await refresh();
+            return '${doctorName} est déjà dans la clinique';
+          }
+        } else {
+          groupId = const Uuid().v4();
+
+          await _client.from('clinic_groups').insert({
+            'id': groupId,
+            'name': 'Ma clinique',
+          });
+
+          await _client.from('clinic_group_members').insert({
+            'clinic_group_id': groupId,
+            'doctor_id': user.id,
+          });
+
+          state = state.copyWith(clinicGroupId: groupId, clinicName: 'Ma clinique');
+        }
       }
 
-      String groupId;
-      if (state.clinicGroupId == null) {
-        final user = _client.auth.currentUser;
-        if (user == null) return 'Non connecté';
-
-        final groupResult = await _client.from('clinic_groups').insert({
-          'name': 'Ma clinique',
-        }).select('id').single();
-
-        groupId = groupResult['id'] as String;
-
+      if (doctorId != user.id) {
         await _client.from('clinic_group_members').insert({
           'clinic_group_id': groupId,
-          'doctor_id': user.id,
+          'doctor_id': doctorId,
         });
-
-        state = state.copyWith(clinicGroupId: groupId);
-      } else {
-        groupId = state.clinicGroupId!;
       }
-
-      await _client.from('clinic_group_members').insert({
-        'clinic_group_id': groupId,
-        'doctor_id': doctorId,
-      });
 
       await refresh();
       return null;
@@ -355,14 +502,23 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
       }
 
       final colorGen = DoctorColorGenerator();
+      final scheduleMap = await _fetchDoctorSchedules(doctorIds);
+      final healthMap = await _fetchDoctorHealth(doctorIds);
       final members = <ClinicGroupMember>[];
       for (int i = 0; i < allMembers.length; i++) {
         final m = allMembers[i];
         final docId = m['doctor_id'] as String;
+        final health = healthMap[docId] ?? {};
         members.add(ClinicGroupMember(
           doctorId: docId,
           doctorName: nameMap[docId] ?? '',
-          color: colorGen.getColor(i),
+          color: colorGen.getColor(docId),
+          subscriptionEnd: health['subscription_end'] != null
+              ? DateTime.parse(health['subscription_end'] as String)
+              : null,
+          isPaused: health['manual_pause'] as bool? ?? false,
+          isTest: health['is_test'] as bool? ?? false,
+          schedules: scheduleMap[docId] ?? [],
         ));
       }
 
@@ -373,24 +529,81 @@ class ClinicNotifier extends StateNotifier<ClinicState> {
     }
   }
 
-  void _subscribe() {
-    _channel?.unsubscribe();
-    _channel = _client
-        .channel('clinic_appointments_${state.clinicGroupId}')
+  void _silentRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      refresh();
+    });
+  }
+
+  void _subscribeAll(String groupId, {List<String>? doctorIds}) {
+    _appointmentChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
+    _membersChannel?.unsubscribe();
+    _healthChannel?.unsubscribe();
+
+    _appointmentChannel = _client
+        .channel('clinic_appointments_$groupId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'appointments',
-          callback: (_) {
-            refresh();
-          },
+          callback: (_) => _silentRefresh(),
+          filter: doctorIds != null && doctorIds.length == 1
+              ? PostgresChangeFilter(
+                  type: PostgresChangeFilterType.eq,
+                  column: 'doctor_id',
+                  value: doctorIds.first,
+                )
+              : null,
+        )
+        .subscribe();
+
+    _scheduleChannel = _client
+        .channel('clinic_schedule_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'doctor_schedule',
+          callback: (_) => _silentRefresh(),
+        )
+        .subscribe();
+
+    _membersChannel = _client
+        .channel('clinic_members_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'clinic_group_members',
+          callback: (_) => _silentRefresh(),
+        )
+        .subscribe();
+
+    _healthChannel = _client
+        .channel('clinic_health_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'doctors',
+          callback: (_) => _silentRefresh(),
+          filter: doctorIds != null && doctorIds.length == 1
+              ? PostgresChangeFilter(
+                  type: PostgresChangeFilterType.eq,
+                  column: 'id',
+                  value: doctorIds.first,
+                )
+              : null,
         )
         .subscribe();
   }
 
   @override
   void dispose() {
-    _channel?.unsubscribe();
+    _debounceTimer?.cancel();
+    _appointmentChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
+    _membersChannel?.unsubscribe();
+    _healthChannel?.unsubscribe();
     super.dispose();
   }
 }
