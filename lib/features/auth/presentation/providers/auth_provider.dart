@@ -17,15 +17,64 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
 
   AuthNotifier(this._repository) : super(const AppAuthState());
 
-  Future<bool> login(String email, String password) async {
+  // ── Phone + Password login ──
+
+  Future<bool> loginWithPhone(String phone, String password) async {
     state = state.copyWith(isLoading: true);
     try {
-      final result = await _repository.signIn(email: email, password: password);
+      final result = await _repository.signInWithPhone(
+        phone: phone,
+        password: password,
+      );
       if (result.isSuccess) {
         final user = result.user!;
         final role = await _fetchRoleFromProfile(user.id);
         final userName = await _fetchUserName(user.id);
-        final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
+        final setupCompleted = role == 'patient'
+            ? true
+            : await _checkDoctorSetup(user.id);
+        state = state.copyWith(
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          setupCompleted: setupCompleted,
+          userId: user.id,
+          phone: phone,
+          role: role,
+          isDoctor: role == 'doctor',
+          userName: userName,
+        );
+        return true;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        isInitialized: true,
+        errorMessage: result.error ?? 'Numéro ou mot de passe incorrect',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  // ── Legacy email login ──
+
+  Future<bool> login(String email, String password) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.signIn(
+          email: email, password: password);
+      if (result.isSuccess) {
+        final user = result.user!;
+        final role = await _fetchRoleFromProfile(user.id);
+        final userName = await _fetchUserName(user.id);
+        final setupCompleted = role == 'patient'
+            ? true
+            : await _checkDoctorSetup(user.id);
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
@@ -35,7 +84,6 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: email,
           role: role,
           isDoctor: role == 'doctor',
-
           userName: userName,
         );
         return true;
@@ -54,6 +102,114 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       return false;
     }
   }
+
+  // ── Phone Registration (OTP flow) ──
+
+  Future<bool> sendOtp(String phone) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.sendOtp(phone);
+      if (result.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          verificationStep: VerificationStep.otpSent,
+          phone: phone,
+        );
+        return true;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: result.error ?? 'Erreur d\'envoi du code',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> verifyOtp({
+    required String token,
+    required String name,
+    required String role,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final phone = state.phone;
+      if (phone == null) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Numéro de téléphone manquant',
+        );
+        return false;
+      }
+
+      final result = await _repository.verifyOtp(
+        phone: phone,
+        token: token,
+      );
+      if (!result.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: result.error ?? 'Code invalide',
+        );
+        return false;
+      }
+
+      // Set password
+      final passwordResult = await _repository.setPassword(password);
+      if (!passwordResult.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: passwordResult.error,
+        );
+        return false;
+      }
+
+      // Set profile data
+      final profileResult = await _repository.setProfileData(
+        name: name,
+        role: role,
+        phone: phone,
+      );
+      if (!profileResult.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: profileResult.error,
+        );
+        return false;
+      }
+
+      final user = profileResult.user!;
+      final setupCompleted = role == 'patient'
+          ? true
+          : await _checkDoctorSetup(user.id);
+      state = state.copyWith(
+        isAuthenticated: true,
+        isLoading: false,
+        isInitialized: true,
+        verificationStep: VerificationStep.verified,
+        setupCompleted: setupCompleted,
+        userId: user.id,
+        role: role,
+        isDoctor: role == 'doctor',
+        userName: name,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  // ── Legacy email registration ──
 
   Future<bool> register({
     required String email,
@@ -82,7 +238,6 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: email,
           role: role,
           isDoctor: role == 'doctor',
-
           userName: name,
         );
         return true;
@@ -103,6 +258,81 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     }
   }
 
+  // ── Forgot password via phone OTP ──
+
+  Future<bool> sendResetOtp(String phone) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.sendOtp(phone);
+      if (result.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          verificationStep: VerificationStep.otpSent,
+          phone: phone,
+        );
+        return true;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: result.error ?? 'Erreur d\'envoi du code',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> verifyResetOtp(String token, String newPassword) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final phone = state.phone;
+      if (phone == null) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Numéro manquant',
+        );
+        return false;
+      }
+
+      final result = await _repository.verifyOtp(
+        phone: phone,
+        token: token,
+      );
+      if (!result.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: result.error,
+        );
+        return false;
+      }
+
+      final passwordResult = await _repository.setPassword(newPassword);
+      if (!passwordResult.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: passwordResult.error,
+        );
+        return false;
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        verificationStep: VerificationStep.verified,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _repository.signOut();
     state = const AppAuthState(isInitialized: true);
@@ -110,6 +340,13 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
 
   void resetState() {
     state = const AppAuthState(isInitialized: true);
+  }
+
+  void resetVerification() {
+    state = state.copyWith(
+      verificationStep: VerificationStep.none,
+      phone: null,
+    );
   }
 
   Future<bool> _checkDoctorSetup(String userId) async {
@@ -125,7 +362,6 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     }
   }
 
-  // Per auth_checklist: Fetch role from profiles table (source of truth)
   Future<String> _fetchRoleFromProfile(String userId) async {
     try {
       final profile = await SupabaseInitializer.client
@@ -162,7 +398,9 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       if (user != null) {
         final role = await _fetchRoleFromProfile(user.id);
         final userName = await _fetchUserName(user.id);
-        final setupCompleted = role == 'patient' ? true : await _checkDoctorSetup(user.id);
+        final setupCompleted = role == 'patient'
+            ? true
+            : await _checkDoctorSetup(user.id);
         state = state.copyWith(
           isAuthenticated: true,
           isLoading: false,
@@ -172,18 +410,15 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: user.email,
           role: role,
           isDoctor: role == 'doctor',
-
           userName: userName,
         );
       } else {
-        print('[AuthProvider] No user found - setting isInitialized only');
         state = state.copyWith(
           isLoading: false,
           isInitialized: true,
         );
       }
     } catch (e) {
-      print('[AuthProvider] Error in checkAuthStatus: $e');
       state = state.copyWith(
         isLoading: false,
         isInitialized: true,
@@ -206,9 +441,11 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       isLoading: state.isLoading,
       userId: state.userId,
       email: state.email,
+      phone: state.phone,
       role: state.role,
       setupCompleted: state.setupCompleted,
       userName: state.userName,
+      verificationStep: state.verificationStep,
     );
   }
 

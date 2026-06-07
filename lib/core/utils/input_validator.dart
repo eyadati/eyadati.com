@@ -7,6 +7,10 @@ class InputValidator {
     r'^\+?[0-9]{8,15}$',
   );
 
+  static final RegExp _algerianPhoneRegex = RegExp(
+    r'^(\+213|0)?(5|6|7)\d{8}$',
+  );
+
   static String? validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'Email is required';
@@ -36,6 +40,27 @@ class InputValidator {
       return 'Please enter a valid phone number';
     }
     return null;
+  }
+
+  static String? validateAlgerianPhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Numéro de téléphone requis';
+    }
+    final cleaned = value.replaceAll(RegExp(r'[\s\-\(\)\.]'), '');
+    if (!_algerianPhoneRegex.hasMatch(cleaned)) {
+      return 'Numéro invalide (ex: +213 5 55 12 34 56)';
+    }
+    return null;
+  }
+
+  static String formatPhoneForE164(String phone) {
+    String cleaned = phone.replaceAll(RegExp(r'[\s\-\(\)\.]'), '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '+213${cleaned.substring(1)}';
+    } else if (!cleaned.startsWith('+')) {
+      cleaned = '+213$cleaned';
+    }
+    return cleaned;
   }
 
   static String? validateFullName(String? value) {
@@ -154,4 +179,5 @@ class InputValidator {
   static bool isValidPhone(String value) => validatePhone(value) == null;
   static bool isValidPassword(String value) => validatePassword(value) == null;
   static bool isValidFullName(String value) => validateFullName(value) == null;
+  static bool isValidAlgerianPhone(String value) => validateAlgerianPhone(value) == null;
 }

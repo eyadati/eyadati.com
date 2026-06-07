@@ -1,3 +1,5 @@
+enum VerificationStep { none, otpSent, verified }
+
 class AppAuthState {
   final bool isAuthenticated;
   final bool isDoctor;
@@ -7,8 +9,10 @@ class AppAuthState {
   final String? errorMessage;
   final String? userId;
   final String? email;
+  final String? phone;
   final String? role;
   final String? userName;
+  final VerificationStep verificationStep;
 
   const AppAuthState({
     this.isAuthenticated = false,
@@ -19,8 +23,10 @@ class AppAuthState {
     this.errorMessage,
     this.userId,
     this.email,
+    this.phone,
     this.role,
     this.userName,
+    this.verificationStep = VerificationStep.none,
   });
 
   AppAuthState copyWith({
@@ -32,8 +38,10 @@ class AppAuthState {
     String? errorMessage,
     String? userId,
     String? email,
+    String? phone,
     String? role,
     String? userName,
+    VerificationStep? verificationStep,
   }) {
     return AppAuthState(
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -44,8 +52,10 @@ class AppAuthState {
       errorMessage: errorMessage,
       userId: userId ?? this.userId,
       email: email ?? this.email,
+      phone: phone ?? this.phone,
       role: role ?? this.role,
       userName: userName ?? this.userName,
+      verificationStep: verificationStep ?? this.verificationStep,
     );
   }
 }

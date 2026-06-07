@@ -15,6 +15,43 @@ class AuthRepository {
 
   bool get isAuthenticated => currentUser != null;
 
+  // ── Phone + Password login ──
+
+  Future<AuthResult> signInWithPhone({
+    required String phone,
+    required String password,
+  }) async {
+    final phoneError = InputValidator.validateAlgerianPhone(phone);
+    if (phoneError != null) {
+      return AuthResult.failure(phoneError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      final response = await _client.auth.signInWithPassword(
+        phone: formattedPhone,
+        password: password,
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure('Numéro ou mot de passe incorrect');
+      }
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
+    }
+  }
+
+  // ── Legacy email login (kept during transition) ──
+
   Future<AuthResult> signIn({
     required String email,
     required String password,
@@ -46,6 +83,8 @@ class AuthRepository {
       return AuthResult.failure('Connection error. Please try again.');
     }
   }
+
+  // ── Legacy email signup (kept during transition) ──
 
   Future<AuthResult> signUp({
     required String email,
@@ -102,6 +141,104 @@ class AuthRepository {
     }
   }
 
+  // ── Phone OTP ──
+
+  Future<AuthResult> sendOtp(String phone) async {
+    final phoneError = InputValidator.validateAlgerianPhone(phone);
+    if (phoneError != null) {
+      return AuthResult.failure(phoneError);
+    }
+
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      await _client.auth.signInWithOtp(phone: formattedPhone);
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur d\'envoi du code. Réessayez.');
+    }
+  }
+
+  Future<AuthResult> verifyOtp({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      final response = await _client.auth.verifyOTP(
+        phone: formattedPhone,
+        token: token,
+        type: OtpType.sms,
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure('Code invalide ou expiré');
+      }
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur de vérification. Réessayez.');
+    }
+  }
+
+  // ── Post-verification setup ──
+
+  Future<AuthResult> setPassword(String password) async {
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    try {
+      await _client.auth.updateUser(UserAttributes(password: password));
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur. Réessayez.');
+    }
+  }
+
+  Future<AuthResult> setProfileData({
+    required String name,
+    required String role,
+    required String phone,
+  }) async {
+    try {
+      final sanitizedName = SecurityValidator.sanitizeHtml(name.trim());
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+
+      await _client.auth.updateUser(UserAttributes(
+        data: {
+          'full_name': sanitizedName,
+          'role': role,
+          'phone': formattedPhone,
+        },
+      ));
+
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        return AuthResult.failure('Utilisateur non trouvé');
+      }
+
+      await _client.from('profiles').upsert({
+        'id': user.id,
+        'full_name': sanitizedName,
+        'role': role,
+        'phone': formattedPhone,
+      });
+
+      return AuthResult.success(user);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur. Réessayez.');
+    }
+  }
+
   Future<void> signOut() async {
     await _client.auth.signOut();
   }
@@ -125,6 +262,7 @@ class AuthRepository {
   Future<AuthResult> changePassword({
     required String currentPassword,
     required String newPassword,
+    String? phone,
   }) async {
     final passwordError = InputValidator.validatePassword(newPassword);
     if (passwordError != null) {
@@ -133,16 +271,29 @@ class AuthRepository {
 
     try {
       final user = _client.auth.currentUser;
-      if (user == null || user.email == null) {
+      if (user == null) {
         return AuthResult.failure('Not authenticated');
       }
 
-      final reauth = await _client.auth.signInWithPassword(
-        email: user.email!,
-        password: currentPassword,
-      );
-      if (reauth.user == null) {
-        return AuthResult.failure('Current password is incorrect');
+      if (phone != null) {
+        final formattedPhone = InputValidator.formatPhoneForE164(phone);
+        final reauth = await _client.auth.signInWithPassword(
+          phone: formattedPhone,
+          password: currentPassword,
+        );
+        if (reauth.user == null) {
+          return AuthResult.failure('Current password is incorrect');
+        }
+      } else if (user.email != null) {
+        final reauth = await _client.auth.signInWithPassword(
+          email: user.email!,
+          password: currentPassword,
+        );
+        if (reauth.user == null) {
+          return AuthResult.failure('Current password is incorrect');
+        }
+      } else {
+        return AuthResult.failure('Cannot re-authenticate');
       }
 
       await _client.auth.updateUser(UserAttributes(password: newPassword));
@@ -157,13 +308,17 @@ class AuthRepository {
   String _mapAuthError(String message) {
     final lowerMessage = message.toLowerCase();
     if (lowerMessage.contains('invalid login credentials')) {
-      return 'Invalid email or password';
+      return 'Numéro ou mot de passe incorrect';
     } else if (lowerMessage.contains('already registered')) {
-      return 'This email is already registered';
+      return 'Ce numéro est déjà inscrit';
     } else if (lowerMessage.contains('password')) {
-      return 'Password must be at least 6 characters';
+      return 'Le mot de passe doit contenir au moins 6 caractères';
+    } else if (lowerMessage.contains('phone') || lowerMessage.contains('sms')) {
+      return 'Numéro de téléphone invalide';
     } else if (lowerMessage.contains('email')) {
-      return 'Please enter a valid email address';
+      return 'Veuillez entrer un email valide';
+    } else if (lowerMessage.contains('rate limit') || lowerMessage.contains('too many')) {
+      return 'Trop de tentatives. Réessayez dans quelques minutes.';
     }
     return message;
   }

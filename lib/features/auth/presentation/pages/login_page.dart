@@ -8,6 +8,7 @@ import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/inputs/app_text_field.dart';
 import 'package:eyadati/core/widgets/inputs/password_field.dart';
 import 'package:eyadati/core/widgets/feedback/app_snackbar.dart';
+import 'package:eyadati/core/utils/input_validator.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_footer.dart';
@@ -21,22 +22,26 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
-    
-    final success = await ref.read(authProvider.notifier).login(
-      _emailController.text.trim(),
+
+    final phone = InputValidator.formatPhoneForE164(
+      _phoneController.text.trim(),
+    );
+
+    final success = await ref.read(authProvider.notifier).loginWithPhone(
+      phone,
       _passwordController.text,
     );
 
@@ -51,7 +56,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     } else {
       final error = ref.read(authProvider).errorMessage;
-      AppSnackbar.showError(context, message: error ?? 'Erreur de connexion');
+      AppSnackbar.showError(
+        context,
+        message: error ?? 'Erreur de connexion',
+      );
     }
   }
 
@@ -84,21 +92,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: Column(
                     children: [
                       AppTextField(
-                        label: 'Email',
-                        hint: 'votre@email.com',
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
+                        label: 'Téléphone',
+                        hint: '+213 5 55 12 34 56',
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
                         textInputAction: TextInputAction.next,
-                        prefixIcon: Icons.email_outlined,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Email requis';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Email invalide';
-                          }
-                          return null;
-                        },
+                        prefixIcon: Icons.phone_outlined,
+                        validator: (value) =>
+                            InputValidator.validateAlgerianPhone(value),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       PasswordField(
