@@ -842,6 +842,16 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
           ),
           IconButton(
             icon: const Icon(
+              LucideIcons.users,
+              color: AppColors.textPrimary,
+            ),
+            tooltip: 'Patients en ligne',
+            onPressed: () => context.push(RouteNames.doctorPatients),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: EdgeInsets.zero,
+          ),
+          IconButton(
+            icon: const Icon(
               LucideIcons.settings,
               color: AppColors.textPrimary,
             ),

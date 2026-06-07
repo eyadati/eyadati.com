@@ -20,6 +20,7 @@ import '../../features/doctor/presentation/pages/doctor_setup_page.dart';
 import '../../features/doctor/presentation/pages/doctor_calendar_page.dart';
 import '../../features/doctor/presentation/pages/doctor_schedule_page.dart';
 import '../../features/doctor/presentation/pages/doctor_settings_page.dart';
+import '../../features/doctor/presentation/pages/doctor_patients_page.dart';
 import '../../features/doctor/presentation/pages/doctor_subscription_page.dart';
 import '../../features/doctor/presentation/pages/payment_success_page.dart';
 import '../../features/doctor/presentation/pages/payment_failure_page.dart';
@@ -189,6 +190,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.doctorSchedule,
         builder: (context, state) => const DoctorSchedulePage(),
+      ),
+      GoRoute(
+        path: RouteNames.doctorPatients,
+        builder: (context, state) => const DoctorPatientsPage(),
       ),
       GoRoute(
         path: RouteNames.doctorSettings,
