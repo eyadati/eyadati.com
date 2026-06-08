@@ -40,7 +40,7 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Patients en ligne'),
+        title: const Text('Mes patients'),
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => Navigator.pop(context),
@@ -182,10 +182,10 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
     return Center(
       child: EmptyStateCard(
         icon: LucideIcons.users,
-        title: hasQuery ? 'Aucun patient trouvé' : 'Aucun patient en ligne',
+        title: hasQuery ? 'Aucun patient trouvé' : 'Aucun patient',
         message: hasQuery
             ? 'Essayez un autre nom ou numéro'
-            : 'Les patients ayant pris rendez-vous en ligne apparaîtront ici',
+            : 'Les patients que vous avez reçus apparaîtront ici',
       ),
     );
   }

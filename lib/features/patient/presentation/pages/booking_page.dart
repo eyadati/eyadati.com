@@ -26,13 +26,9 @@ class BookingPage extends ConsumerStatefulWidget {
 class _BookingPageState extends ConsumerState<BookingPage> {
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay? _selectedTime;
-  String _appointmentType = 'regular';
   final _notesController = TextEditingController();
   bool _isLoading = false;
 
-  // ... other imports ...
-
-  // Inside _BookingPageState
   List<ValidStart> _availableSlots = [];
 
   Future<void> _loadAvailability() async {
@@ -98,9 +94,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           .eq('id', widget.doctorId)
           .single();
       
-      final effectiveDuration = _appointmentType == 'consultation'
-          ? (doctorData['consultation_duration'] as int? ?? 30)
-          : (doctorData['appointment_duration'] as int? ?? 20);
+      final effectiveDuration = doctorData['appointment_duration'] as int? ?? 20;
 
       // 4. Calculate slots
       final availabilityService = AvailabilityService(
@@ -201,9 +195,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           address: '',
         ),
       );
-      final duration = _appointmentType == 'consultation'
-          ? doctor.consultationDuration
-          : doctor.appointmentDuration;
+      final duration = doctor.appointmentDuration;
 
       await SupabaseInitializer.client.from('appointments').insert({
         'doctor_id': widget.doctorId,
@@ -212,7 +204,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         'duration': duration,
         'status': 'upcoming',
         'booking_type': 'online',
-        'is_consultation': _appointmentType == 'consultation',
+        'is_consultation': false,
         'patient_name_snapshot': patientName ?? 'Patient',
         'notes': _notesController.text.isEmpty ? null : _notesController.text,
       });
@@ -342,37 +334,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Type de rendez-vous',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: _TypeChip(
-                    label: 'Visite régulière',
-                    isSelected: _appointmentType == 'regular',
-                    onTap: () {
-                      setState(() => _appointmentType = 'regular');
-                      _loadAvailability();
-                    },
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _TypeChip(
-                    label: 'Consultation',
-                    isSelected: _appointmentType == 'consultation',
-                    onTap: () {
-                      setState(() => _appointmentType = 'consultation');
-                      _loadAvailability();
-                    },
-                  ),
-                ),
-              ],
             ),
             const SizedBox(height: AppSpacing.lg),
             const Text(
@@ -555,48 +516,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           child: PrimaryButton(
             label: _isLoading ? 'En cours...' : 'Confirmer le rendez-vous',
             onPressed: _isLoading ? null : _confirmBooking,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TypeChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _TypeChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
-            ),
           ),
         ),
       ),

@@ -245,6 +245,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       loadDoctorData(silent: true);
+      loadPatients();
     });
   }
 
@@ -497,8 +498,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           'day_of_week': dayOfWeek,
           'start_time': startTime,
           'end_time': endTime,
-          if (breakStart != null) 'break_start': breakStart,
-          if (breakEnd != null) 'break_end': breakEnd,
+          if (breakStart != null && breakEnd != null) 'break_start': breakStart,
+          if (breakStart != null && breakEnd != null) 'break_end': breakEnd,
           'is_active': true,
         });
       }
@@ -558,8 +559,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             'day_of_week': dayOfWeek,
             'start_time': startTime,
             'end_time': endTime,
-            if (breakStart != null) 'break_start': breakStart,
-            if (breakEnd != null) 'break_end': breakEnd,
+            if (breakStart != null && breakEnd != null) 'break_start': breakStart,
+            if (breakStart != null && breakEnd != null) 'break_end': breakEnd,
             'is_active': true,
           })
           .select()
@@ -588,8 +589,10 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       final updates = <String, dynamic>{};
       if (startTime != null) updates['start_time'] = startTime;
       if (endTime != null) updates['end_time'] = endTime;
-      if (breakStart != null) updates['break_start'] = breakStart;
-      if (breakEnd != null) updates['break_end'] = breakEnd;
+      if (breakStart != null && breakEnd != null) {
+        updates['break_start'] = breakStart;
+        updates['break_end'] = breakEnd;
+      }
       if (isActive != null) updates['is_active'] = isActive;
 
       await _client.from('doctor_schedule').update(updates).eq('id', slotId);

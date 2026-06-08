@@ -27,7 +27,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  final List<String> _weekDays = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  final List<String> _weekDays = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
   final Set<String> _selectedDays = {};
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 17, minute: 0);

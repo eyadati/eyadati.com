@@ -22,12 +22,15 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
+  bool _isDoctor = false;
 
   @override
   void dispose() {
+    _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -36,14 +39,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final phone = InputValidator.formatPhoneForE164(
-      _phoneController.text.trim(),
-    );
-
-    final success = await ref.read(authProvider.notifier).loginWithPhone(
-      phone,
-      _passwordController.text,
-    );
+    final bool success;
+    if (_isDoctor) {
+      success = await ref.read(authProvider.notifier).login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+    } else {
+      final phone = InputValidator.formatPhoneForE164(
+        _phoneController.text.trim(),
+      );
+      success = await ref.read(authProvider.notifier).loginWithPhone(
+        phone,
+        _passwordController.text,
+      );
+    }
 
     if (!mounted) return;
 
@@ -82,7 +92,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   title: 'Bienvenue',
                   subtitle: 'Connectez-vous à votre compte',
                 ),
-                const SizedBox(height: AppSpacing.xxl),
+                const SizedBox(height: AppSpacing.lg),
+                _RoleToggle(
+                  isDoctor: _isDoctor,
+                  onChanged: (value) => setState(() => _isDoctor = value),
+                ),
+                const SizedBox(height: AppSpacing.lg),
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   decoration: BoxDecoration(
@@ -91,16 +106,35 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                   child: Column(
                     children: [
-                      AppTextField(
-                        label: 'Téléphone',
-                        hint: '+213 5 55 12 34 56',
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.next,
-                        prefixIcon: Icons.phone_outlined,
-                        validator: (value) =>
-                            InputValidator.validateAlgerianPhone(value),
-                      ),
+                      if (_isDoctor)
+                        AppTextField(
+                          label: 'Email',
+                          hint: 'votre@email.com',
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          prefixIcon: Icons.email_outlined,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Email requis';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Email invalide';
+                            }
+                            return null;
+                          },
+                        )
+                      else
+                        AppTextField(
+                          label: 'Téléphone',
+                          hint: '+213 5 55 12 34 56',
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.next,
+                          prefixIcon: Icons.phone_outlined,
+                          validator: (value) =>
+                              InputValidator.validateAlgerianPhone(value),
+                        ),
                       const SizedBox(height: AppSpacing.md),
                       PasswordField(
                         label: 'Mot de passe',
@@ -163,6 +197,77 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RoleToggle extends StatelessWidget {
+  final bool isDoctor;
+  final ValueChanged<bool> onChanged;
+
+  const _RoleToggle({required this.isDoctor, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: !isDoctor
+                      ? AppColors.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Patient',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: !isDoctor
+                        ? AppColors.white
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDoctor
+                      ? AppColors.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Docteur',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDoctor
+                        ? AppColors.white
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

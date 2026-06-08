@@ -24,21 +24,48 @@ class RegisterPage extends ConsumerStatefulWidget {
 class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _infoFormKey = GlobalKey<FormState>();
   final _otpFormKey = GlobalKey<FormState>();
+  final _doctorFormKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _otpController = TextEditingController();
-  String _selectedRole = 'patient';
+  bool _isDoctor = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _otpController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleDoctorRegister() async {
+    if (!_doctorFormKey.currentState!.validate()) return;
+
+    final success = await ref.read(authProvider.notifier).register(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      name: _nameController.text.trim(),
+      phone: '',
+      role: 'doctor',
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      context.go(RouteNames.doctorDashboard);
+    } else {
+      final error = ref.read(authProvider).errorMessage;
+      AppSnackbar.showError(
+        context,
+        message: error ?? "Erreur lors de l'inscription",
+      );
+    }
   }
 
   Future<void> _handleSendOtp() async {
@@ -66,7 +93,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     final success = await ref.read(authProvider.notifier).verifyOtp(
           token: _otpController.text.trim(),
           name: _nameController.text.trim(),
-          role: _selectedRole,
+          role: _isDoctor ? 'doctor' : 'patient',
           password: _passwordController.text,
         );
 
@@ -74,7 +101,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     if (success) {
       context.go(
-        _selectedRole == 'doctor'
+        _isDoctor
             ? RouteNames.doctorDashboard
             : RouteNames.patientHome,
       );
@@ -85,6 +112,74 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         message: error ?? "Erreur lors de l'inscription",
       );
     }
+  }
+
+  Widget _buildDoctorForm(AppAuthState authState) {
+    return Form(
+      key: _doctorFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppTextField(
+            label: 'Nom complet',
+            hint: 'Dr. Votre nom',
+            controller: _nameController,
+            prefixIcon: Icons.person_outline,
+            textInputAction: TextInputAction.next,
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Nom requis';
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppTextField(
+            label: 'Email',
+            hint: 'votre@email.com',
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            prefixIcon: Icons.email_outlined,
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Email requis';
+              if (!value.contains('@')) return 'Email invalide';
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          PasswordField(
+            label: 'Mot de passe',
+            hint: '••••••••',
+            controller: _passwordController,
+            textInputAction: TextInputAction.next,
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Mot de passe requis';
+              if (value.length < 6) return 'Minimum 6 caractères';
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          PasswordField(
+            label: 'Confirmer le mot de passe',
+            hint: '••••••••',
+            controller: _confirmPasswordController,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _handleDoctorRegister(),
+            validator: (value) {
+              if (value != _passwordController.text) {
+                return 'Les mots de passe ne correspondent pas';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          PrimaryButton(
+            label: "S'inscrire",
+            isLoading: authState.isLoading,
+            onPressed: _handleDoctorRegister,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -99,7 +194,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () {
-            if (authState.verificationStep == VerificationStep.otpSent) {
+            if (!_isDoctor && authState.verificationStep == VerificationStep.otpSent) {
               ref.read(authProvider.notifier).resetVerification();
             } else {
               context.pop();
@@ -113,25 +208,30 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AuthHeader(
+              const AuthHeader(
                 title: 'Créer un compte',
-                subtitle: authState.verificationStep == VerificationStep.otpSent
-                    ? 'Vérifiez votre numéro'
-                    : 'Rejoignez Eyadati',
+                subtitle: 'Rejoignez Eyadati',
               ),
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.lg),
+              _RoleToggle(
+                isDoctor: _isDoctor,
+                onChanged: (value) => setState(() => _isDoctor = value),
+              ),
+              const SizedBox(height: AppSpacing.lg),
               Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: authState.verificationStep == VerificationStep.otpSent
-                    ? _buildOtpStep()
-                    : _buildInfoStep(authState),
+                child: _isDoctor
+                    ? _buildDoctorForm(authState)
+                    : authState.verificationStep == VerificationStep.otpSent
+                        ? _buildOtpStep()
+                        : _buildInfoStep(authState),
               ),
               const SizedBox(height: AppSpacing.lg),
-              if (authState.verificationStep != VerificationStep.otpSent)
+              if (!_isDoctor && authState.verificationStep != VerificationStep.otpSent)
                 AuthFooter(
                   text: 'Vous avez déjà un compte ? ',
                   actionText: 'Se connecter',
@@ -150,37 +250,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Je suis',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: _RoleSelector(
-                  label: 'Patient',
-                  icon: Icons.person_outline,
-                  isSelected: _selectedRole == 'patient',
-                  onTap: () => setState(() => _selectedRole = 'patient'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _RoleSelector(
-                  label: 'Docteur',
-                  icon: Icons.medical_services_outlined,
-                  isSelected: _selectedRole == 'doctor',
-                  onTap: () => setState(() => _selectedRole = 'doctor'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
           AppTextField(
             label: 'Nom complet',
             hint: 'Votre nom',
@@ -300,56 +369,68 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   }
 }
 
-class _RoleSelector extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
+class _RoleToggle extends StatelessWidget {
+  final bool isDoctor;
+  final ValueChanged<bool> onChanged;
 
-  const _RoleSelector({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _RoleToggle({required this.isDoctor, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.1)
-              : AppColors.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 28,
-              color:
-                  isSelected ? AppColors.primary : AppColors.textSecondary,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w400,
-                color:
-                    isSelected ? AppColors.primary : AppColors.textSecondary,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: !isDoctor ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Patient',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: !isDoctor
+                        ? AppColors.white
+                        : AppColors.textSecondary,
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onChanged(true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDoctor ? AppColors.primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Docteur',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDoctor
+                        ? AppColors.white
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
