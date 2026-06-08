@@ -7,8 +7,11 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/routing/route_names.dart';
 import '../../../../core/widgets/buttons/danger_button.dart';
+import '../../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/auth_state.dart';
+import '../../../../repositories/auth_repository.dart';
 import '../providers/providers.dart';
 
 class PatientSettingsPage extends ConsumerStatefulWidget {
@@ -50,6 +53,99 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
       ref.read(patientProvider.notifier).clearError();
       final authNotifier = ref.read(authProvider.notifier);
       await authNotifier.logout();
+    }
+  }
+
+  void _confirmDeleteAccount() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xxl),
+        ),
+        title: const Text('Supprimer mon compte'),
+        content: const Text(
+          'Cette action est irréversible. Toutes vos données '
+          '(rendez-vous, favoris) seront définitivement effacées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _reAuthForDelete();
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Continuer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _reAuthForDelete() {
+    final passwordController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.xxl),
+        ),
+        title: const Text('Confirmer votre mot de passe'),
+        content: TextField(
+          controller: passwordController,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'Mot de passe',
+            hintText: 'Entrez votre mot de passe',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (passwordController.text.isEmpty) return;
+              await _executeDeleteAccount(passwordController.text);
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _executeDeleteAccount(String password) async {
+    final authState = ref.read(authProvider);
+    final phone = authState.phone;
+    final email = authState.email;
+
+    final repo = ref.read(authRepositoryProvider);
+    final reAuth = phone != null
+        ? await repo.signInWithPhone(phone: phone, password: password)
+        : await repo.signIn(email: email ?? '', password: password);
+
+    if (!reAuth.isSuccess) {
+      if (mounted) {
+        AppSnackbar.showError(context, message: 'Mot de passe incorrect');
+      }
+      return;
+    }
+
+    final error = await ref.read(authProvider.notifier).deleteAccount();
+    if (!mounted) return;
+
+    if (error == null) {
+      context.go(RouteNames.login);
+    } else {
+      AppSnackbar.showError(context, message: error);
     }
   }
 
@@ -225,6 +321,23 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _confirmDeleteAccount,
+                      icon: const Icon(LucideIcons.trash2, size: 18),
+                      label: const Text('Supprimer mon compte'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   DangerButton(
                     label: 'Déconnexion',
                     icon: LucideIcons.logOut,

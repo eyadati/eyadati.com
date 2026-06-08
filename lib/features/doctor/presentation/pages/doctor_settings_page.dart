@@ -9,6 +9,7 @@ import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/providers/locale_provider.dart';
 import 'package:eyadati/core/routing/route_names.dart';
+import 'package:eyadati/core/widgets/feedback/app_snackbar.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/doctor_provider.dart';
 import 'doctor_change_password_page.dart';
@@ -127,6 +128,97 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
         ],
       ),
     );
+  }
+
+  void _confirmDeleteAccount() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer mon compte'),
+        content: const Text(
+          'Cette action est irréversible. Toutes vos données (rendez-vous, '
+          'notes, abonnements, planning) seront définitivement effacées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _reAuthForDelete();
+            },
+            child: Text(
+              'Continuer',
+              style: AppTextStyles.labelLarge.copyWith(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _reAuthForDelete() {
+    final passwordController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmer votre mot de passe'),
+        content: TextField(
+          controller: passwordController,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'Mot de passe',
+            hintText: 'Entrez votre mot de passe',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (passwordController.text.isEmpty) return;
+              await _executeDeleteAccount(passwordController.text);
+            },
+            child: Text(
+              'Supprimer',
+              style: AppTextStyles.labelLarge.copyWith(color: AppColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _executeDeleteAccount(String password) async {
+    final authState = ref.read(authProvider);
+    final phone = authState.phone;
+    final email = authState.email;
+
+    final repo = ref.read(authRepositoryProvider);
+    final reAuth = phone != null
+        ? await repo.signInWithPhone(phone: phone, password: password)
+        : await repo.signIn(email: email ?? '', password: password);
+
+    if (!reAuth.isSuccess) {
+      if (mounted) {
+        AppSnackbar.showError(context, message: 'Mot de passe incorrect');
+      }
+      return;
+    }
+
+    final error = await ref.read(authProvider.notifier).deleteAccount();
+    if (!mounted) return;
+
+    if (error == null) {
+      context.go(RouteNames.login);
+    } else {
+      AppSnackbar.showError(context, message: error);
+    }
   }
 
   String _getInitials(String name) {
@@ -286,6 +378,25 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
               ],
             ),
             Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmDeleteAccount(),
+                  icon: const Icon(LucideIcons.trash2, size: 18),
+                  label: const Text('Supprimer mon compte'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               child: SizedBox(
                 width: double.infinity,
@@ -294,8 +405,8 @@ class _DoctorSettingsPageState extends ConsumerState<DoctorSettingsPage> {
                   icon: const Icon(LucideIcons.logOut, size: 18),
                   label: const Text('Déconnexion'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    side: const BorderSide(color: AppColors.error),
+                    foregroundColor: AppColors.textSecondary,
+                    side: const BorderSide(color: AppColors.border),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

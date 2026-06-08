@@ -333,6 +333,23 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     }
   }
 
+  Future<String?> deleteAccount() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.deleteAccount();
+      if (result.isSuccess) {
+        await _repository.signOut();
+        state = const AppAuthState(isInitialized: true);
+        return null;
+      }
+      state = state.copyWith(isLoading: false);
+      return result.error;
+    } catch (e) {
+      state = state.copyWith(isLoading: false);
+      return e.toString();
+    }
+  }
+
   Future<void> logout() async {
     await _repository.signOut();
     state = const AppAuthState(isInitialized: true);

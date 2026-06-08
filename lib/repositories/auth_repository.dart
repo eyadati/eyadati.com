@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:functions_client/functions_client.dart';
 import '../core/utils/input_validator.dart';
 import '../core/utils/security_validator.dart';
 
@@ -236,6 +237,22 @@ class AuthRepository {
       return AuthResult.failure(_mapAuthError(e.message));
     } catch (e) {
       return AuthResult.failure('Erreur. Réessayez.');
+    }
+  }
+
+  Future<AuthResult> deleteAccount() async {
+    try {
+      final response = await _client.functions.invoke('delete-account');
+      if (response.status >= 200 && response.status < 300) {
+        return AuthResult.success(null);
+      }
+      return AuthResult.failure('Erreur lors de la suppression');
+    } on FunctionException catch (e) {
+      return AuthResult.failure(
+        e.details?.toString() ?? 'Erreur lors de la suppression',
+      );
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
     }
   }
 
