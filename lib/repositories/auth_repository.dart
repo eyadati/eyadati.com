@@ -142,6 +142,90 @@ class AuthRepository {
     }
   }
 
+  // ── Direct phone + password signup (no OTP) ──
+
+  Future<AuthResult> signUpWithPhoneDirect({
+    required String phone,
+    required String password,
+    required String fullName,
+    required String role,
+  }) async {
+    final phoneError = InputValidator.validateAlgerianPhone(phone);
+    if (phoneError != null) {
+      return AuthResult.failure(phoneError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    final nameError = InputValidator.validateFullName(fullName);
+    if (nameError != null) {
+      return AuthResult.failure(nameError);
+    }
+
+    try {
+      final sanitizedName = SecurityValidator.sanitizeHtml(fullName.trim());
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+
+      final response = await _client.auth.signUp(
+        phone: formattedPhone,
+        password: password,
+        data: {
+          'full_name': sanitizedName,
+          'role': role,
+          'phone': formattedPhone,
+        },
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure("Erreur lors de l'inscription");
+      }
+
+      await _client.from('profiles').upsert({
+        'id': response.user!.id,
+        'full_name': sanitizedName,
+        'role': role,
+        'phone': formattedPhone,
+      });
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
+    }
+  }
+
+  // ── Reset password by phone (via edge function) ──
+
+  Future<AuthResult> resetPasswordByPhone({
+    required String phone,
+    required String newPassword,
+  }) async {
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      final response = await _client.functions.invoke(
+        'patient-reset-password',
+        body: {'phone': formattedPhone, 'new_password': newPassword},
+      );
+      if (response.status >= 200 && response.status < 300) {
+        return AuthResult.success(null);
+      }
+      final body = response.data as Map<String, dynamic>?;
+      return AuthResult.failure(
+        (body?['error'] as String?) ?? 'Erreur lors de la réinitialisation',
+      );
+    } on FunctionException catch (e) {
+      return AuthResult.failure(
+        e.details?.toString() ?? 'Erreur lors de la réinitialisation',
+      );
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
+    }
+  }
+
   // ── Phone OTP ──
 
   Future<AuthResult> sendOtp(String phone) async {

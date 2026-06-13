@@ -22,15 +22,13 @@ class RegisterPage extends ConsumerStatefulWidget {
 }
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
-  final _infoFormKey = GlobalKey<FormState>();
-  final _otpFormKey = GlobalKey<FormState>();
+  final _patientFormKey = GlobalKey<FormState>();
   final _doctorFormKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _otpController = TextEditingController();
   bool _isDoctor = false;
 
   @override
@@ -40,8 +38,35 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _otpController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handlePatientRegister() async {
+    if (!_patientFormKey.currentState!.validate()) return;
+
+    final phone = InputValidator.formatPhoneForE164(
+      _phoneController.text.trim(),
+    );
+
+    final notifier = ref.read(authProvider.notifier);
+    notifier.setPhone(phone);
+
+    final success = await notifier.directPhoneRegister(
+      name: _nameController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      context.go(RouteNames.patientHome);
+    } else {
+      final error = ref.read(authProvider).errorMessage;
+      AppSnackbar.showError(
+        context,
+        message: error ?? "Erreur lors de l'inscription",
+      );
+    }
   }
 
   Future<void> _handleDoctorRegister() async {
@@ -68,50 +93,68 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     }
   }
 
-  Future<void> _handleSendOtp() async {
-    if (!_infoFormKey.currentState!.validate()) return;
-
-    final phone = InputValidator.formatPhoneForE164(
-      _phoneController.text.trim(),
+  Widget _buildPatientForm(AppAuthState authState) {
+    return Form(
+      key: _patientFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppTextField(
+            label: 'Nom complet',
+            hint: 'Votre nom',
+            controller: _nameController,
+            prefixIcon: Icons.person_outline,
+            textInputAction: TextInputAction.next,
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Nom requis';
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppTextField(
+            label: 'Téléphone',
+            hint: '+213 5 55 12 34 56',
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            prefixIcon: Icons.phone_outlined,
+            textInputAction: TextInputAction.next,
+            validator: (value) => InputValidator.validateAlgerianPhone(value),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          PasswordField(
+            label: 'Mot de passe',
+            hint: '••••••••',
+            controller: _passwordController,
+            textInputAction: TextInputAction.next,
+            validator: (value) {
+              if (value == null || value.isEmpty) return 'Mot de passe requis';
+              if (value.length < 6) return 'Minimum 6 caractères';
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          PasswordField(
+            label: 'Confirmer le mot de passe',
+            hint: '••••••••',
+            controller: _confirmPasswordController,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _handlePatientRegister(),
+            validator: (value) {
+              if (value != _passwordController.text) {
+                return 'Les mots de passe ne correspondent pas';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          PrimaryButton(
+            label: "S'inscrire",
+            isLoading: authState.isLoading,
+            onPressed: _handlePatientRegister,
+          ),
+        ],
+      ),
     );
-
-    final success = await ref.read(authProvider.notifier).sendOtp(phone);
-    if (!mounted) return;
-
-    if (!success) {
-      final error = ref.read(authProvider).errorMessage;
-      AppSnackbar.showError(
-        context,
-        message: error ?? "Erreur d'envoi du code",
-      );
-    }
-  }
-
-  Future<void> _handleVerifyOtp() async {
-    if (!_otpFormKey.currentState!.validate()) return;
-
-    final success = await ref.read(authProvider.notifier).verifyOtp(
-          token: _otpController.text.trim(),
-          name: _nameController.text.trim(),
-          role: _isDoctor ? 'doctor' : 'patient',
-          password: _passwordController.text,
-        );
-
-    if (!mounted) return;
-
-    if (success) {
-      context.go(
-        _isDoctor
-            ? RouteNames.doctorDashboard
-            : RouteNames.patientHome,
-      );
-    } else {
-      final error = ref.read(authProvider).errorMessage;
-      AppSnackbar.showError(
-        context,
-        message: error ?? "Erreur lors de l'inscription",
-      );
-    }
   }
 
   Widget _buildDoctorForm(AppAuthState authState) {
@@ -193,13 +236,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () {
-            if (!_isDoctor && authState.verificationStep == VerificationStep.otpSent) {
-              ref.read(authProvider.notifier).resetVerification();
-            } else {
-              context.pop();
-            }
-          },
+          onPressed: () => context.pop(),
         ),
       ),
       body: SafeArea(
@@ -226,144 +263,17 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 ),
                 child: _isDoctor
                     ? _buildDoctorForm(authState)
-                    : authState.verificationStep == VerificationStep.otpSent
-                        ? _buildOtpStep()
-                        : _buildInfoStep(authState),
+                    : _buildPatientForm(authState),
               ),
               const SizedBox(height: AppSpacing.lg),
-              if (!_isDoctor && authState.verificationStep != VerificationStep.otpSent)
-                AuthFooter(
-                  text: 'Vous avez déjà un compte ? ',
-                  actionText: 'Se connecter',
-                  onAction: () => context.pop(),
-                ),
+              AuthFooter(
+                text: 'Vous avez déjà un compte ? ',
+                actionText: 'Se connecter',
+                onAction: () => context.pop(),
+              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoStep(AppAuthState authState) {
-    return Form(
-      key: _infoFormKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppTextField(
-            label: 'Nom complet',
-            hint: 'Votre nom',
-            controller: _nameController,
-            prefixIcon: Icons.person_outline,
-            textInputAction: TextInputAction.next,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Nom requis';
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.md),
-          AppTextField(
-            label: 'Téléphone',
-            hint: '+213 5 55 12 34 56',
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            prefixIcon: Icons.phone_outlined,
-            textInputAction: TextInputAction.next,
-            validator: (value) => InputValidator.validateAlgerianPhone(value),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          PasswordField(
-            label: 'Mot de passe',
-            hint: '••••••••',
-            controller: _passwordController,
-            textInputAction: TextInputAction.next,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Mot de passe requis';
-              if (value.length < 6) return 'Minimum 6 caractères';
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.md),
-          PasswordField(
-            label: 'Confirmer le mot de passe',
-            hint: '••••••••',
-            controller: _confirmPasswordController,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _handleSendOtp(),
-            validator: (value) {
-              if (value != _passwordController.text) {
-                return 'Les mots de passe ne correspondent pas';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(
-            label: "S'inscrire",
-            isLoading: authState.isLoading,
-            onPressed: _handleSendOtp,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOtpStep() {
-    return Form(
-      key: _otpFormKey,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline,
-                    color: AppColors.primary, size: 20),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Code envoyé au ${_phoneController.text.trim()}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppTextField(
-            label: 'Code de vérification',
-            hint: '123456',
-            controller: _otpController,
-            keyboardType: TextInputType.number,
-            prefixIcon: Icons.pin_outlined,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Code requis';
-              if (value.length < 6) return 'Code incomplet (6 chiffres)';
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(
-            label: 'Vérifier',
-            isLoading: ref.watch(authProvider).isLoading,
-            onPressed: _handleVerifyOtp,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          TextButton(
-            onPressed: _handleSendOtp,
-            child: const Text(
-              'Renvoyer le code',
-              style: TextStyle(color: AppColors.primary),
-            ),
-          ),
-        ],
       ),
     );
   }

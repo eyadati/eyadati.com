@@ -103,38 +103,10 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     }
   }
 
-  // ── Phone Registration (OTP flow) ──
+  // ── Direct phone registration (no OTP) ──
 
-  Future<bool> sendOtp(String phone) async {
-    state = state.copyWith(isLoading: true);
-    try {
-      final result = await _repository.sendOtp(phone);
-      if (result.isSuccess) {
-        state = state.copyWith(
-          isLoading: false,
-          verificationStep: VerificationStep.otpSent,
-          phone: phone,
-        );
-        return true;
-      }
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: result.error ?? 'Erreur d\'envoi du code',
-      );
-      return false;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
-      return false;
-    }
-  }
-
-  Future<bool> verifyOtp({
-    required String token,
+  Future<bool> directPhoneRegister({
     required String name,
-    required String role,
     required String password,
   }) async {
     state = state.copyWith(isLoading: true);
@@ -148,55 +120,30 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         return false;
       }
 
-      final result = await _repository.verifyOtp(
+      final result = await _repository.signUpWithPhoneDirect(
         phone: phone,
-        token: token,
+        password: password,
+        fullName: name,
+        role: 'patient',
       );
+
       if (!result.isSuccess) {
         state = state.copyWith(
           isLoading: false,
-          errorMessage: result.error ?? 'Code invalide',
+          errorMessage: result.error ?? "Erreur lors de l'inscription",
         );
         return false;
       }
 
-      // Set password
-      final passwordResult = await _repository.setPassword(password);
-      if (!passwordResult.isSuccess) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: passwordResult.error,
-        );
-        return false;
-      }
-
-      // Set profile data
-      final profileResult = await _repository.setProfileData(
-        name: name,
-        role: role,
-        phone: phone,
-      );
-      if (!profileResult.isSuccess) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: profileResult.error,
-        );
-        return false;
-      }
-
-      final user = profileResult.user!;
-      final setupCompleted = role == 'patient'
-          ? true
-          : await _checkDoctorSetup(user.id);
       state = state.copyWith(
         isAuthenticated: true,
         isLoading: false,
         isInitialized: true,
-        verificationStep: VerificationStep.verified,
-        setupCompleted: setupCompleted,
-        userId: user.id,
-        role: role,
-        isDoctor: role == 'doctor',
+        setupCompleted: true,
+        userId: result.user?.id,
+        phone: phone,
+        role: 'patient',
+        isDoctor: false,
         userName: name,
       );
       return true;
@@ -258,77 +205,25 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     }
   }
 
-  // ── Forgot password via phone OTP ──
+  // ── Forgot password: patient (phone via edge fn) ──
 
-  Future<bool> sendResetOtp(String phone) async {
+  Future<bool> patientPasswordReset({
+    required String phone,
+    required String newPassword,
+  }) async {
     state = state.copyWith(isLoading: true);
     try {
-      final result = await _repository.sendOtp(phone);
-      if (result.isSuccess) {
-        state = state.copyWith(
-          isLoading: false,
-          verificationStep: VerificationStep.otpSent,
-          phone: phone,
-        );
-        return true;
-      }
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: result.error ?? 'Erreur d\'envoi du code',
-      );
-      return false;
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
-      return false;
-    }
-  }
-
-  Future<bool> verifyResetOtp(String token, String newPassword) async {
-    state = state.copyWith(isLoading: true);
-    try {
-      final phone = state.phone;
-      if (phone == null) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: 'Numéro manquant',
-        );
-        return false;
-      }
-
-      final result = await _repository.verifyOtp(
+      final result = await _repository.resetPasswordByPhone(
         phone: phone,
-        token: token,
+        newPassword: newPassword,
       );
+      state = state.copyWith(isLoading: false);
       if (!result.isSuccess) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: result.error,
-        );
-        return false;
+        state = state.copyWith(errorMessage: result.error);
       }
-
-      final passwordResult = await _repository.setPassword(newPassword);
-      if (!passwordResult.isSuccess) {
-        state = state.copyWith(
-          isLoading: false,
-          errorMessage: passwordResult.error,
-        );
-        return false;
-      }
-
-      state = state.copyWith(
-        isLoading: false,
-        verificationStep: VerificationStep.verified,
-      );
-      return true;
+      return result.isSuccess;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
       return false;
     }
   }
@@ -359,11 +254,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     state = const AppAuthState(isInitialized: true);
   }
 
-  void resetVerification() {
-    state = state.copyWith(
-      verificationStep: VerificationStep.none,
-      phone: null,
-    );
+  void setPhone(String phone) {
+    state = state.copyWith(phone: phone);
   }
 
   Future<bool> _checkDoctorSetup(String userId) async {
@@ -462,7 +354,6 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       role: state.role,
       setupCompleted: state.setupCompleted,
       userName: state.userName,
-      verificationStep: state.verificationStep,
     );
   }
 

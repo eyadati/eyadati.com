@@ -22,64 +22,45 @@ class ForgotPasswordPage extends ConsumerStatefulWidget {
 }
 
 class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
-  final _phoneFormKey = GlobalKey<FormState>();
-  final _otpFormKey = GlobalKey<FormState>();
+  final _patientFormKey = GlobalKey<FormState>();
   final _emailFormKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
-  final _otpController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isDoctor = false;
   bool _emailSent = false;
+  bool _resetSuccess = false;
 
   @override
   void dispose() {
     _phoneController.dispose();
     _emailController.dispose();
-    _otpController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSendOtp() async {
-    if (!_phoneFormKey.currentState!.validate()) return;
+  Future<void> _handlePatientReset() async {
+    if (!_patientFormKey.currentState!.validate()) return;
 
     final phone = InputValidator.formatPhoneForE164(
       _phoneController.text.trim(),
     );
 
-    final success = await ref.read(authProvider.notifier).sendResetOtp(phone);
-    if (!mounted) return;
-
-    if (!success) {
-      final error = ref.read(authProvider).errorMessage;
-      AppSnackbar.showError(
-        context,
-        message: error ?? "Erreur d'envoi du code",
-      );
-    }
-  }
-
-  Future<void> _handleVerifyOtp() async {
-    if (!_otpFormKey.currentState!.validate()) return;
-
-    final token = _otpController.text.trim();
-
-    final success = await ref.read(authProvider.notifier).verifyResetOtp(
-          token,
-          _newPasswordController.text,
-        );
+    final success = await ref.read(authProvider.notifier).patientPasswordReset(
+      phone: phone,
+      newPassword: _newPasswordController.text,
+    );
     if (!mounted) return;
 
     if (success) {
-      setState(() {});
+      setState(() => _resetSuccess = true);
     } else {
       final error = ref.read(authProvider).errorMessage;
       AppSnackbar.showError(
         context,
-        message: error ?? 'Code invalide',
+        message: error ?? 'Erreur lors de la réinitialisation',
       );
     }
   }
@@ -151,18 +132,15 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   }
 
   Widget _buildPatientContent(AppAuthState authState) {
-    if (authState.verificationStep == VerificationStep.verified) {
+    if (_resetSuccess) {
       return _buildSuccessView();
     }
-    if (authState.verificationStep == VerificationStep.otpSent) {
-      return _buildOtpAndPasswordForm(authState);
-    }
-    return _buildPhoneForm(authState);
+    return _buildPatientForm(authState);
   }
 
-  Widget _buildPhoneForm(AppAuthState authState) {
+  Widget _buildPatientForm(AppAuthState authState) {
     return Form(
-      key: _phoneFormKey,
+      key: _patientFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -176,7 +154,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           ),
           const SizedBox(height: AppSpacing.sm),
           const Text(
-            'Entrez votre numéro de téléphone pour recevoir un code de réinitialisation.',
+            'Entrez votre numéro de téléphone et votre nouveau mot de passe.',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -189,53 +167,8 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             controller: _phoneController,
             keyboardType: TextInputType.phone,
             prefixIcon: Icons.phone_outlined,
+            textInputAction: TextInputAction.next,
             validator: (value) => InputValidator.validateAlgerianPhone(value),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          PrimaryButton(
-            label: 'Envoyer le code',
-            isLoading: authState.isLoading,
-            onPressed: _handleSendOtp,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOtpAndPasswordForm(AppAuthState authState) {
-    return Form(
-      key: _otpFormKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Code de vérification',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          const Text(
-            'Un code à 6 chiffres vous a été envoyé par SMS.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppTextField(
-            label: 'Code',
-            hint: '123456',
-            controller: _otpController,
-            keyboardType: TextInputType.number,
-            prefixIcon: Icons.pin_outlined,
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Code requis';
-              if (value.length < 6) return 'Code incomplet';
-              return null;
-            },
           ),
           const SizedBox(height: AppSpacing.md),
           PasswordField(
@@ -255,7 +188,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             hint: '••••••••',
             controller: _confirmPasswordController,
             textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _handleVerifyOtp(),
+            onSubmitted: (_) => _handlePatientReset(),
             validator: (value) {
               if (value != _newPasswordController.text) {
                 return 'Les mots de passe ne correspondent pas';
@@ -267,7 +200,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           PrimaryButton(
             label: 'Réinitialiser',
             isLoading: authState.isLoading,
-            onPressed: _handleVerifyOtp,
+            onPressed: _handlePatientReset,
           ),
         ],
       ),
