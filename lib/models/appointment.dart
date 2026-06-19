@@ -17,6 +17,7 @@ class Appointment with _$Appointment {
     required String patientNameSnapshot,
     String? patientPhoneSnapshot,
     String? notes,
+    String? attendanceStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) = _Appointment;
@@ -37,6 +38,7 @@ class Appointment with _$Appointment {
       patientNameSnapshot: json['patient_name_snapshot'] as String? ?? '',
       patientPhoneSnapshot: json['patient_phone_snapshot'] as String?,
       notes: json['notes'] as String?,
+      attendanceStatus: json['attendance_status'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,

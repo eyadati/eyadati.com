@@ -285,6 +285,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       bookingType: a['booking_type'] as String? ?? 'online',
       doctorId: a['doctor_id'] as String? ?? '',
       doctorName: state.name,
+      attendanceStatus: a['attendance_status'] as String?,
     );
   }
 
@@ -366,8 +367,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
               full_name,
               avatar_url
             ),
-            doctor_id
-          ''')
+          doctor_id,
+            attendance_status
+           ''')
           .eq('doctor_id', user.id)
           .order('scheduled_at', ascending: false);
 
@@ -783,6 +785,57 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     } catch (e) {
       print('[DoctorNotifier] Error in createAppointment: $e');
       state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> markAttendance(
+    String appointmentId,
+    String attendanceStatus,
+  ) async {
+    try {
+      final statusMap = {
+        'present': 'completed',
+        'cancelled_with_notice': 'cancelled',
+        'no_show': 'absent',
+      };
+      final newStatus = statusMap[attendanceStatus] ?? 'completed';
+
+      final updated = await _client
+          .from('appointments')
+          .update({
+            'attendance_status': attendanceStatus,
+            'status': newStatus,
+          })
+          .eq('id', appointmentId)
+          .select();
+
+      if (updated.isEmpty) return false;
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: newStatus,
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+            bookingType: a.bookingType,
+            attendanceStatus: attendanceStatus,
+          );
+        }
+        return a;
+      }).toList();
+
+      state = state.copyWith(allAppointments: updatedAll);
+      return true;
+    } catch (e) {
       return false;
     }
   }

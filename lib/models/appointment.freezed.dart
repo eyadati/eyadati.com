@@ -32,6 +32,7 @@ mixin _$Appointment {
   String get patientNameSnapshot => throw _privateConstructorUsedError;
   String? get patientPhoneSnapshot => throw _privateConstructorUsedError;
   String? get notes => throw _privateConstructorUsedError;
+  String? get attendanceStatus => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
   DateTime? get updatedAt => throw _privateConstructorUsedError;
 
@@ -64,6 +65,7 @@ abstract class $AppointmentCopyWith<$Res> {
     String patientNameSnapshot,
     String? patientPhoneSnapshot,
     String? notes,
+    String? attendanceStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -95,6 +97,7 @@ class _$AppointmentCopyWithImpl<$Res, $Val extends Appointment>
     Object? patientNameSnapshot = null,
     Object? patientPhoneSnapshot = freezed,
     Object? notes = freezed,
+    Object? attendanceStatus = freezed,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
   }) {
@@ -144,6 +147,10 @@ class _$AppointmentCopyWithImpl<$Res, $Val extends Appointment>
                 ? _value.notes
                 : notes // ignore: cast_nullable_to_non_nullable
                       as String?,
+            attendanceStatus: freezed == attendanceStatus
+                ? _value.attendanceStatus
+                : attendanceStatus // ignore: cast_nullable_to_non_nullable
+                      as String?,
             createdAt: freezed == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -179,6 +186,7 @@ abstract class _$$AppointmentImplCopyWith<$Res>
     String patientNameSnapshot,
     String? patientPhoneSnapshot,
     String? notes,
+    String? attendanceStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -209,6 +217,7 @@ class __$$AppointmentImplCopyWithImpl<$Res>
     Object? patientNameSnapshot = null,
     Object? patientPhoneSnapshot = freezed,
     Object? notes = freezed,
+    Object? attendanceStatus = freezed,
     Object? createdAt = freezed,
     Object? updatedAt = freezed,
   }) {
@@ -258,6 +267,10 @@ class __$$AppointmentImplCopyWithImpl<$Res>
             ? _value.notes
             : notes // ignore: cast_nullable_to_non_nullable
                   as String?,
+        attendanceStatus: freezed == attendanceStatus
+            ? _value.attendanceStatus
+            : attendanceStatus // ignore: cast_nullable_to_non_nullable
+                  as String?,
         createdAt: freezed == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -286,6 +299,7 @@ class _$AppointmentImpl implements _Appointment {
     required this.patientNameSnapshot,
     this.patientPhoneSnapshot,
     this.notes,
+    this.attendanceStatus,
     this.createdAt,
     this.updatedAt,
   });
@@ -317,13 +331,15 @@ class _$AppointmentImpl implements _Appointment {
   @override
   final String? notes;
   @override
+  final String? attendanceStatus;
+  @override
   final DateTime? createdAt;
   @override
   final DateTime? updatedAt;
 
   @override
   String toString() {
-    return 'Appointment(id: $id, doctorId: $doctorId, patientId: $patientId, scheduledAt: $scheduledAt, duration: $duration, status: $status, bookingType: $bookingType, isConsultation: $isConsultation, patientNameSnapshot: $patientNameSnapshot, patientPhoneSnapshot: $patientPhoneSnapshot, notes: $notes, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Appointment(id: $id, doctorId: $doctorId, patientId: $patientId, scheduledAt: $scheduledAt, duration: $duration, status: $status, bookingType: $bookingType, isConsultation: $isConsultation, patientNameSnapshot: $patientNameSnapshot, patientPhoneSnapshot: $patientPhoneSnapshot, notes: $notes, attendanceStatus: $attendanceStatus, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -350,6 +366,8 @@ class _$AppointmentImpl implements _Appointment {
             (identical(other.patientPhoneSnapshot, patientPhoneSnapshot) ||
                 other.patientPhoneSnapshot == patientPhoneSnapshot) &&
             (identical(other.notes, notes) || other.notes == notes) &&
+            (identical(other.attendanceStatus, attendanceStatus) ||
+                other.attendanceStatus == attendanceStatus) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -371,6 +389,7 @@ class _$AppointmentImpl implements _Appointment {
     patientNameSnapshot,
     patientPhoneSnapshot,
     notes,
+    attendanceStatus,
     createdAt,
     updatedAt,
   );
@@ -402,6 +421,7 @@ abstract class _Appointment implements Appointment {
     required final String patientNameSnapshot,
     final String? patientPhoneSnapshot,
     final String? notes,
+    final String? attendanceStatus,
     final DateTime? createdAt,
     final DateTime? updatedAt,
   }) = _$AppointmentImpl;
@@ -431,6 +451,8 @@ abstract class _Appointment implements Appointment {
   String? get patientPhoneSnapshot;
   @override
   String? get notes;
+  @override
+  String? get attendanceStatus;
   @override
   DateTime? get createdAt;
   @override

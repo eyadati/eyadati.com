@@ -19,6 +19,7 @@ _$AppointmentImpl _$$AppointmentImplFromJson(Map<String, dynamic> json) =>
       patientNameSnapshot: json['patientNameSnapshot'] as String,
       patientPhoneSnapshot: json['patientPhoneSnapshot'] as String?,
       notes: json['notes'] as String?,
+      attendanceStatus: json['attendanceStatus'] as String?,
       createdAt: json['createdAt'] == null
           ? null
           : DateTime.parse(json['createdAt'] as String),
@@ -40,6 +41,7 @@ Map<String, dynamic> _$$AppointmentImplToJson(_$AppointmentImpl instance) =>
       'patientNameSnapshot': instance.patientNameSnapshot,
       'patientPhoneSnapshot': instance.patientPhoneSnapshot,
       'notes': instance.notes,
+      'attendanceStatus': instance.attendanceStatus,
       'createdAt': instance.createdAt?.toIso8601String(),
       'updatedAt': instance.updatedAt?.toIso8601String(),
     };

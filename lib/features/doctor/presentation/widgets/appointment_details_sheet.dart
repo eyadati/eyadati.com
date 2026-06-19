@@ -15,6 +15,11 @@ class AppointmentDetailsSheet extends ConsumerWidget {
 
   const AppointmentDetailsSheet({super.key, required this.appointment});
 
+  bool get _isPastAppointment {
+    final end = appointment.startTime.add(Duration(minutes: appointment.duration));
+    return end.isBefore(DateTime.now());
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timeStr = '${appointment.startTime.hour.toString().padLeft(2, '0')}:${appointment.startTime.minute.toString().padLeft(2, '0')}';
@@ -205,7 +210,76 @@ class AppointmentDetailsSheet extends ConsumerWidget {
               Text(appointment.notes!, style: AppTextStyles.notes),
             ],
             const SizedBox(height: AppSpacing.xl),
-            if (!isCancelled) ...[
+            if (!isCancelled && _isPastAppointment) ...[
+              if (appointment.attendanceStatus == null) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ActionButton(
+                        label: 'Présent',
+                        icon: LucideIcons.checkCircle,
+                        color: AppColors.success,
+                        onTap: () async {
+                          final ok = await ref.read(doctorProvider.notifier).markAttendance(appointment.id, 'present');
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ok ? 'Marqué comme présent' : 'Erreur', style: TextStyle(color: AppColors.white)),
+                                backgroundColor: ok ? AppColors.success : AppColors.warning,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: _ActionButton(
+                        label: 'Annulé avec préavis',
+                        icon: LucideIcons.alertCircle,
+                        color: AppColors.warning,
+                        onTap: () async {
+                          final ok = await ref.read(doctorProvider.notifier).markAttendance(appointment.id, 'cancelled_with_notice');
+                          if (context.mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ok ? 'Marqué comme annulé avec préavis' : 'Erreur', style: TextStyle(color: AppColors.white)),
+                                backgroundColor: ok ? AppColors.warning : AppColors.warning,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: _ActionButton(
+                    label: 'Absent sans préavis',
+                    icon: LucideIcons.xCircle,
+                    color: AppColors.error,
+                    onTap: () async {
+                      final ok = await ref.read(doctorProvider.notifier).markAttendance(appointment.id, 'no_show');
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(ok ? 'Marqué comme absent sans préavis' : 'Erreur', style: TextStyle(color: AppColors.white)),
+                            backgroundColor: ok ? AppColors.error : AppColors.warning,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ] else ...[
+                _buildAttendanceBadge(),
+              ],
+            ] else if (!isCancelled) ...[
               Row(
                 children: [
                   if (appointment.patientPhone != null)
@@ -304,6 +378,52 @@ class AppointmentDetailsSheet extends ConsumerWidget {
         const SizedBox(width: 6),
         Text(text, style: AppTextStyles.labelLarge),
       ],
+    );
+  }
+
+  Widget _buildAttendanceBadge() {
+    String label;
+    Color color;
+    IconData icon;
+
+    switch (appointment.attendanceStatus) {
+      case 'present':
+        label = 'Présent';
+        color = AppColors.success;
+        icon = LucideIcons.checkCircle;
+        break;
+      case 'cancelled_with_notice':
+        label = 'Annulé avec préavis';
+        color = AppColors.warning;
+        icon = LucideIcons.alertCircle;
+        break;
+      case 'no_show':
+        label = 'Absent sans préavis';
+        color = AppColors.error;
+        icon = LucideIcons.xCircle;
+        break;
+      default:
+        label = 'Non défini';
+        color = AppColors.textHint;
+        icon = LucideIcons.helpCircle;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: AppTextStyles.labelLarge.copyWith(color: color)),
+        ],
+      ),
     );
   }
 }

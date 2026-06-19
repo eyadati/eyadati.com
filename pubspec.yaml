@@ -48,6 +48,7 @@ dependencies:
   image_picker: ^1.1.2
   uuid: ^4.5.1
   url_launcher: ^6.3.1
+  add_2_calendar: ^3.0.1
 
   # Firebase
   firebase_core: ^3.12.0

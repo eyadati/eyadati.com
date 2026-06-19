@@ -13,6 +13,7 @@ import 'package:eyadati/models/doctor.dart';
 import 'package:eyadati/core/engine/availability_service.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/services/calendar_service.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
   final String doctorId;
@@ -28,6 +29,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   TimeOfDay? _selectedTime;
   final _notesController = TextEditingController();
   bool _isLoading = false;
+  bool _addToCalendar = true;
 
   List<ValidStart> _availableSlots = [];
 
@@ -215,48 +217,79 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE8F5E9),
-                  shape: BoxShape.circle,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check,
+                    size: 48,
+                    color: AppColors.secondary,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.check,
-                  size: 48,
-                  color: AppColors.secondary,
+                const SizedBox(height: 16),
+                const Text(
+                  'Rendez-vous confirmé !',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Rendez-vous confirmé !',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Votre rendez-vous a été enregistré avec succès.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    context.go(RouteNames.patientAppointments);
-                  },
-                  child: const Text('Voir mes rendez-vous'),
+                const SizedBox(height: 8),
+                const Text(
+                  'Votre rendez-vous a été enregistré avec succès.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  value: _addToCalendar,
+                  onChanged: (v) => setDialogState(() => _addToCalendar = v ?? true),
+                  title: const Text(
+                    'Ajouter au calendrier',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'Rappel 3h avant',
+                    style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      if (_addToCalendar) {
+                        final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
+                        await CalendarService.addAppointmentEvent(
+                          doctorName: doctor.name,
+                          timeFormatted: timeStr,
+                          location: doctor.address,
+                          startDate: scheduledAt,
+                          durationMinutes: duration,
+                          notes: _notesController.text,
+                        );
+                      }
+                      if (context.mounted) {
+                        context.go(RouteNames.patientAppointments);
+                      }
+                    },
+                    child: const Text('Voir mes rendez-vous'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );

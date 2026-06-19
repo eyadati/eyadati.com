@@ -13,6 +13,7 @@ class AppointmentData {
   final String bookingType;
   final String doctorId;
   final String doctorName;
+  final String? attendanceStatus;
 
   AppointmentData({
     required this.id,
@@ -29,5 +30,6 @@ class AppointmentData {
     this.bookingType = 'online',
     this.doctorId = '',
     this.doctorName = '',
+    this.attendanceStatus,
   });
 }

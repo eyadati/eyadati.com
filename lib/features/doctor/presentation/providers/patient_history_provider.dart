@@ -131,6 +131,24 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
           .not('patient_id', 'is', null)
           .order('scheduled_at', ascending: false);
 
+      final noShowData = await _client
+          .from('appointments')
+          .select('patient_id, scheduled_at, attendance_status')
+          .eq('doctor_id', user.id)
+          .eq('attendance_status', 'no_show')
+          .not('patient_id', 'is', null);
+
+      final Map<String, int> noShowCounts = {};
+      final Map<String, DateTime> lastNoShow = {};
+      for (final row in noShowData as List) {
+        final pid = row['patient_id'] as String;
+        noShowCounts[pid] = (noShowCounts[pid] ?? 0) + 1;
+        final sched = DateTime.parse(row['scheduled_at'] as String);
+        if (!lastNoShow.containsKey(pid) || sched.isAfter(lastNoShow[pid]!)) {
+          lastNoShow[pid] = sched;
+        }
+      }
+
       final Map<String, List<Map<String, dynamic>>> grouped = {};
       for (final row in data as List) {
         final pid = row['patient_id'] as String;
@@ -178,6 +196,8 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
               (first['patient_phone_snapshot'] as String?),
           patientAvatar: patientData?['avatar_url'] as String?,
           visitCount: rows.length,
+          noShowCount: noShowCounts[entry.key] ?? 0,
+          lastNoShowAt: lastNoShow[entry.key],
           lastVisitDate: lastVisit,
           visits: visits,
         ));
