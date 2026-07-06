@@ -46,28 +46,55 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
         ),
         body: patientState.isLoading
             ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
+            : Column(
                 children: [
-                  _buildAppointmentsList(
-                    patientState.upcomingAppointments,
-                    'Aucun rendez-vous à venir',
-                    context,
-                    ref,
-                    showCancel: true,
-                  ),
-                  _buildAppointmentsList(
-                    patientState.pastAppointments,
-                    'Aucun rendez-vous passé',
-                    context,
-                    ref,
-                    showCancel: false,
-                  ),
-                  _buildAppointmentsList(
-                    patientState.cancelledAppointments,
-                    'Aucun rendez-vous annulé',
-                    context,
-                    ref,
-                    showCancel: false,
+                  if (patientState.noShowCount == 1)
+                    _buildNoShowBanner(
+                      patientState.noShowCount,
+                      AppColors.textHint,
+                      AppColors.background,
+                      Icons.info_outline,
+                    )
+                  else if (patientState.noShowCount == 2)
+                    _buildNoShowBanner(
+                      patientState.noShowCount,
+                      AppColors.warning,
+                      AppColors.warning.withValues(alpha: 0.15),
+                      Icons.warning_amber,
+                    )
+                  else if (patientState.noShowCount >= 3)
+                    _buildNoShowBanner(
+                      patientState.noShowCount,
+                      AppColors.error,
+                      AppColors.error.withValues(alpha: 0.1),
+                      Icons.block,
+                    ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildAppointmentsList(
+                          patientState.upcomingAppointments,
+                          'Aucun rendez-vous à venir',
+                          context,
+                          ref,
+                          showCancel: true,
+                        ),
+                        _buildAppointmentsList(
+                          patientState.pastAppointments,
+                          'Aucun rendez-vous passé',
+                          context,
+                          ref,
+                          showCancel: false,
+                        ),
+                        _buildAppointmentsList(
+                          patientState.cancelledAppointments,
+                          'Aucun rendez-vous annulé',
+                          context,
+                          ref,
+                          showCancel: false,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -134,6 +161,39 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(success ? 'Rendez-vous annulé' : 'Erreur lors de l\'annulation'),
+      ),
+    );
+  }
+
+  Widget _buildNoShowBanner(
+    int count,
+    Color color,
+    Color bgColor,
+    IconData icon,
+  ) {
+    String message;
+    if (count >= 3) {
+      message = 'Vous avez été absent à $count rendez-vous. Vous ne pouvez plus réserver en ligne. Contactez le cabinet.';
+    } else if (count == 2) {
+      message = 'Attention : vous avez $count absences non justifiées. Après 3 absences, vous serez bloqué.';
+    } else {
+      message = 'Note : vous avez $count absence non justifiée.';
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      color: bgColor,
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 12, color: color),
+            ),
+          ),
+        ],
       ),
     );
   }

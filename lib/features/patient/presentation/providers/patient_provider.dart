@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
@@ -12,6 +13,7 @@ class PatientState {
   final String avatarUrl;
   final int upcomingCount;
   final int favoritesCount;
+  final int noShowCount;
   final List<PatientAppointmentViewModel> upcomingAppointments;
   final List<PatientAppointmentViewModel> pastAppointments;
   final List<PatientAppointmentViewModel> cancelledAppointments;
@@ -26,6 +28,7 @@ class PatientState {
     this.avatarUrl = '',
     this.upcomingCount = 0,
     this.favoritesCount = 0,
+    this.noShowCount = 0,
     this.upcomingAppointments = const [],
     this.pastAppointments = const [],
     this.cancelledAppointments = const [],
@@ -41,6 +44,7 @@ class PatientState {
     String? avatarUrl,
     int? upcomingCount,
     int? favoritesCount,
+    int? noShowCount,
     List<PatientAppointmentViewModel>? upcomingAppointments,
     List<PatientAppointmentViewModel>? pastAppointments,
     List<PatientAppointmentViewModel>? cancelledAppointments,
@@ -55,6 +59,7 @@ class PatientState {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       upcomingCount: upcomingCount ?? this.upcomingCount,
       favoritesCount: favoritesCount ?? this.favoritesCount,
+      noShowCount: noShowCount ?? this.noShowCount,
       upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
       pastAppointments: pastAppointments ?? this.pastAppointments,
       cancelledAppointments:
@@ -187,6 +192,14 @@ class PatientNotifier extends StateNotifier<PatientState> {
           .order('scheduled_at', ascending: false)
           .limit(50);
 
+      final noShowData = await SupabaseInitializer.client
+          .from('appointments')
+          .select('id')
+          .eq('patient_id', userId)
+          .eq('attendance_status', 'no_show');
+
+      final noShowCount = (noShowData as List).length;
+
       final favoritesResult = await SupabaseInitializer.client
           .from('favorites')
           .select('doctor_id')
@@ -215,7 +228,6 @@ class PatientNotifier extends StateNotifier<PatientState> {
               doctorProfileMap[p['id'] as String] = p as Map<String, dynamic>;
             }
           } catch (_) {
-            // Both RPC and direct query failed; names will fall back to 'Docteur'
           }
         }
       }
@@ -228,7 +240,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
         final docMap = row['doctors'] as Map<String, dynamic>?;
         final doctorId = row['doctor_id'] as String;
         final profileData = doctorProfileMap[doctorId];
-        
+
         final doctorName = profileData?['full_name'] as String? ?? 'Docteur';
         final doctorSpecialty = docMap?['specialty'] as String? ?? '';
         final doctorAvatar = profileData?['avatar_url'] as String? ??
@@ -269,12 +281,73 @@ class PatientNotifier extends StateNotifier<PatientState> {
         avatarUrl: profileResult?['avatar_url'] as String? ?? '',
         upcomingCount: upcoming.length,
         favoritesCount: (favoritesResult as List).length,
+        noShowCount: noShowCount,
         upcomingAppointments: upcoming,
         pastAppointments: past,
         cancelledAppointments: cancelled,
       );
+
+      processPendingReminders(userId);
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> processPendingReminders(String userId) async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      final pending = await _client
+          .from('appointments')
+          .select('id, scheduled_at')
+          .eq('patient_id', userId)
+          .eq('fcm_reminder_sent', false)
+          .not('fcm_reminder_scheduled_at', 'is', null)
+          .lte('fcm_reminder_scheduled_at', now)
+          .eq('status', 'upcoming');
+
+      for (final row in pending as List) {
+        final aptId = row['id'] as String;
+        try {
+          await _client.functions.invoke('send-appointment-reminder', body: {
+            'appointment_id': aptId,
+          });
+        } catch (e) {
+          debugPrint('Failed to send reminder for $aptId: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('processPendingReminders error: $e');
+    }
+  }
+
+  Future<void> scheduleReminders({
+    required String appointmentId,
+    required DateTime scheduledAt,
+  }) async {
+    try {
+      final delta = scheduledAt.difference(DateTime.now());
+      final fcmScheduledAt = _computeFcmReminderTime(delta, scheduledAt);
+
+      await _client
+          .from('appointments')
+          .update({'fcm_reminder_scheduled_at': fcmScheduledAt.toUtc().toIso8601String()})
+          .eq('id', appointmentId);
+    } catch (e) {
+      debugPrint('scheduleReminders error: $e');
+    }
+  }
+
+  DateTime _computeFcmReminderTime(Duration delta, DateTime scheduledAt) {
+    if (delta.inHours > 13) {
+      return scheduledAt.subtract(const Duration(hours: 12));
+    } else if (delta.inHours > 7) {
+      return DateTime.now().add(const Duration(hours: 1));
+    } else if (delta.inHours > 3) {
+      return DateTime.now().add(const Duration(minutes: 15));
+    } else if (delta.inHours > 1) {
+      return DateTime.now().add(const Duration(minutes: 5));
+    } else {
+      return DateTime.now();
     }
   }
 
@@ -282,7 +355,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
     try {
       await SupabaseInitializer.client
           .from('appointments')
-          .update({'status': 'cancelled'})
+          .update({'status': 'cancelled', 'fcm_reminder_sent': true})
           .eq('id', appointmentId);
       await loadPatientData();
       return true;

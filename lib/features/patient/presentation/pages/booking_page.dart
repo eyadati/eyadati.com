@@ -30,13 +30,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   final _notesController = TextEditingController();
   bool _isLoading = false;
   bool _addToCalendar = true;
+  int _noShowCount = 0;
+  bool _noShowCheckDone = false;
 
   List<ValidStart> _availableSlots = [];
 
   Future<void> _loadAvailability() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Fetch appointments for _selectedDate
       final appointmentsData = await SupabaseInitializer.client
           .from('appointments')
           .select('''
@@ -78,7 +79,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         },
       ).toList();
 
-      // 2. Fetch schedule
       final scheduleData = await SupabaseInitializer.client
           .from('doctor_schedule')
           .select()
@@ -89,16 +89,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           .map((s) => ScheduleSlot.fromDbMap(s))
           .toList();
 
-      // 3. Get doctor durations from database
       final doctorData = await SupabaseInitializer.client
           .from('doctors')
           .select('consultation_duration, appointment_duration')
           .eq('id', widget.doctorId)
           .single();
-      
+
       final effectiveDuration = doctorData['appointment_duration'] as int? ?? 20;
 
-      // 4. Calculate slots
       final availabilityService = AvailabilityService(
         scheduleSlots: scheduleSlots,
         appointmentDuration: effectiveDuration,
@@ -113,7 +111,28 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      // Handle error
+    }
+  }
+
+  Future<void> _loadNoShowCount() async {
+    final userId = SupabaseInitializer.client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      final data = await SupabaseInitializer.client
+          .from('appointments')
+          .select('id')
+          .eq('patient_id', userId)
+          .eq('attendance_status', 'no_show');
+      if (mounted) {
+        setState(() {
+          _noShowCount = (data as List).length;
+          _noShowCheckDone = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _noShowCheckDone = true);
+      }
     }
   }
 
@@ -121,6 +140,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   void initState() {
     super.initState();
     _loadAvailability();
+    _loadNoShowCount();
   }
 
   Future<void> _selectDate() async {
@@ -154,6 +174,26 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   bool _isToday(DateTime date) {
     final now = DateTime.now();
     return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
+  bool get _isBlocked => _noShowCount >= 3;
+
+  String _reminderSubtitle() {
+    if (_selectedTime == null) return 'Rappel 6h avant';
+    final now = DateTime.now();
+    final scheduledAt = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime!.hour,
+      _selectedTime!.minute,
+    );
+    final delta = scheduledAt.difference(now).inMinutes;
+    if (delta > 420) return 'Rappel 6h avant';
+    if (delta > 180) return 'Rappel 3h avant';
+    if (delta > 60) return 'Rappel 1h avant';
+    if (delta > 30) return 'Rappel 30min avant';
+    return 'Rappel 15min avant';
   }
 
   Future<void> _confirmBooking() async {
@@ -199,7 +239,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       );
       final duration = doctor.appointmentDuration;
 
-      await SupabaseInitializer.client.from('appointments').insert({
+      final response = await SupabaseInitializer.client.from('appointments').insert({
         'doctor_id': widget.doctorId,
         'patient_id': userId,
         'scheduled_at': scheduledAt.toIso8601String(),
@@ -209,7 +249,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         'is_consultation': false,
         'patient_name_snapshot': patientName ?? 'Patient',
         'notes': _notesController.text.isEmpty ? null : _notesController.text,
-      });
+      }).select('id');
+
+      final newAppointmentId = (response as List).first['id'] as String;
+
+      ref.read(patientProvider.notifier).scheduleReminders(
+        appointmentId: newAppointmentId,
+        scheduledAt: scheduledAt,
+      );
 
       ref.invalidate(patientProvider);
 
@@ -256,9 +303,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     'Ajouter au calendrier',
                     style: TextStyle(fontSize: 14),
                   ),
-                  subtitle: const Text(
-                    'Rappel 3h avant',
-                    style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                  subtitle: Text(
+                    _reminderSubtitle(),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textHint),
                   ),
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
@@ -272,6 +319,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       Navigator.pop(ctx);
                       if (_addToCalendar) {
                         final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
+                        final reminderMinutes = CalendarService.computeReminderMinutes(scheduledAt);
                         await CalendarService.addAppointmentEvent(
                           doctorName: doctor.name,
                           timeFormatted: timeStr,
@@ -279,6 +327,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           startDate: scheduledAt,
                           durationMinutes: duration,
                           notes: _notesController.text,
+                          reminderMinutes: reminderMinutes,
                         );
                       }
                       if (context.mounted) {
@@ -323,6 +372,50 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_noShowCheckDone && _isBlocked)
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.block, color: AppColors.error, size: 20),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Vous avez été absent à $_noShowCount rendez-vous sans préavis. Pour réserver, veuillez contacter directement le cabinet.',
+                        style: const TextStyle(fontSize: 13, color: AppColors.error),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_noShowCheckDone && _noShowCount == 2)
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber, color: AppColors.warning, size: 20),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Attention : vous avez $_noShowCount absences non justifiées. Après 3 absences, vous ne pourrez plus réserver en ligne.',
+                        style: const TextStyle(fontSize: 13, color: AppColors.warning),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
@@ -548,7 +641,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         child: SafeArea(
           child: PrimaryButton(
             label: _isLoading ? 'En cours...' : 'Confirmer le rendez-vous',
-            onPressed: _isLoading ? null : _confirmBooking,
+            onPressed: _isLoading || _isBlocked ? null : _confirmBooking,
           ),
         ),
       ),

@@ -336,15 +336,7 @@ class _PatientTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Flexible(child: Text(summary.patientName, style: AppTextStyles.cardTitle)),
-                  if (summary.noShowCount >= 2) ...[
-                    const SizedBox(width: 8),
-                    _NoShowBadge(count: summary.noShowCount, lastDate: summary.lastNoShowAt),
-                  ],
-                ],
-              ),
+              Text(summary.patientName, style: AppTextStyles.cardTitle),
               if (summary.patientPhone != null &&
                   summary.patientPhone!.isNotEmpty) ...[
                 const SizedBox(height: 2),
@@ -652,38 +644,3 @@ class _NoteCard extends StatelessWidget {
   }
 }
 
-class _NoShowBadge extends StatelessWidget {
-  final int count;
-  final DateTime? lastDate;
-
-  const _NoShowBadge({required this.count, this.lastDate});
-
-  @override
-  Widget build(BuildContext context) {
-    final isSevere = count >= 3;
-    final color = isSevere ? AppColors.error : AppColors.warning;
-    final bgColor = color.withValues(alpha: 0.15);
-    final label = isSevere ? '🔴 $count absences' : '⚠️ $count absences';
-
-    return Tooltip(
-      message: lastDate != null
-          ? 'Dernière absence: ${lastDate!.day}/${lastDate!.month}/${lastDate!.year}'
-          : '$count absence(s)',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyles.badge.copyWith(
-            color: color,
-            fontWeight: FontWeight.w600,
-            fontSize: 10,
-          ),
-        ),
-      ),
-    );
-  }
-}

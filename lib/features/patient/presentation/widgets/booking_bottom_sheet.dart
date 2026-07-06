@@ -29,6 +29,8 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   TimeOfDay? _selectedSlot;
   bool _isLoading = false;
   bool _addToCalendar = true;
+  int _noShowCount = 0;
+  bool _noShowCheckDone = false;
   List<ValidStart> _availableSlots = [];
 
   List<DateTime> get _next14Days {
@@ -37,6 +39,26 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
       14,
       (index) => DateTime(today.year, today.month, today.day + index + 1),
     );
+  }
+
+  Future<void> _loadNoShowCount() async {
+    final userId = SupabaseInitializer.client.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      final data = await SupabaseInitializer.client
+          .from('appointments')
+          .select('id')
+          .eq('patient_id', userId)
+          .eq('attendance_status', 'no_show');
+      if (mounted) {
+        setState(() {
+          _noShowCount = (data as List).length;
+          _noShowCheckDone = true;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _noShowCheckDone = true);
+    }
   }
 
   Future<void> _loadSlotsForDate(DateTime date) async {
@@ -102,6 +124,25 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
     }
   }
 
+  bool get _isBlocked => _noShowCount >= 3;
+
+  String _reminderSubtitle() {
+    if (_selectedSlot == null || _selectedDate == null) return 'Rappel 6h avant';
+    final scheduledAt = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _selectedSlot!.hour,
+      _selectedSlot!.minute,
+    );
+    final delta = scheduledAt.difference(DateTime.now()).inMinutes;
+    if (delta > 420) return 'Rappel 6h avant';
+    if (delta > 180) return 'Rappel 3h avant';
+    if (delta > 60) return 'Rappel 1h avant';
+    if (delta > 30) return 'Rappel 30min avant';
+    return 'Rappel 15min avant';
+  }
+
   Future<void> _confirmBooking() async {
     if (_selectedDate == null || _selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -134,7 +175,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
 
       final duration = widget.doctor.appointmentDuration;
 
-      await SupabaseInitializer.client.from('appointments').insert({
+      final response = await SupabaseInitializer.client.from('appointments').insert({
         'doctor_id': widget.doctor.id,
         'patient_id': userId,
         'scheduled_at': scheduledAt.toIso8601String(),
@@ -142,7 +183,14 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
         'status': 'upcoming',
         'booking_type': 'online',
         'patient_name_snapshot': (patientName?.isNotEmpty == true) ? patientName! : 'Patient',
-      });
+      }).select('id');
+
+      final newAppointmentId = (response as List).first['id'] as String;
+
+      ref.read(patientProvider.notifier).scheduleReminders(
+        appointmentId: newAppointmentId,
+        scheduledAt: scheduledAt,
+      );
 
       ref.invalidate(patientProvider);
 
@@ -213,9 +261,9 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                   'Ajouter au calendrier',
                   style: TextStyle(fontSize: 14),
                 ),
-                subtitle: const Text(
-                  'Rappel 3h avant',
-                  style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                subtitle: Text(
+                  _reminderSubtitle(),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textHint),
                 ),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
@@ -230,12 +278,14 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                     Navigator.pop(ctx);
                     if (_addToCalendar) {
                       final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
+                      final reminderMinutes = CalendarService.computeReminderMinutes(scheduledAt);
                       await CalendarService.addAppointmentEvent(
                         doctorName: widget.doctor.name,
                         timeFormatted: timeStr,
                         location: widget.doctor.address,
                         startDate: scheduledAt,
                         durationMinutes: duration,
+                        reminderMinutes: reminderMinutes,
                       );
                     }
                   },
@@ -246,6 +296,12 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
         ),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNoShowCount();
   }
 
   @override
@@ -327,6 +383,54 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                     ),
                   ],
                 ),
+                if (_noShowCheckDone && _isBlocked)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.block, color: AppColors.error, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Vous avez été absent à $_noShowCount rendez-vous. Contactez le cabinet pour réserver.',
+                              style: const TextStyle(fontSize: 11, color: AppColors.error),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_noShowCheckDone && _noShowCount == 2)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber, color: AppColors.warning, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Attention : $_noShowCount absences. Après 3, vous serez bloqué.',
+                              style: const TextStyle(fontSize: 11, color: AppColors.warning),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -530,7 +634,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                     ? 'Confirmation...'
                     : 'Confirmer le rendez-vous',
                 isLoading: _isLoading,
-                onPressed: _selectedDate != null && _selectedSlot != null
+                onPressed: _selectedDate != null && _selectedSlot != null && !_isBlocked
                     ? _confirmBooking
                     : null,
               ),
