@@ -9,6 +9,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/widgets/inputs/app_search_field.dart';
 import '../../../../core/widgets/cards/empty_state_card.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../widgets/search_filter_dialog.dart';
 
@@ -53,13 +54,14 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final doctorsState = ref.watch(doctorsProvider);
     final favoritesState = ref.watch(favoritesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Docteurs'),
+        title: Text(l10n.doctorsBrowseTitle),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -77,7 +79,7 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: AppSearchField(
-              hint: 'Rechercher par nom, spécialité, ville...',
+              hint: l10n.doctorsSearchPlaceholder,
               controller: _searchController,
               onChanged: _onSearchChanged,
               onClear: () => ref.read(doctorsProvider.notifier).clearSearch(),
@@ -103,18 +105,18 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
                             const SizedBox(height: AppSpacing.md),
                             ElevatedButton(
                               onPressed: () => ref.read(doctorsProvider.notifier).loadDoctors(),
-                              child: const Text('Réessayer'),
+                              child: Text(l10n.commonRetry),
                             ),
                           ],
                         ),
                       ),
                     )
                   : doctorsState.doctors.isEmpty && !doctorsState.isLoading
-                      ? const Center(
+                      ? Center(
                           child: EmptyStateCard(
                             icon: Icons.search_off,
-                            title: 'Aucun médecin trouvé',
-                            message: 'Essayez une autre recherche',
+                            title: l10n.doctorsNoResults,
+                            message: l10n.doctorsNoResults,
                           ),
                         )
                   : RefreshIndicator(
@@ -147,6 +149,7 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return BottomNavigationBar(
       currentIndex: 1,
       onTap: (index) {
@@ -170,12 +173,12 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
       type: BottomNavigationBarType.fixed,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.textSecondary,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Docteurs'),
-        BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Rendez-vous'),
-        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favoris'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+      items: [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: l10n.navHome),
+        BottomNavigationBarItem(icon: Icon(Icons.search), label: l10n.navDoctors),
+        BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: l10n.navAppointments),
+        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: l10n.navFavorites),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: l10n.navProfile),
       ],
     );
   }

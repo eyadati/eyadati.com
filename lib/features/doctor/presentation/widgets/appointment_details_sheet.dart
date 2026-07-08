@@ -8,7 +8,6 @@ import 'package:eyadati/core/constants/app_breakpoints.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
-import '../providers/doctor_call_provider.dart';
 
 class AppointmentDetailsSheet extends ConsumerWidget {
   final AppointmentData appointment;
@@ -54,73 +53,12 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(appointment.patientName, style: AppTextStyles.sectionTitle),
-                      if (appointment.doctorName.isNotEmpty)
-                        Text('Dr. ${appointment.doctorName}', style: AppTextStyles.patientId.copyWith(color: AppColors.textHint)),
                       if (appointment.patientId != null)
                         Text('ID: ${appointment.patientId}', style: AppTextStyles.patientId),
                       if (appointment.patientPhone != null)
-                        Row(
-                          children: [
-                            Text('📞 ${appointment.patientPhone}', style: AppTextStyles.patientId),
-                            if (!AppBreakpoints.isMobile(MediaQuery.of(context).size.width))
-                              TextButton.icon(
-                                icon: Icon(Icons.phone_forwarded, size: 14, color: AppColors.primary),
-                                label: Text('Notifier mon téléphone', style: TextStyle(fontSize: 12, color: AppColors.primary)),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(horizontal: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                onPressed: () async {
-                                  final confirmed = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Text('Notifier mon téléphone'),
-                                      content: Text('Envoyer une notification d\'appel pour ${appointment.patientName} à votre téléphone ?'),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-                                        TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Envoyer')),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirmed == true && context.mounted) {
-                                    try {
-                                      await ref.read(callLogProvider.notifier).requestCall(
-                                        patientPhone: appointment.patientPhone!,
-                                        patientName: appointment.patientName,
-                                      );
-                                      if (context.mounted) {
-                                        final notifError = ref.read(callLogProvider).notificationError;
-                                        if (notifError != null) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Appel enregistré mais notification échouée', style: TextStyle(color: AppColors.white)),
-                                              backgroundColor: AppColors.warning,
-                                            ),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('Notification envoyée au téléphone', style: TextStyle(color: AppColors.white)),
-                                              backgroundColor: AppColors.success,
-                                            ),
-                                          );
-                                        }
-                                      }
-                                    } catch (_) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Échec de l\'envoi de la notification', style: TextStyle(color: AppColors.white)),
-                                            backgroundColor: AppColors.error,
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  }
-                                },
-                              ),
-                          ],
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppSpacing.xs),
+                          child: Text('📞 ${appointment.patientPhone}', style: AppTextStyles.patientId),
                         ),
                     ],
                   ),
@@ -203,12 +141,6 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                 ),
               ],
             ),
-            if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.lg),
-              Text('Notes', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
-              const SizedBox(height: 6),
-              Text(appointment.notes!, style: AppTextStyles.notes),
-            ],
             const SizedBox(height: AppSpacing.xl),
             if (!isCancelled && _isPastAppointment) ...[
               if (appointment.attendanceStatus == null) ...[

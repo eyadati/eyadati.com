@@ -5,6 +5,7 @@ import '../../../../core/routing/route_names.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/widgets/cards/empty_state_card.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 
 class FavoritesPage extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final favoritesState = ref.watch(favoritesProvider);
     final doctorsState = ref.watch(doctorsProvider);
 
@@ -33,7 +35,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Mes favoris'),
+        title: Text(l10n.favoritesTitle),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -43,9 +45,9 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
               ? Center(
                   child: EmptyStateCard(
                     icon: Icons.favorite_border,
-                    title: 'Aucun favori',
-                    message: 'Ajoutez des médecins à vos favoris',
-                    actionLabel: 'Parcourir les médecins',
+                    title: l10n.favoritesEmpty,
+                    message: l10n.favoritesEmptyMessage,
+                    actionLabel: l10n.favoritesBrowseDoctors,
                     onAction: () => context.push(RouteNames.patientDoctors),
                   ),
                 )
@@ -69,6 +71,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return BottomNavigationBar(
       currentIndex: 3,
       onTap: (index) {
@@ -92,12 +95,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       type: BottomNavigationBarType.fixed,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.textSecondary,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Docteurs'),
-        BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Rendez-vous'),
-        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favoris'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+      items: [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: l10n.navHome),
+        BottomNavigationBarItem(icon: Icon(Icons.search), label: l10n.navDoctors),
+        BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: l10n.navAppointments),
+        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: l10n.navFavorites),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: l10n.navProfile),
       ],
     );
   }

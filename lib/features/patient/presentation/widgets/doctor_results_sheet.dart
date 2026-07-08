@@ -5,6 +5,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import '../widgets/doctor_card.dart';
 import '../widgets/booking_bottom_sheet.dart';
@@ -28,6 +29,7 @@ class _DoctorResultsSheetState extends ConsumerState<DoctorResultsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final doctorsState = ref.watch(doctorsProvider);
     final favoritesState = ref.watch(favoritesProvider);
 
@@ -76,7 +78,7 @@ class _DoctorResultsSheetState extends ConsumerState<DoctorResultsSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Médecins disponibles',
+                          l10n.doctorResultsAvailable,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -182,6 +184,7 @@ class _DoctorResultsSheetState extends ConsumerState<DoctorResultsSheet> {
   }
 
   Widget _buildEmptyState() {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -194,8 +197,8 @@ class _DoctorResultsSheetState extends ConsumerState<DoctorResultsSheet> {
           const SizedBox(height: AppSpacing.md),
           Text(
             _showFavoritesOnly
-                ? 'Aucun favori trouvé'
-                : 'Aucun médecin trouvé',
+                ? l10n.doctorResultsNoFavorites
+                : l10n.doctorsNoResults,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -205,8 +208,8 @@ class _DoctorResultsSheetState extends ConsumerState<DoctorResultsSheet> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             _showFavoritesOnly
-                ? 'Ajoutez des favoris pour les voir ici'
-                : 'Essayez avec d\'autres critères',
+                ? l10n.doctorResultsAddFavorites
+                : l10n.doctorResultsTryOther,
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.textHint,

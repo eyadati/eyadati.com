@@ -10,9 +10,8 @@ import '../../../../core/widgets/buttons/danger_button.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../auth/presentation/providers/auth_state.dart';
-import '../../../../repositories/auth_repository.dart';
 import '../providers/providers.dart';
+import '../../../../l10n/app_localizations.dart';
 
 class PatientSettingsPage extends ConsumerStatefulWidget {
   const PatientSettingsPage({super.key});
@@ -29,21 +28,22 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
   }
 
   Future<void> _logout() async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xxl)),
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        title: Text(l10n.profileLogout),
+        content: Text(l10n.logoutConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Déconnexion'),
+            child: Text(l10n.profileLogout),
           ),
         ],
       ),
@@ -57,21 +57,19 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
   }
 
   void _confirmDeleteAccount() {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.xxl),
         ),
-        title: const Text('Supprimer mon compte'),
-        content: const Text(
-          'Cette action est irréversible. Toutes vos données '
-          '(rendez-vous, favoris) seront définitivement effacées.',
-        ),
+        title: Text(l10n.profileDeleteAccount),
+        content: Text(l10n.deleteAccountConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () {
@@ -79,7 +77,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
               _reAuthForDelete();
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Continuer'),
+            child: Text(l10n.commonContinue),
           ),
         ],
       ),
@@ -87,6 +85,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
   }
 
   void _reAuthForDelete() {
+    final l10n = AppLocalizations.of(context)!;
     final passwordController = TextEditingController();
     showDialog(
       context: context,
@@ -94,19 +93,19 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.xxl),
         ),
-        title: const Text('Confirmer votre mot de passe'),
+        title: Text(l10n.confirmPasswordTitle),
         content: TextField(
           controller: passwordController,
           obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Mot de passe',
-            hintText: 'Entrez votre mot de passe',
+          decoration: InputDecoration(
+            labelText: l10n.authPasswordLabel,
+            hintText: l10n.enterPasswordHint,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.commonCancel),
           ),
           TextButton(
             onPressed: () async {
@@ -115,7 +114,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
               await _executeDeleteAccount(passwordController.text);
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Supprimer'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -123,6 +122,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
   }
 
   Future<void> _executeDeleteAccount(String password) async {
+    final l10n = AppLocalizations.of(context)!;
     final authState = ref.read(authProvider);
     final phone = authState.phone;
     final email = authState.email;
@@ -134,7 +134,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
 
     if (!reAuth.isSuccess) {
       if (mounted) {
-        AppSnackbar.showError(context, message: 'Mot de passe incorrect');
+        AppSnackbar.showError(context, message: l10n.wrongPassword);
       }
       return;
     }
@@ -155,6 +155,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
     final localeNotifier = ref.read(localeProvider.notifier);
     final currentLocale = ref.watch(localeProvider);
     final isArabic = currentLocale.languageCode == 'ar';
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -162,9 +163,9 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
         backgroundColor: AppColors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
-          'Paramètres',
-          style: TextStyle(
+        title: Text(
+          l10n.settingsTitle,
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -278,8 +279,8 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  const Text(
-                    'Préférences',
+                  Text(
+                    l10n.settingsPreferences,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -296,8 +297,8 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                       children: [
                         _SettingsTile(
                           icon: LucideIcons.globe,
-                          title: isArabic ? 'Langue' : 'Langue',
-                          subtitle: isArabic ? 'العربية' : 'Français',
+                          title: l10n.settingsLanguage,
+                          subtitle: l10n.settingsLanguage,
                           onTap: () async {
                             final newLocale = isArabic ? 'fr' : 'ar';
                             await localeNotifier.setLocale(newLocale);
@@ -306,15 +307,15 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                         const Divider(height: 1, indent: 56),
                         _SettingsTile(
                           icon: LucideIcons.bell,
-                          title: 'Notifications',
-                          subtitle: 'Activées',
+                          title: l10n.settingsNotifications,
+                          subtitle: l10n.settingsNotificationsEnabled,
                           onTap: () {},
                         ),
                         const Divider(height: 1, indent: 56),
                         _SettingsTile(
                           icon: LucideIcons.info,
-                          title: 'À propos',
-                          subtitle: 'Version 1.0.0',
+                          title: l10n.settingsAbout,
+                          subtitle: '${l10n.settingsVersion} 1.0.0',
                           onTap: () {},
                         ),
                       ],
@@ -326,7 +327,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                     child: OutlinedButton.icon(
                       onPressed: _confirmDeleteAccount,
                       icon: const Icon(LucideIcons.trash2, size: 18),
-                      label: const Text('Supprimer mon compte'),
+                      label: Text(l10n.profileDeleteAccount),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.error,
                         side: const BorderSide(color: AppColors.error),
@@ -339,7 +340,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   DangerButton(
-                    label: 'Déconnexion',
+                    label: l10n.profileLogout,
                     icon: LucideIcons.logOut,
                     onPressed: _logout,
                   ),

@@ -35,6 +35,16 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
 
   void _listenForUpdates() {
     if (!kIsWeb) return;
+
+    // Listen for custom event dispatched by index.html when SW update is detected
+    html.window.addEventListener('sw-update-ready', (_) {
+      if (mounted) {
+        setState(() => _updateAvailable = true);
+        _animCtrl.forward();
+      }
+    });
+
+    // Also try the standard SW updatefound API as fallback
     final sw = html.window.navigator.serviceWorker;
     if (sw == null) return;
     sw.getRegistration().then((reg) {

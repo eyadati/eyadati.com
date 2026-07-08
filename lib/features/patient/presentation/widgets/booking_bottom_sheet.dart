@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
@@ -12,8 +13,8 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/models/doctor.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 import 'package:eyadati/models/appointment_data.dart';
-import 'package:eyadati/services/calendar_service.dart';
 import '../providers/patient_provider.dart';
+import 'package:eyadati/l10n/app_localizations.dart';
 
 class BookingBottomSheet extends ConsumerStatefulWidget {
   final Doctor doctor;
@@ -28,9 +29,11 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedSlot;
   bool _isLoading = false;
-  bool _addToCalendar = true;
   int _noShowCount = 0;
   bool _noShowCheckDone = false;
+  double? _attendanceRate;
+  bool _hasSufficientHistory = false;
+  String? _doctorPhone;
   List<ValidStart> _availableSlots = [];
 
   List<DateTime> get _next14Days {
@@ -45,14 +48,37 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
     final userId = SupabaseInitializer.client.auth.currentUser?.id;
     if (userId == null) return;
     try {
-      final data = await SupabaseInitializer.client
+      final attendanceData = await SupabaseInitializer.client
           .from('appointments')
-          .select('id')
+          .select('attendance_status')
           .eq('patient_id', userId)
-          .eq('attendance_status', 'no_show');
+          .not('attendance_status', 'is', null);
+
+      int present = 0;
+      int noShow = 0;
+      for (final row in attendanceData as List) {
+        final status = row['attendance_status'] as String;
+        if (status == 'present') present++;
+        else if (status == 'no_show') noShow++;
+      }
+
+      final profileData = await SupabaseInitializer.client
+          .from('profiles')
+          .select('phone')
+          .eq('id', widget.doctor.id)
+          .maybeSingle();
+
       if (mounted) {
         setState(() {
-          _noShowCount = (data as List).length;
+          _noShowCount = noShow;
+          final total = present + noShow;
+          _hasSufficientHistory = total >= 3;
+          if (total > 0) {
+            _attendanceRate = (present + 1.0) / (total + 1.0);
+          } else {
+            _attendanceRate = null;
+          }
+          _doctorPhone = profileData?['phone'] as String?;
           _noShowCheckDone = true;
         });
       }
@@ -62,6 +88,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   }
 
   Future<void> _loadSlotsForDate(DateTime date) async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _isLoading = true);
     try {
       final appointmentsData = await SupabaseInitializer.client
@@ -81,7 +108,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
           id: a['id'] as String,
           startTime: start,
           endTime: start.add(Duration(minutes: dur)),
-          patientName: a['patient_name_snapshot'] as String? ?? 'Patient',
+          patientName: a['patient_name_snapshot'] as String? ?? l10n.rolePatient,
           status: a['status'] as String,
           isConsultation: a['is_consultation'] as bool? ?? false,
           duration: dur,
@@ -124,30 +151,55 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
     }
   }
 
-  bool get _isBlocked => _noShowCount >= 3;
+  bool get _isBlocked => _noShowCount >= 3 || (_attendanceRate != null && _attendanceRate! < 0.50);
 
-  String _reminderSubtitle() {
-    if (_selectedSlot == null || _selectedDate == null) return 'Rappel 6h avant';
-    final scheduledAt = DateTime(
-      _selectedDate!.year,
-      _selectedDate!.month,
-      _selectedDate!.day,
-      _selectedSlot!.hour,
-      _selectedSlot!.minute,
+  Widget _buildAttendanceRateBar(double rate) {
+    final l10n = AppLocalizations.of(context)!;
+    final pct = (rate * 100).round();
+    final Color barColor;
+    if (rate > 0.75) {
+      barColor = const Color(0xFF16A34A);
+    } else if (rate >= 0.50) {
+      barColor = const Color(0xFFD97706);
+    } else {
+      barColor = const Color(0xFFDC2626);
+    }
+    final String label;
+    if (rate > 0.75) {
+      label = l10n.attendanceGood;
+    } else if (rate >= 0.50) {
+      label = l10n.attendanceAverage;
+    } else {
+      label = l10n.attendanceLow;
+    }
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: barColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: barColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.shield_outlined, color: barColor, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              l10n.bookingReliabilityLabel(pct, label),
+              style: TextStyle(fontSize: 11, color: barColor, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
-    final delta = scheduledAt.difference(DateTime.now()).inMinutes;
-    if (delta > 420) return 'Rappel 6h avant';
-    if (delta > 180) return 'Rappel 3h avant';
-    if (delta > 60) return 'Rappel 1h avant';
-    if (delta > 30) return 'Rappel 30min avant';
-    return 'Rappel 15min avant';
   }
 
   Future<void> _confirmBooking() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_selectedDate == null || _selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner une date et un horaire'),
+        SnackBar(
+          content: Text(l10n.bookingSelectDateError),
           backgroundColor: AppColors.error,
         ),
       );
@@ -162,7 +214,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
       final patientName = authState.userName;
 
       if (userId == null) {
-        throw Exception('Utilisateur non connecté');
+        throw Exception(l10n.bookingUserNotConnectedError);
       }
 
       final scheduledAt = DateTime(
@@ -182,7 +234,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
         'duration': duration,
         'status': 'upcoming',
         'booking_type': 'online',
-        'patient_name_snapshot': (patientName?.isNotEmpty == true) ? patientName! : 'Patient',
+        'patient_name_snapshot': (patientName?.isNotEmpty == true) ? patientName! : l10n.rolePatient,
       }).select('id');
 
       final newAppointmentId = (response as List).first['id'] as String;
@@ -205,7 +257,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur: ${e.toString()}'),
+          content: Text(l10n.bookingError(e.toString())),
           backgroundColor: AppColors.error,
         ),
       );
@@ -213,6 +265,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   }
 
   void _showSuccessDialog(DateTime scheduledAt, int duration) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -236,8 +289,8 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              const Text(
-                'Rendez-vous confirmé !',
+              Text(
+                l10n.bookingSuccess,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -246,7 +299,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Votre rendez-vous avec\n${widget.doctor.name}\na été enregistré avec succès.',
+                l10n.bookingSuccessWithDoctor(widget.doctor.name),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,
@@ -254,40 +307,12 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
-              CheckboxListTile(
-                value: _addToCalendar,
-                onChanged: (v) => setDialogState(() => _addToCalendar = v ?? true),
-                title: const Text(
-                  'Ajouter au calendrier',
-                  style: TextStyle(fontSize: 14),
-                ),
-                subtitle: Text(
-                  _reminderSubtitle(),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textHint),
-                ),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-              ),
-              const SizedBox(height: AppSpacing.md),
               SizedBox(
                 width: double.infinity,
                 child: PrimaryButton(
-                  label: 'Retour à l\'accueil',
-                  onPressed: () async {
+                  label: l10n.bookingBackHome,
+                  onPressed: () {
                     Navigator.pop(ctx);
-                    if (_addToCalendar) {
-                      final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
-                      final reminderMinutes = CalendarService.computeReminderMinutes(scheduledAt);
-                      await CalendarService.addAppointmentEvent(
-                        doctorName: widget.doctor.name,
-                        timeFormatted: timeStr,
-                        location: widget.doctor.address,
-                        startDate: scheduledAt,
-                        durationMinutes: duration,
-                        reminderMinutes: reminderMinutes,
-                      );
-                    }
                   },
                 ),
               ),
@@ -307,6 +332,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final l10n = AppLocalizations.of(context)!;
 
     return Container(
       height: screenHeight * 0.8,
@@ -383,6 +409,11 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                     ),
                   ],
                 ),
+                if (_hasSufficientHistory && _attendanceRate != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: _buildAttendanceRateBar(_attendanceRate!),
+                  ),
                 if (_noShowCheckDone && _isBlocked)
                   Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.sm),
@@ -393,16 +424,42 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          const Icon(Icons.block, color: AppColors.error, size: 16),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Vous avez été absent à $_noShowCount rendez-vous. Contactez le cabinet pour réserver.',
-                              style: const TextStyle(fontSize: 11, color: AppColors.error),
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.block, color: AppColors.error, size: 16),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  l10n.bookingUnavailableTitle,
+                                  style: TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.bookingUnavailableMessage,
+                            style: TextStyle(fontSize: 11, color: AppColors.error),
+                          ),
+                          if (_doctorPhone != null) ...[
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.phone, size: 14),
+                                label: Text(l10n.bookingCallOffice, style: TextStyle(fontSize: 12)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  minimumSize: const Size.fromHeight(32),
+                                ),
+                                onPressed: () => launchUrl(Uri.parse('tel:$_doctorPhone')),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -423,7 +480,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Attention : $_noShowCount absences. Après 3, vous serez bloqué.',
+                              l10n.bookingWarningMessage(_noShowCount),
                               style: const TextStyle(fontSize: 11, color: AppColors.warning),
                             ),
                           ),
@@ -439,8 +496,8 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Choisir une date',
+                Text(
+                  l10n.bookingSelectDate,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -532,8 +589,8 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Choisir un horaire',
+                    Text(
+                      l10n.bookingSelectTime,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -545,9 +602,9 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                       child: _isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : _availableSlots.isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Text(
-                                    'Aucun créneau disponible',
+                                    l10n.bookingNoSlotsAvailable,
                                     style: TextStyle(color: AppColors.textHint),
                                   ),
                                 )
@@ -605,10 +662,10 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
               ),
             )
           else
-            const Expanded(
+            Expanded(
               child: Center(
                 child: Text(
-                  'Sélectionnez une date pour voir les horaires',
+                  l10n.bookingSelectDateHint,
                   style: TextStyle(
                     color: AppColors.textHint,
                     fontSize: 14,
@@ -631,8 +688,8 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
             child: SafeArea(
               child: PrimaryButton(
                 label: _isLoading
-                    ? 'Confirmation...'
-                    : 'Confirmer le rendez-vous',
+                    ? l10n.bookingLoading
+                    : l10n.bookingConfirmButton,
                 isLoading: _isLoading,
                 onPressed: _selectedDate != null && _selectedSlot != null && !_isBlocked
                     ? _confirmBooking

@@ -5,6 +5,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 import 'specialty_icons.dart';
 
@@ -22,6 +23,7 @@ class DoctorCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final favoritesState = ref.watch(favoritesProvider);
     final isFavorite = favoritesState.favoriteDoctorIds.contains(doctor.id);
 
@@ -111,7 +113,7 @@ class DoctorCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'Voir disponibilité',
+                        l10n.doctorCardAvailability,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -150,19 +152,19 @@ class DoctorCard extends ConsumerWidget {
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(AppRadius.lg),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Réserver',
-                            style: TextStyle(
+                            l10n.patientBookNow,
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.white,
                             ),
                           ),
-                          SizedBox(width: 4),
-                          Icon(
+                          const SizedBox(width: 4),
+                          const Icon(
                             LucideIcons.arrowRight,
                             size: 14,
                             color: AppColors.white,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/repositories/profile_repository.dart';
+import 'package:eyadati/services/local_notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PatientState {
@@ -14,6 +15,8 @@ class PatientState {
   final int upcomingCount;
   final int favoritesCount;
   final int noShowCount;
+  final int globalPresentCount;
+  final int globalNoShowCount;
   final List<PatientAppointmentViewModel> upcomingAppointments;
   final List<PatientAppointmentViewModel> pastAppointments;
   final List<PatientAppointmentViewModel> cancelledAppointments;
@@ -29,12 +32,25 @@ class PatientState {
     this.upcomingCount = 0,
     this.favoritesCount = 0,
     this.noShowCount = 0,
+    this.globalPresentCount = 0,
+    this.globalNoShowCount = 0,
     this.upcomingAppointments = const [],
     this.pastAppointments = const [],
     this.cancelledAppointments = const [],
     this.isLoading = false,
     this.errorMessage,
   });
+
+  static const double _bayesianPrior = 1.0;
+  static const int _minHistory = 3;
+
+  int get totalGlobalAppts => globalPresentCount + globalNoShowCount;
+  bool get hasSufficientHistory => totalGlobalAppts >= _minHistory;
+  double get attendanceRate {
+    final total = totalGlobalAppts;
+    if (total == 0) return 1.0;
+    return (globalPresentCount + _bayesianPrior) / (total + _bayesianPrior);
+  }
 
   PatientState copyWith({
     String? name,
@@ -45,6 +61,8 @@ class PatientState {
     int? upcomingCount,
     int? favoritesCount,
     int? noShowCount,
+    int? globalPresentCount,
+    int? globalNoShowCount,
     List<PatientAppointmentViewModel>? upcomingAppointments,
     List<PatientAppointmentViewModel>? pastAppointments,
     List<PatientAppointmentViewModel>? cancelledAppointments,
@@ -60,6 +78,8 @@ class PatientState {
       upcomingCount: upcomingCount ?? this.upcomingCount,
       favoritesCount: favoritesCount ?? this.favoritesCount,
       noShowCount: noShowCount ?? this.noShowCount,
+      globalPresentCount: globalPresentCount ?? this.globalPresentCount,
+      globalNoShowCount: globalNoShowCount ?? this.globalNoShowCount,
       upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
       pastAppointments: pastAppointments ?? this.pastAppointments,
       cancelledAppointments:
@@ -77,6 +97,7 @@ class PatientAppointmentViewModel {
   final String doctorSpecialty;
   final String? doctorAvatar;
   final String? doctorAddress;
+  final String? doctorPhone;
   final String? mapsLink;
   final DateTime dateTime;
   final int duration;
@@ -91,6 +112,7 @@ class PatientAppointmentViewModel {
     required this.doctorSpecialty,
     this.doctorAvatar,
     this.doctorAddress,
+    this.doctorPhone,
     this.mapsLink,
     required this.dateTime,
     required this.duration,
@@ -105,6 +127,7 @@ class PatientAppointmentViewModel {
     String doctorSpecialty,
     String? doctorAvatar,
     String? doctorAddress,
+    String? doctorPhone,
     String? mapsLink,
   ) {
     return PatientAppointmentViewModel(
@@ -114,6 +137,7 @@ class PatientAppointmentViewModel {
       doctorSpecialty: doctorSpecialty,
       doctorAvatar: doctorAvatar,
       doctorAddress: doctorAddress,
+      doctorPhone: doctorPhone,
       mapsLink: mapsLink,
       dateTime: DateTime.parse(map['scheduled_at'] as String),
       duration: map['duration'] as int? ?? 30,
@@ -192,13 +216,23 @@ class PatientNotifier extends StateNotifier<PatientState> {
           .order('scheduled_at', ascending: false)
           .limit(50);
 
-      final noShowData = await SupabaseInitializer.client
+      final attendanceData = await SupabaseInitializer.client
           .from('appointments')
-          .select('id')
+          .select('attendance_status')
           .eq('patient_id', userId)
-          .eq('attendance_status', 'no_show');
+          .not('attendance_status', 'is', null);
 
-      final noShowCount = (noShowData as List).length;
+      int globalPresentCount = 0;
+      int globalNoShowCount = 0;
+      for (final row in attendanceData as List) {
+        final status = row['attendance_status'] as String;
+        if (status == 'present') {
+          globalPresentCount++;
+        } else if (status == 'no_show') {
+          globalNoShowCount++;
+        }
+      }
+      final noShowCount = globalNoShowCount;
 
       final favoritesResult = await SupabaseInitializer.client
           .from('favorites')
@@ -222,10 +256,10 @@ class PatientNotifier extends StateNotifier<PatientState> {
           try {
             final profiles = await SupabaseInitializer.client
                 .from('profiles')
-                .select('id, full_name, avatar_url')
+                .select('id, full_name, avatar_url, phone')
                 .inFilter('id', doctorIds);
             for (final p in profiles) {
-              doctorProfileMap[p['id'] as String] = p as Map<String, dynamic>;
+              doctorProfileMap[p['id'] as String] = p;
             }
           } catch (_) {
           }
@@ -246,6 +280,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
         final doctorAvatar = profileData?['avatar_url'] as String? ??
             docMap?['photo_url'] as String?;
         final doctorAddress = docMap?['address'] as String?;
+        final doctorPhone = profileData?['phone'] as String?;
         final mapsLink = docMap?['maps_link'] as String?;
 
         final apt = PatientAppointmentViewModel(
@@ -255,6 +290,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
           doctorSpecialty: doctorSpecialty,
           doctorAvatar: doctorAvatar,
           doctorAddress: doctorAddress,
+          doctorPhone: doctorPhone,
           mapsLink: mapsLink,
           dateTime: DateTime.parse(row['scheduled_at'] as String),
           duration: row['duration'] as int? ?? 30,
@@ -282,41 +318,15 @@ class PatientNotifier extends StateNotifier<PatientState> {
         upcomingCount: upcoming.length,
         favoritesCount: (favoritesResult as List).length,
         noShowCount: noShowCount,
+        globalPresentCount: globalPresentCount,
+        globalNoShowCount: globalNoShowCount,
         upcomingAppointments: upcoming,
         pastAppointments: past,
         cancelledAppointments: cancelled,
       );
 
-      processPendingReminders(userId);
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
-    }
-  }
-
-  Future<void> processPendingReminders(String userId) async {
-    try {
-      final now = DateTime.now().toUtc().toIso8601String();
-      final pending = await _client
-          .from('appointments')
-          .select('id, scheduled_at')
-          .eq('patient_id', userId)
-          .eq('fcm_reminder_sent', false)
-          .not('fcm_reminder_scheduled_at', 'is', null)
-          .lte('fcm_reminder_scheduled_at', now)
-          .eq('status', 'upcoming');
-
-      for (final row in pending as List) {
-        final aptId = row['id'] as String;
-        try {
-          await _client.functions.invoke('send-appointment-reminder', body: {
-            'appointment_id': aptId,
-          });
-        } catch (e) {
-          debugPrint('Failed to send reminder for $aptId: $e');
-        }
-      }
-    } catch (e) {
-      debugPrint('processPendingReminders error: $e');
     }
   }
 
@@ -325,29 +335,12 @@ class PatientNotifier extends StateNotifier<PatientState> {
     required DateTime scheduledAt,
   }) async {
     try {
-      final delta = scheduledAt.difference(DateTime.now());
-      final fcmScheduledAt = _computeFcmReminderTime(delta, scheduledAt);
-
-      await _client
-          .from('appointments')
-          .update({'fcm_reminder_scheduled_at': fcmScheduledAt.toUtc().toIso8601String()})
-          .eq('id', appointmentId);
+      await LocalNotificationService.scheduleAppointmentReminders(
+        appointmentId: appointmentId,
+        scheduledAt: scheduledAt,
+      );
     } catch (e) {
       debugPrint('scheduleReminders error: $e');
-    }
-  }
-
-  DateTime _computeFcmReminderTime(Duration delta, DateTime scheduledAt) {
-    if (delta.inHours > 13) {
-      return scheduledAt.subtract(const Duration(hours: 12));
-    } else if (delta.inHours > 7) {
-      return DateTime.now().add(const Duration(hours: 1));
-    } else if (delta.inHours > 3) {
-      return DateTime.now().add(const Duration(minutes: 15));
-    } else if (delta.inHours > 1) {
-      return DateTime.now().add(const Duration(minutes: 5));
-    } else {
-      return DateTime.now();
     }
   }
 

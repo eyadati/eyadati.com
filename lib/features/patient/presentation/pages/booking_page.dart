@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
@@ -13,7 +14,7 @@ import 'package:eyadati/models/doctor.dart';
 import 'package:eyadati/core/engine/availability_service.dart';
 import 'package:eyadati/models/schedule_slot_model.dart';
 import 'package:eyadati/models/appointment_data.dart';
-import 'package:eyadati/services/calendar_service.dart';
+import 'package:eyadati/l10n/app_localizations.dart';
 
 class BookingPage extends ConsumerStatefulWidget {
   final String doctorId;
@@ -29,9 +30,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   TimeOfDay? _selectedTime;
   final _notesController = TextEditingController();
   bool _isLoading = false;
-  bool _addToCalendar = true;
   int _noShowCount = 0;
   bool _noShowCheckDone = false;
+  double? _attendanceRate;
+  bool _hasSufficientHistory = false;
+  String? _doctorPhone;
 
   List<ValidStart> _availableSlots = [];
 
@@ -97,6 +100,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
 
       final effectiveDuration = doctorData['appointment_duration'] as int? ?? 20;
 
+      final profileData = await SupabaseInitializer.client
+          .from('profiles')
+          .select('phone')
+          .eq('id', widget.doctorId)
+          .maybeSingle();
+
+      if (mounted) {
+        setState(() {
+          _doctorPhone = profileData?['phone'] as String?;
+        });
+      }
+
       final availabilityService = AvailabilityService(
         scheduleSlots: scheduleSlots,
         appointmentDuration: effectiveDuration,
@@ -118,14 +133,30 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     final userId = SupabaseInitializer.client.auth.currentUser?.id;
     if (userId == null) return;
     try {
-      final data = await SupabaseInitializer.client
+      final attendanceData = await SupabaseInitializer.client
           .from('appointments')
-          .select('id')
+          .select('attendance_status')
           .eq('patient_id', userId)
-          .eq('attendance_status', 'no_show');
+          .not('attendance_status', 'is', null);
+
+      int present = 0;
+      int noShow = 0;
+      for (final row in attendanceData as List) {
+        final status = row['attendance_status'] as String;
+        if (status == 'present') present++;
+        else if (status == 'no_show') noShow++;
+      }
+
       if (mounted) {
         setState(() {
-          _noShowCount = (data as List).length;
+          _noShowCount = noShow;
+          final total = present + noShow;
+          _hasSufficientHistory = total >= 3;
+          if (total > 0) {
+            _attendanceRate = (present + 1.0) / (total + 1.0);
+          } else {
+            _attendanceRate = null;
+          }
           _noShowCheckDone = true;
         });
       }
@@ -171,35 +202,60 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     return name.substring(0, 2).toUpperCase();
   }
 
+  Widget _buildAttendanceRateBar(double rate, AppLocalizations l10n) {
+    final pct = (rate * 100).round();
+    final Color barColor;
+    if (rate > 0.75) {
+      barColor = const Color(0xFF16A34A);
+    } else if (rate >= 0.50) {
+      barColor = const Color(0xFFD97706);
+    } else {
+      barColor = const Color(0xFFDC2626);
+    }
+    final String label;
+    if (rate > 0.75) {
+      label = l10n.attendanceGood;
+    } else if (rate >= 0.50) {
+      label = l10n.attendanceAverage;
+    } else {
+      label = l10n.attendanceLow;
+    }
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: barColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: barColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.shield_outlined, color: barColor, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              l10n.bookingReliabilityLabel(pct, label),
+              style: TextStyle(fontSize: 13, color: barColor, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   bool _isToday(DateTime date) {
     final now = DateTime.now();
     return date.year == now.year && date.month == now.month && date.day == now.day;
   }
 
-  bool get _isBlocked => _noShowCount >= 3;
-
-  String _reminderSubtitle() {
-    if (_selectedTime == null) return 'Rappel 6h avant';
-    final now = DateTime.now();
-    final scheduledAt = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _selectedTime!.hour,
-      _selectedTime!.minute,
-    );
-    final delta = scheduledAt.difference(now).inMinutes;
-    if (delta > 420) return 'Rappel 6h avant';
-    if (delta > 180) return 'Rappel 3h avant';
-    if (delta > 60) return 'Rappel 1h avant';
-    if (delta > 30) return 'Rappel 30min avant';
-    return 'Rappel 15min avant';
-  }
+  bool get _isBlocked => _noShowCount >= 3 || (_attendanceRate != null && _attendanceRate! < 0.50);
 
   Future<void> _confirmBooking() async {
+    final l10n = AppLocalizations.of(context)!;
+
     if (_selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner une heure')),
+        SnackBar(content: Text(l10n.bookingSelectTimeError)),
       );
       return;
     }
@@ -214,7 +270,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         setState(() => _isLoading = false);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur: utilisateur non connecté')),
+          SnackBar(content: Text(l10n.bookingUserNotConnectedError)),
         );
         return;
       }
@@ -232,8 +288,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         (d) => d.id == widget.doctorId,
         orElse: () => Doctor(
           id: widget.doctorId,
-          name: 'Docteur',
-          specialty: 'Spécialité',
+          name: l10n.roleDoctor,
+          specialty: l10n.doctorsFilterSpecialty,
           address: '',
         ),
       );
@@ -285,56 +341,27 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Rendez-vous confirmé !',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                Text(
+                  l10n.bookingSuccess,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Votre rendez-vous a été enregistré avec succès.',
+                Text(
+                  l10n.bookingSuccessMessage,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 16),
-                CheckboxListTile(
-                  value: _addToCalendar,
-                  onChanged: (v) => setDialogState(() => _addToCalendar = v ?? true),
-                  title: const Text(
-                    'Ajouter au calendrier',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    _reminderSubtitle(),
-                    style: const TextStyle(fontSize: 12, color: AppColors.textHint),
-                  ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
+                  style: const TextStyle(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () async {
+                    onPressed: () {
                       Navigator.pop(ctx);
-                      if (_addToCalendar) {
-                        final timeStr = '${scheduledAt.hour.toString().padLeft(2, '0')}:${scheduledAt.minute.toString().padLeft(2, '0')}';
-                        final reminderMinutes = CalendarService.computeReminderMinutes(scheduledAt);
-                        await CalendarService.addAppointmentEvent(
-                          doctorName: doctor.name,
-                          timeFormatted: timeStr,
-                          location: doctor.address,
-                          startDate: scheduledAt,
-                          durationMinutes: duration,
-                          notes: _notesController.text,
-                          reminderMinutes: reminderMinutes,
-                        );
-                      }
                       if (context.mounted) {
                         context.go(RouteNames.patientAppointments);
                       }
                     },
-                    child: const Text('Voir mes rendez-vous'),
+                    child: Text(l10n.bookingSuccessViewButton),
                   ),
                 ),
               ],
@@ -347,23 +374,24 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
+      ).showSnackBar(SnackBar(content: Text(l10n.bookingError(e.toString()))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final doctorsState = ref.watch(doctorsProvider);
     final doctor = doctorsState.doctors.firstWhere(
       (d) => d.id == widget.doctorId,
       orElse: () =>
-          Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité', address: ''),
+          Doctor(id: widget.doctorId, name: l10n.roleDoctor, specialty: l10n.doctorsFilterSpecialty, address: ''),
     );
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Prendre rendez-vous'),
+        title: Text(l10n.doctorDetailsBookNow),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -372,6 +400,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_hasSufficientHistory && _attendanceRate != null)
+              _buildAttendanceRateBar(_attendanceRate!, l10n),
             if (_noShowCheckDone && _isBlocked)
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -381,16 +411,41 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    const Icon(Icons.block, color: AppColors.error, size: 20),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        'Vous avez été absent à $_noShowCount rendez-vous sans préavis. Pour réserver, veuillez contacter directement le cabinet.',
-                        style: const TextStyle(fontSize: 13, color: AppColors.error),
-                      ),
+                    Row(
+                      children: [
+                        const Icon(Icons.block, color: AppColors.error, size: 20),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            l10n.bookingUnavailableTitle,
+                            style: const TextStyle(fontSize: 14, color: AppColors.error, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      l10n.bookingUnavailableMessage,
+                      style: const TextStyle(fontSize: 12, color: AppColors.error),
+                    ),
+                    if (_doctorPhone != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.phone, size: 18),
+                          label: Text(l10n.bookingCallOffice),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () => launchUrl(Uri.parse('tel:$_doctorPhone')),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               )
@@ -409,7 +464,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Attention : vous avez $_noShowCount absences non justifiées. Après 3 absences, vous ne pourrez plus réserver en ligne.',
+                        l10n.bookingWarningMessage(_noShowCount),
                         style: const TextStyle(fontSize: 13, color: AppColors.warning),
                       ),
                     ),
@@ -462,9 +517,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Choisir une date',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              l10n.bookingSelectDate,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             GestureDetector(
@@ -502,9 +557,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text(
-                          'Aujourd\'hui',
-                          style: TextStyle(
+                        child: Text(
+                          l10n.bookingToday,
+                          style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -519,9 +574,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Choisir une heure',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              l10n.bookingSelectTime,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             if (_isLoading)
@@ -549,8 +604,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                     Expanded(
                       child: Text(
                         _isToday(_selectedDate)
-                            ? 'Aucun créneau disponible aujourd\'hui (délai minimum 30min)'
-                            : 'Aucun créneau disponible pour cette date',
+                            ? l10n.bookingNoSlotsToday
+                            : l10n.bookingNoSlotsDate,
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 14,
@@ -604,16 +659,16 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             ),
 
             const SizedBox(height: AppSpacing.lg),
-            const Text(
-              'Notes (optionnel)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            Text(
+              l10n.bookingAddNotes,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: _notesController,
               maxLines: 3,
               decoration: InputDecoration(
-                hintText: 'Ajoutez des notes pour le médecin...',
+                hintText: l10n.bookingNotesHint,
                 filled: true,
                 fillColor: AppColors.card,
                 border: OutlineInputBorder(
@@ -640,7 +695,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
         ),
         child: SafeArea(
           child: PrimaryButton(
-            label: _isLoading ? 'En cours...' : 'Confirmer le rendez-vous',
+            label: _isLoading ? l10n.bookingLoading : l10n.bookingConfirmButton,
             onPressed: _isLoading || _isBlocked ? null : _confirmBooking,
           ),
         ),

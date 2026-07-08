@@ -6,6 +6,7 @@ import '../../../../core/widgets/buttons/icon_button_tile.dart';
 import '../../../../core/widgets/buttons/danger_button.dart';
 import '../../../../core/providers/locale_provider.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 
 class PatientProfilePage extends ConsumerStatefulWidget {
@@ -23,21 +24,22 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
   }
 
   Future<void> _logout() async {
+    final l10nLogout = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        title: Text(l10nLogout.profileLogout),
+        content: Text(l10nLogout.settingsLogoutConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: Text(l10nLogout.commonCancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Déconnexion'),
+            child: Text(l10nLogout.profileLogout),
           ),
         ],
       ),
@@ -56,11 +58,12 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
     final localeNotifier = ref.read(localeProvider.notifier);
     final currentLocale = ref.watch(localeProvider);
     final isArabic = currentLocale.languageCode == 'ar';
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Mon profil'),
+        title: Text(l10n.profileTitle),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
@@ -124,25 +127,25 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   IconButtonTile(
-                    title: 'Modifier le profil',
+                    title: l10n.profileEditProfile,
                     icon: Icons.edit_outlined,
                     onTap: () {},
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   IconButtonTile(
-                    title: 'Paramètres du compte',
+                    title: l10n.profileAccountSettings,
                     icon: Icons.settings_outlined,
                     onTap: () {},
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   IconButtonTile(
-                    title: 'Notifications',
+                    title: l10n.profileNotifications,
                     icon: Icons.notifications_outlined,
                     onTap: () {},
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   IconButtonTile(
-                    title: isArabic ? 'اللغة' : 'Langue',
+                    title: l10n.profileLanguage,
                     subtitle: isArabic ? 'Français / العربية' : 'Français / Arabe',
                     icon: Icons.language,
                     onTap: () async {
@@ -152,13 +155,13 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   IconButtonTile(
-                    title: 'À propos',
+                    title: l10n.settingsAbout,
                     icon: Icons.info_outline,
                     onTap: () {},
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   DangerButton(
-                    label: 'Déconnexion',
+                    label: l10n.profileLogout,
                     icon: Icons.logout,
                     onPressed: _logout,
                   ),

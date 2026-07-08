@@ -6,6 +6,7 @@ import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/widgets/cards/info_card.dart';
+import 'package:eyadati/l10n/app_localizations.dart';
 import '../providers/providers.dart';
 
 class DoctorDetailsPage extends ConsumerStatefulWidget {
@@ -40,12 +41,13 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final doctorsState = ref.watch(doctorsProvider);
     final favoritesState = ref.watch(favoritesProvider);
     final doctor = doctorsState.doctors.firstWhere(
       (d) => d.id == widget.doctorId,
       orElse: () =>
-          Doctor(id: widget.doctorId, name: 'Docteur', specialty: 'Spécialité', address: ''),
+          Doctor(id: widget.doctorId, name: l10n.roleDoctor, specialty: l10n.doctorsFilterSpecialty, address: ''),
     );
     final isFavorite = favoritesState.favoriteDoctorIds.contains(
       widget.doctorId,
@@ -124,18 +126,18 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _StatItem(
-                        icon: Icons.work,
-                        value: doctor.specialty,
-                        label: 'Spécialité',
-                        iconColor: AppColors.primary,
-                      ),
+                  _StatItem(
+                    icon: Icons.work,
+                    value: doctor.specialty,
+                    label: l10n.doctorsFilterSpecialty,
+                    iconColor: AppColors.primary,
+                  ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  const Text(
-                    'À propos',
-                    style: TextStyle(
+                  Text(
+                    l10n.doctorDetailsAbout,
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
@@ -151,9 +153,9 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  const Text(
-                    'Informations',
-                    style: TextStyle(
+                  Text(
+                    l10n.doctorDetailsInfo,
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
@@ -162,7 +164,7 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
                   const SizedBox(height: AppSpacing.sm),
                   if (doctor.city != null)
                     InfoCard(
-                      title: 'Ville',
+                      title: l10n.doctorDetailsCity,
                       value: doctor.city!,
                       icon: Icons.location_on,
                       iconColor: AppColors.primary,
@@ -191,7 +193,7 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
             children: [
               Expanded(
                 child: PrimaryButton(
-                  label: 'Prendre rendez-vous',
+                  label: l10n.doctorDetailsBookNow,
                   onPressed: () =>
                       context.push('/patient/doctors/${widget.doctorId}/book'),
                 ),

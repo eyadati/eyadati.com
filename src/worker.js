@@ -9,6 +9,8 @@ export default {
 
     const response = await env.ASSETS.fetch(request);
 
+    const path = url.pathname;
+
     if (response.status === 404) {
       const index = await env.ASSETS.fetch(`${url.origin}/index.html`);
       return new Response(index.body, {
@@ -20,7 +22,17 @@ export default {
       });
     }
 
-    const path = url.pathname;
+    // Never cache service worker files so browser always detects updates
+    if (path.endsWith('/service-worker.js') || path.endsWith('/firebase-messaging-sw.js')) {
+      return new Response(response.body, {
+        status: response.status,
+        headers: {
+          'content-type': 'text/javascript; charset=utf-8',
+          'cache-control': 'no-cache, no-store, must-revalidate',
+        },
+      });
+    }
+
     if (path === '/' || path === '/index.html') {
       const text = await response.text();
       return new Response(text, {

@@ -131,21 +131,28 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
           .not('patient_id', 'is', null)
           .order('scheduled_at', ascending: false);
 
-      final noShowData = await _client
+      final attendanceData = await _client
           .from('appointments')
           .select('patient_id, scheduled_at, attendance_status')
-          .eq('doctor_id', user.id)
-          .eq('attendance_status', 'no_show')
+          .not('attendance_status', 'is', null)
           .not('patient_id', 'is', null);
 
       final Map<String, int> noShowCounts = {};
       final Map<String, DateTime> lastNoShow = {};
-      for (final row in noShowData as List) {
+      final Map<String, int> globalPresentCount = {};
+      final Map<String, int> globalNoShowCount = {};
+      for (final row in attendanceData as List) {
         final pid = row['patient_id'] as String;
-        noShowCounts[pid] = (noShowCounts[pid] ?? 0) + 1;
-        final sched = DateTime.parse(row['scheduled_at'] as String);
-        if (!lastNoShow.containsKey(pid) || sched.isAfter(lastNoShow[pid]!)) {
-          lastNoShow[pid] = sched;
+        final status = row['attendance_status'] as String;
+        if (status == 'no_show') {
+          noShowCounts[pid] = (noShowCounts[pid] ?? 0) + 1;
+          globalNoShowCount[pid] = (globalNoShowCount[pid] ?? 0) + 1;
+          final sched = DateTime.parse(row['scheduled_at'] as String);
+          if (!lastNoShow.containsKey(pid) || sched.isAfter(lastNoShow[pid]!)) {
+            lastNoShow[pid] = sched;
+          }
+        } else if (status == 'present') {
+          globalPresentCount[pid] = (globalPresentCount[pid] ?? 0) + 1;
         }
       }
 
@@ -200,6 +207,8 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
           lastNoShowAt: lastNoShow[entry.key],
           lastVisitDate: lastVisit,
           visits: visits,
+          globalCompleted: globalPresentCount[entry.key] ?? 0,
+          globalNoShows: globalNoShowCount[entry.key] ?? 0,
         ));
       }
 

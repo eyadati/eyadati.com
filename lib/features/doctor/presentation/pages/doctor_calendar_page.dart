@@ -754,6 +754,67 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     );
   }
 
+  void _showReliabilityInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.shield_outlined, size: 22, color: AppColors.success),
+            const SizedBox(width: 8),
+            const Text('Score de fiabilité'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Le score de fiabilité mesure l\'assiduité du patient à ses rendez-vous (en ligne et en cabinet).',
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.circle, size: 12, color: AppColors.success),
+                SizedBox(width: 6),
+                Text(' > 75% : Bonne assiduité', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+            SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.circle, size: 12, color: AppColors.warning),
+                SizedBox(width: 6),
+                Text(' 50% – 75% : Assiduité moyenne', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+            SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.circle, size: 12, color: AppColors.error),
+                SizedBox(width: 6),
+                Text(' < 50% : Faible assiduité', style: TextStyle(fontSize: 13)),
+              ],
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Un score inférieur à 50% empêche le patient de réserver en ligne. '
+              'Le patient peut contacter le cabinet directement.',
+              style: TextStyle(fontSize: 13, color: AppColors.error),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Compris'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTopHeader(int pendingCount, bool isTest) {
     final isMobile = AppBreakpoints.isMobile(MediaQuery.of(context).size.width);
 
@@ -842,11 +903,11 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
           ),
           IconButton(
             icon: const Icon(
-              LucideIcons.users,
+              LucideIcons.search,
               color: AppColors.textPrimary,
             ),
-            tooltip: 'Mes patients',
-            onPressed: () => context.push(RouteNames.doctorPatients),
+            tooltip: 'Recherche patient',
+            onPressed: () => context.push(RouteNames.doctorSearch),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             padding: EdgeInsets.zero,
           ),
@@ -857,6 +918,17 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             ),
             onPressed: () => context.push(RouteNames.doctorSettings),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            padding: EdgeInsets.zero,
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.help_outline,
+              color: AppColors.textHint,
+              size: 20,
+            ),
+            tooltip: 'Score de fiabilité',
+            onPressed: () => _showReliabilityInfo(context),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
           const SizedBox(width: 4),

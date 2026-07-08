@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 
 class UpcomingAppointmentCard extends StatelessWidget {
@@ -32,8 +34,28 @@ class UpcomingAppointmentCard extends StatelessWidget {
     }
   }
 
+  Future<void> _callDoctor(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final phone = appointment.doctorPhone;
+    if (phone == null || phone.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: phone));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.clipboardCopied),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final timeFormat = DateFormat('HH:mm');
 
     return Material(
@@ -137,7 +159,7 @@ class UpcomingAppointmentCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
                         child: Text(
-                          _getStatusLabel(appointment.status),
+                          _getStatusLabel(appointment.status, l10n),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -152,6 +174,24 @@ class UpcomingAppointmentCard extends StatelessWidget {
             ),
             Column(
               children: [
+                if (appointment.doctorPhone != null && appointment.doctorPhone!.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () => _callDoctor(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.success,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: const Icon(
+                        LucideIcons.phone,
+                        size: 18,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                ],
                 if (appointment.mapsLink != null || appointment.doctorAddress != null)
                   GestureDetector(
                     onTap: _openMaps,
@@ -176,17 +216,16 @@ class UpcomingAppointmentCard extends StatelessWidget {
     );
   }
 
-  String _getStatusLabel(String status) {
+  String _getStatusLabel(String status, AppLocalizations l10n) {
     switch (status) {
       case 'upcoming':
-        return 'À venir';
+        return l10n.appointmentsUpcoming;
       case 'confirmed':
-        return 'Confirmé';
+        return l10n.appointmentsStatusConfirmed;
       case 'cancelled':
-        return 'Annulé';
-
+        return l10n.appointmentsStatusCancelled;
       case 'completed':
-        return 'Terminé';
+        return l10n.appointmentsStatusCompleted;
       default:
         return status;
     }

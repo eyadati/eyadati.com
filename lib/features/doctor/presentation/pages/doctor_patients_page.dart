@@ -365,6 +365,7 @@ class _PatientTile extends StatelessWidget {
                       ),
                     ),
                   ),
+
                   const SizedBox(width: 8),
                   Text(
                     'Dernière: $lastVisitStr',
@@ -382,6 +383,8 @@ class _PatientTile extends StatelessWidget {
       ],
     );
   }
+
+
 
   Widget _buildExpandedContent() {
     return Padding(

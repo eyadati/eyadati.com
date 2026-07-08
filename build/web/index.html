@@ -78,9 +78,53 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('service-worker.js');
+        navigator.serviceWorker.register('service-worker.js').then(function(reg) {
+          // Check for SW updates on every page load
+          reg.update();
+
+          // Listen for new service workers
+          reg.addEventListener('updatefound', function() {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', function() {
+                if (newWorker.state === 'installed') {
+                  // New SW installed, notify Flutter via custom event
+                  window.dispatchEvent(new CustomEvent('sw-update-ready'));
+                }
+              });
+            }
+          });
+        });
       });
     }
+
+    // PWA Install Prompt
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      // Notify Flutter that install is available
+      window.dispatchEvent(new CustomEvent('pwa-install-available'));
+    });
+
+    window.addEventListener('appinstalled', function() {
+      deferredPrompt = null;
+      window.dispatchEvent(new CustomEvent('pwa-installed'));
+    });
+
+    // Exposed for Flutter to trigger the install prompt
+    window.triggerInstallPrompt = function() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(choiceResult) {
+          deferredPrompt = null;
+          window.dispatchEvent(new CustomEvent(choiceResult.outcome === 'accepted' ? 'pwa-installed' : 'pwa-install-dismissed'));
+        });
+      }
+    };
+    window.addEventListener('flutter-trigger-install', function() {
+      if (deferredPrompt) deferredPrompt.prompt();
+    });
   </script>
 
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>

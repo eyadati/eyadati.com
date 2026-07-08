@@ -20,6 +20,7 @@
   "commonYes": "نعم",
   "commonNo": "لا",
   "commonOk": "حسناً",
+  "commonMore": "أخرى",
 
   "validationEmailRequired": "البريد الإلكتروني مطلوب",
   "validationEmailInvalid": "البريد الإلكتروني غير صالح",
@@ -74,11 +75,21 @@
   "patientViewAll": "عرض الكل",
   "patientNoAppointments": "لا توجد مواعيد قادمة",
   "patientBookNow": "احجز الآن",
+  "patientHomeNoAppointmentMsg": "اضغط على الزر أدناه للبحث عن طبيب",
 
   "doctorsBrowseTitle": "جميع الأطباء",
   "doctorsSearchPlaceholder": "ابحث عن طبيب...",
+  "doctorCardAvailability": "عرض التوفر",
   "doctorsFilterSpecialty": "التخصص",
   "doctorsFilterAvailability": "التوفر",
+  "searchFilterRequired": "الرجاء اختيار مدينة أو تخصص",
+  "searchFilterCity": "المدينة",
+  "searchFilterCityHint": "اختر مدينة",
+  "searchFilterSpecialtyHint": "اختر تخصصاً",
+  "doctorResultsAvailable": "الأطباء المتاحون",
+  "doctorResultsNoFavorites": "لم يتم العثور على مفضلات",
+  "doctorResultsAddFavorites": "أضف أطباء إلى مفضلاتك لرؤيتهم هنا",
+  "doctorResultsTryOther": "جرب معايير أخرى",
   "doctorsNoResults": "لم يتم العثور على أطباء",
   "doctorsViewProfile": "عرض الملف",
   "doctorsBookAppointment": "احجز موعد",
@@ -90,6 +101,8 @@
   "doctorDetailsEducation": "التعليم",
   "doctorDetailsWorkingHours": "ساعات العمل",
   "doctorDetailsReviews": "التقييمات",
+  "doctorDetailsInfo": "المعلومات",
+  "doctorDetailsCity": "المدينة",
   "doctorDetailsBookNow": "احجز الآن",
   "doctorDetailsAddFavorite": "إضافة للمفضلة",
   "doctorDetailsRemoveFavorite": "إزالة من المفضلة",
@@ -107,13 +120,67 @@
   "bookingAddNotes": "ملاحظات (اختياري)",
   "bookingConfirmButton": "تأكيد الموعد",
   "bookingSelectSlot": "اختر موعداً",
+  "bookingToday": "اليوم",
+  "bookingNotesHint": "أضف ملاحظات للطبيب...",
+  "bookingNoSlotsToday": "لا توجد مواعيد متاحة اليوم (الحد الأدنى 30 دقيقة)",
+  "bookingNoSlotsDate": "لا توجد مواعيد متاحة لهذا التاريخ",
+  "bookingUnavailableTitle": "الحجز غير متاح لك",
+  "bookingUnavailableMessage": "نسبة الموثوقية لديك منخفضة جداً. اتصل بالعيادة للحجز.",
+  "bookingCallOffice": "اتصل بالعيادة",
+  "bookingSelectTimeError": "الرجاء اختيار وقت",
+  "bookingUserNotConnectedError": "خطأ: المستخدم غير متصل",
+  "bookingError": "خطأ: {error}",
+  "@bookingError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "bookingSuccessViewButton": "عرض مواعيدي",
+  "bookingLoading": "جاري...",
+  "bookingWarningMessage": "تنبيه: لديك {count} غيابات غير مبررة. بعد 3 غيابات، لن تتمكن من الحجز عبر الإنترنت.",
+  "@bookingWarningMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookingReliabilityLabel": "الموثوقية: {pct}% ({label})",
+  "@bookingReliabilityLabel": {
+    "placeholders": {
+      "pct": {
+        "type": "int"
+      },
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "bookingSelectDateError": "الرجاء تحديد التاريخ والوقت",
+  "bookingSuccessWithDoctor": "تم تسجيل موعدك مع {doctorName} بنجاح",
+  "@bookingSuccessWithDoctor": {
+    "placeholders": {
+      "doctorName": {
+        "type": "String"
+      }
+    }
+  },
+  "bookingBackHome": "العودة إلى الرئيسية",
+  "bookingNoSlotsAvailable": "لا توجد مواعيد متاحة",
+  "bookingSelectDateHint": "اختر تاريخاً لعرض الأوقات المتاحة",
+  "attendanceGood": "جيد",
+  "attendanceAverage": "متوسط",
+  "attendanceLow": "ضعيف",
 
   "appointmentsMyAppointments": "مواعيدي",
   "appointmentsUpcoming": "قادمة",
   "appointmentsPast": "سابقة",
   "appointmentsCancelled": "ملغاة",
   "appointmentsNoUpcoming": "لا توجد مواعيد قادمة",
-  "appointmentsNoPast": "لا توجد مواعيد سابقة",
+      "appointmentsNoPast": "لا توجد مواعيد سابقة",
+      "appointmentsNoCancelled": "لا توجد مواعيد ملغاة",
   "appointmentsCancel": "إلغاء",
   "appointmentsReschedule": "إعادة جدولة",
   "appointmentsDetails": "التفاصيل",
@@ -122,6 +189,12 @@
   "appointmentsStatusCompleted": "مكتمل",
   "appointmentsStatusCancelled": "ملغى",
   "appointmentsWithDoctor": "مع د. {name}",
+
+  "cancelAppointmentConfirm": "هل أنت متأكد أنك تريد إلغاء هذا الموعد؟",
+  "cancelConfirmYes": "نعم، إلغاء",
+  "appointmentCancelled": "تم إلغاء الموعد",
+  "cancelAppointmentError": "خطأ أثناء الإلغاء",
+  "clipboardCopied": "تم نسخ الرقم",
 
   "favoritesTitle": "مفضلاتي",
   "favoritesEmpty": "لا توجد مفضلات",
@@ -139,6 +212,12 @@
   "profileEmail": "البريد الإلكتروني",
   "profilePhone": "الهاتف",
   "profileDateOfBirth": "تاريخ الميلاد",
+  "profilePersonalInfo": "المعلومات الشخصية",
+  "profileNameHint": "أدخل اسمك",
+  "profileCity": "المدينة",
+  "profileCityHint": "اختر مدينتك",
+  "profileUpdateSuccess": "تم تحديث الملف الشخصي",
+  "profileUpdateError": "خطأ أثناء التحديث",
 
   "doctorDashboardTitle": "لوحة التحكم",
   "doctorDashboardToday": "اليوم",
@@ -225,7 +304,18 @@
   "settingsLanguage": "اللغة",
   "settingsPrivacy": "الخصوصية",
   "settingsAbout": "حول",
+  "settingsLogoutConfirm": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
   "settingsVersion": "الإصدار",
+  "settingsPreferences": "التفضيلات",
+  "settingsNotificationsEnabled": "مفعلة",
+  "wrongPassword": "كلمة المرور غير صحيحة",
+  "confirmPasswordTitle": "تأكيد كلمة المرور",
+  "deleteAccountConfirmMessage": "هذا الإجراء لا رجعة فيه. جميع بياناتك (المواعيد، المفضلة) سيتم حذفها نهائياً.",
+  "enterPasswordHint": "أدخل كلمة المرور",
+  "logoutConfirmMessage": "هل أنت متأكد أنك تريد تسجيل الخروج؟",
+  "installBannerTitle": "تثبيت عياداتي",
+  "installBannerSubtitle": "أضف عياداتي إلى شاشتك الرئيسية",
+  "installBannerButton": "تثبيت",
 
   "timeMorning": "صباحاً",
   "timeAfternoon": "ظهراً",

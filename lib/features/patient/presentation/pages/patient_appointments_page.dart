@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
+import 'package:eyadati/l10n/app_localizations.dart';
 import '../providers/providers.dart';
 
 class PatientAppointmentsPage extends ConsumerStatefulWidget {
@@ -24,23 +26,24 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
   @override
   Widget build(BuildContext context) {
     final patientState = ref.watch(patientProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Mes rendez-vous'),
+          title: Text(l10n.appointmentsMyAppointments),
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          bottom: const TabBar(
+          bottom: TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
             tabs: [
-              Tab(text: 'À venir'),
-              Tab(text: 'Passés'),
-              Tab(text: 'Annulés'),
+              Tab(text: l10n.appointmentsUpcoming),
+              Tab(text: l10n.appointmentsPast),
+              Tab(text: l10n.appointmentsCancelled),
             ],
           ),
         ),
@@ -48,6 +51,8 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
+                  if (patientState.hasSufficientHistory)
+                    _buildAttendanceRateBar(patientState.attendanceRate),
                   if (patientState.noShowCount == 1)
                     _buildNoShowBanner(
                       patientState.noShowCount,
@@ -74,21 +79,21 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
                       children: [
                         _buildAppointmentsList(
                           patientState.upcomingAppointments,
-                          'Aucun rendez-vous à venir',
+                          l10n.appointmentsNoUpcoming,
                           context,
                           ref,
                           showCancel: true,
                         ),
                         _buildAppointmentsList(
                           patientState.pastAppointments,
-                          'Aucun rendez-vous passé',
+                          l10n.appointmentsNoPast,
                           context,
                           ref,
                           showCancel: false,
                         ),
                         _buildAppointmentsList(
                           patientState.cancelledAppointments,
-                          'Aucun rendez-vous annulé',
+                          l10n.appointmentsNoCancelled,
                           context,
                           ref,
                           showCancel: false,
@@ -135,21 +140,22 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
   }
 
   Future<void> _showCancelDialog(BuildContext context, WidgetRef ref, PatientAppointmentViewModel appointment) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Annuler le rendez-vous'),
-        content: const Text('Êtes-vous sûr de vouloir annuler ce rendez-vous ?'),
+        title: Text(l10n.doctorAppointmentsCancelAppointment),
+        content: Text(l10n.cancelAppointmentConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Non'),
+            child: Text(l10n.commonNo),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Oui, annuler'),
+            child: Text(l10n.cancelConfirmYes),
           ),
         ],
       ),
@@ -160,7 +166,42 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(success ? 'Rendez-vous annulé' : 'Erreur lors de l\'annulation'),
+        content: Text(success ? l10n.appointmentCancelled : l10n.cancelAppointmentError),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceRateBar(double rate) {
+    final pct = (rate * 100).round();
+    final Color barColor;
+    if (rate > 0.75) {
+      barColor = const Color(0xFF16A34A);
+    } else if (rate >= 0.50) {
+      barColor = const Color(0xFFD97706);
+    } else {
+      barColor = const Color(0xFFDC2626);
+    }
+    final String label;
+    if (rate > 0.75) {
+      label = 'Bon';
+    } else if (rate >= 0.50) {
+      label = 'Moyen';
+    } else {
+      label = 'Faible';
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      color: barColor.withValues(alpha: 0.08),
+      child: Row(
+        children: [
+          Icon(Icons.shield_outlined, color: barColor, size: 18),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            'Fiabilité : $pct% ($label)',
+            style: TextStyle(fontSize: 12, color: barColor, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }
@@ -222,6 +263,7 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
   }
 
   Widget _buildBottomNav(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return BottomNavigationBar(
       currentIndex: 2,
       onTap: (index) {
@@ -245,12 +287,12 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
       type: BottomNavigationBarType.fixed,
       selectedItemColor: AppColors.primary,
       unselectedItemColor: AppColors.textSecondary,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Docteurs'),
-        BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: 'Rendez-vous'),
-        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favoris'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+      items: [
+        BottomNavigationBarItem(icon: const Icon(Icons.home), label: l10n.navHome),
+        BottomNavigationBarItem(icon: const Icon(Icons.search), label: l10n.navDoctors),
+        BottomNavigationBarItem(icon: const Icon(Icons.calendar_today), label: l10n.navAppointments),
+        BottomNavigationBarItem(icon: const Icon(Icons.favorite), label: l10n.navFavorites),
+        BottomNavigationBarItem(icon: const Icon(Icons.person), label: l10n.navProfile),
       ],
     );
   }
@@ -278,6 +320,7 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -349,29 +392,63 @@ class _AppointmentCard extends StatelessWidget {
                 '${appointment.duration} min',
                 style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
-              if (appointment.mapsLink != null && appointment.mapsLink!.isNotEmpty) ...[
+              if (appointment.mapsLink != null && appointment.mapsLink!.isNotEmpty ||
+                  appointment.doctorPhone != null && appointment.doctorPhone!.isNotEmpty) ...[
                 const Spacer(),
-                GestureDetector(
-                  onTap: () => launchUrl(Uri.parse(appointment.mapsLink!), mode: LaunchMode.externalApplication),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.secondary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.location_on, size: 14, color: AppColors.secondary),
-                        SizedBox(width: 4),
-                        Text(
-                          'Ouvrir',
-                          style: TextStyle(fontSize: 12, color: AppColors.secondary, fontWeight: FontWeight.w500),
+                if (appointment.doctorPhone != null && appointment.doctorPhone!.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: appointment.doctorPhone!));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(l10n.clipboardCopied),
+                          duration: const Duration(seconds: 2),
                         ),
-                      ],
+                      );
+                      launchUrl(Uri.parse('tel:${appointment.doctorPhone}'));
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.phone, size: 14, color: AppColors.success),
+                          const SizedBox(width: 4),
+                          Text(
+                            l10n.bookingCallOffice,
+                            style: const TextStyle(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                if (appointment.mapsLink != null && appointment.mapsLink!.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => launchUrl(Uri.parse(appointment.mapsLink!), mode: LaunchMode.externalApplication),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.secondary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.location_on, size: 14, color: AppColors.secondary),
+                          SizedBox(width: 4),
+                          Text(
+                            'Ouvrir',
+                            style: TextStyle(fontSize: 12, color: AppColors.secondary, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ],
           ),
@@ -400,7 +477,7 @@ class _AppointmentCard extends StatelessWidget {
                       foregroundColor: AppColors.error,
                       side: const BorderSide(color: AppColors.error),
                     ),
-                    child: const Text('Annuler'),
+                    child: Text(l10n.appointmentsCancel),
                   ),
                 ),
               ],
@@ -419,6 +496,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     Color bgColor;
     Color textColor;
     String label;
@@ -427,17 +505,17 @@ class _StatusBadge extends StatelessWidget {
       case 'upcoming':
         bgColor = const Color(0xFFE3F2FD);
         textColor = AppColors.primary;
-        label = 'À venir';
+        label = l10n.appointmentsUpcoming;
         break;
       case 'completed':
         bgColor = const Color(0xFFE8F5E9);
         textColor = AppColors.secondary;
-        label = 'Terminé';
+        label = l10n.appointmentsStatusCompleted;
         break;
       case 'cancelled':
         bgColor = const Color(0xFFFFEBEE);
         textColor = AppColors.error;
-        label = 'Annulé';
+        label = l10n.appointmentsStatusCancelled;
         break;
       case 'absent':
         bgColor = const Color(0xFFFFF3E0);

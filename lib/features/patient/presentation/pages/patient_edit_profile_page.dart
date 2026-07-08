@@ -7,6 +7,7 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/buttons/primary_button.dart';
 import '../../../../core/widgets/inputs/app_text_field.dart';
 import '../../../../core/widgets/inputs/app_dropdown.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/providers.dart';
 
 class PatientEditProfilePage extends ConsumerStatefulWidget {
@@ -53,6 +54,7 @@ class _PatientEditProfilePageState extends ConsumerState<PatientEditProfilePage>
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _isLoading = true);
 
     try {
@@ -67,14 +69,14 @@ class _PatientEditProfilePageState extends ConsumerState<PatientEditProfilePage>
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Profil mis à jour'),
+              content: Text(l10n.profileUpdateSuccess),
               backgroundColor: AppColors.success,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Erreur lors de la mise à jour'),
+              content: Text(l10n.profileUpdateError),
               backgroundColor: AppColors.error,
             ),
           );
@@ -83,8 +85,8 @@ class _PatientEditProfilePageState extends ConsumerState<PatientEditProfilePage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
+            SnackBar(
+              content: Text('${l10n.commonError}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -96,10 +98,11 @@ class _PatientEditProfilePageState extends ConsumerState<PatientEditProfilePage>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Modifier le profil'),
+        title: Text(l10n.profileEditProfile),
         foregroundColor: AppColors.textPrimary,
         backgroundColor: AppColors.white,
         elevation: 0,
@@ -116,29 +119,29 @@ class _PatientEditProfilePageState extends ConsumerState<PatientEditProfilePage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Informations personnelles',
+                l10n.profilePersonalInfo,
                 style: AppTextStyles.sectionHeader,
               ),
               const SizedBox(height: AppSpacing.md),
               AppTextField(
                 controller: _nameController,
-                label: 'Nom complet',
-                hint: 'Entrez votre nom',
+                label: l10n.authNameLabel,
+                hint: l10n.profileNameHint,
                 prefixIcon: LucideIcons.user,
-                validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
+                validator: (v) => v == null || v.trim().isEmpty ? l10n.validationNameRequired : null,
               ),
               const SizedBox(height: AppSpacing.md),
               AppTextField(
                 controller: _phoneController,
-                label: 'Téléphone',
+                label: l10n.authPhoneLabel,
                 hint: '0555 00 00 00',
                 prefixIcon: LucideIcons.phone,
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: AppSpacing.md),
               AppDropdown<String>(
-                label: 'Ville',
-                hint: 'Sélectionnez votre ville',
+                label: l10n.profileCity,
+                hint: l10n.profileCityHint,
                 value: _selectedCity.isNotEmpty ? _selectedCity : null,
                 items: algerianCities.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                 onChanged: (v) => setState(() => _selectedCity = v ?? ''),
@@ -146,7 +149,7 @@ class _PatientEditProfilePageState extends ConsumerState<PatientEditProfilePage>
               const SizedBox(height: AppSpacing.xl),
               PrimaryButton(
                 onPressed: _isLoading ? null : _save,
-                label: 'Enregistrer',
+                label: l10n.commonSave,
                 isLoading: _isLoading,
               ),
             ],

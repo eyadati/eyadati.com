@@ -4,6 +4,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/widgets/buttons/primary_button.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/doctors_provider.dart';
 import '../widgets/doctor_results_sheet.dart';
 
@@ -53,9 +54,10 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
 
   void _search() {
     if (_selectedCity == null && _selectedSpecialty == null) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner une ville ou une spécialité'),
+        SnackBar(
+          content: Text(l10n.searchFilterRequired),
           backgroundColor: AppColors.error,
         ),
       );
@@ -82,14 +84,15 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.xxl),
       ),
       backgroundColor: AppColors.card,
-      title: const Text(
-        'Rechercher un médecin',
-        style: TextStyle(
+      title: Text(
+        l10n.doctorsBrowseTitle,
+        style: const TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
@@ -99,9 +102,9 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Ville',
-            style: TextStyle(
+          Text(
+            l10n.searchFilterCity,
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -122,7 +125,7 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
                 ),
                 border: InputBorder.none,
               ),
-              hint: const Text('Sélectionner une ville'),
+              hint: Text(l10n.searchFilterCityHint),
               items: _cities.map((city) {
                 return DropdownMenuItem(
                   value: city,
@@ -133,9 +136,9 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          const Text(
-            'Spécialité',
-            style: TextStyle(
+          Text(
+            l10n.doctorsFilterSpecialty,
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
@@ -156,7 +159,7 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
                 ),
                 border: InputBorder.none,
               ),
-              hint: const Text('Sélectionner une spécialité'),
+              hint: Text(l10n.searchFilterSpecialtyHint),
               items: _specialties.map((specialty) {
                 return DropdownMenuItem(
                   value: specialty,
@@ -171,15 +174,15 @@ class _SearchFilterDialogState extends ConsumerState<SearchFilterDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text(
-            'Annuler',
-            style: TextStyle(color: AppColors.textSecondary),
+          child: Text(
+            l10n.commonCancel,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ),
         SizedBox(
           width: 140,
           child: PrimaryButton(
-            label: 'Rechercher',
+            label: l10n.commonSearch,
             isLoading: _isLoading,
             onPressed: _search,
           ),
