@@ -25,6 +25,7 @@ class DoctorState {
   final int todayAppointments;
   final int weekAppointments;
   final int totalPatients;
+  final DateTime? subscriptionEnd;
   final List<AppointmentData> allAppointments;
   final List<AppointmentData> upcomingAppointments;
   final List<ScheduleSlot> scheduleSlots;
@@ -32,6 +33,9 @@ class DoctorState {
   final bool isLoading;
   final bool setupCompleted;
   final String? errorMessage;
+
+  bool get isSubscriptionExpired =>
+      subscriptionEnd != null && subscriptionEnd!.isBefore(DateTime.now());
 
   const DoctorState({
     this.userId,
@@ -50,6 +54,7 @@ class DoctorState {
     this.todayAppointments = 0,
     this.weekAppointments = 0,
     this.totalPatients = 0,
+    this.subscriptionEnd,
     this.allAppointments = const [],
     this.upcomingAppointments = const [],
     this.scheduleSlots = const [],
@@ -132,6 +137,7 @@ class DoctorState {
     int? todayAppointments,
     int? weekAppointments,
     int? totalPatients,
+    DateTime? subscriptionEnd,
     List<AppointmentData>? allAppointments,
     List<AppointmentData>? upcomingAppointments,
     List<ScheduleSlot>? scheduleSlots,
@@ -157,6 +163,7 @@ class DoctorState {
       todayAppointments: todayAppointments ?? this.todayAppointments,
       weekAppointments: weekAppointments ?? this.weekAppointments,
       totalPatients: totalPatients ?? this.totalPatients,
+      subscriptionEnd: subscriptionEnd ?? this.subscriptionEnd,
       allAppointments: allAppointments ?? this.allAppointments,
       upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
       scheduleSlots: scheduleSlots ?? this.scheduleSlots,
@@ -304,7 +311,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       final doctorData = await _client
           .from('doctors')
           .select(
-            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration, manual_pause, is_test',
+            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration, manual_pause, is_test, subscription_end',
           )
           .eq('id', user.id)
           .maybeSingle();
@@ -412,6 +419,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         mapsLink: doctorData['maps_link'] as String?,
         isPaused: doctorData['manual_pause'] as bool? ?? false,
         isTest: doctorData['is_test'] as bool? ?? false,
+        subscriptionEnd: doctorData['subscription_end'] != null
+            ? DateTime.parse(doctorData['subscription_end'] as String)
+            : null,
         todayAppointments: todayAppts.count,
         weekAppointments: weekAppts.count,
         totalPatients: 0,

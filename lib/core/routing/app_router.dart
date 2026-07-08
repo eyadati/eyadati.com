@@ -26,6 +26,7 @@ import '../../features/doctor/presentation/pages/doctor_subscription_page.dart';
 import '../../features/doctor/presentation/pages/payment_success_page.dart';
 import '../../features/doctor/presentation/pages/payment_failure_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/doctor/presentation/providers/doctor_provider.dart';
 
 /// A notifier that bridges the Riverpod AuthState to GoRouter's refreshListenable.
 class RouterNotifier extends ChangeNotifier {
@@ -93,6 +94,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
         print('[RouterRedirect] Already at setup, allowing access');
         return null; // Allow access to setup page
+      }
+
+      // 3b. Subscription expiry check
+      if (authState.isDoctor && authState.setupCompleted) {
+        try {
+          final doctorState = ref.read(doctorProvider);
+          if (doctorState.subscriptionEnd != null &&
+              doctorState.subscriptionEnd!.isBefore(DateTime.now()) &&
+              state.matchedLocation != RouteNames.doctorSubscription &&
+              state.matchedLocation != RouteNames.doctorSetup) {
+            print('[RouterRedirect] Subscription expired, redirecting to subscription page');
+            return RouteNames.doctorSubscription;
+          }
+        } catch (_) {
+          // doctorProvider may not be available yet, skip check
+        }
       }
 
       // 4. Allow access to setup page if already completed

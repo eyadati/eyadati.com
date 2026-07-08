@@ -99,6 +99,8 @@ class _DoctorSubscriptionPageState extends ConsumerState<DoctorSubscriptionPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildStatusCard(subState),
+                  if (subState.subscriptionEnd != null && !subState.isActive)
+                    _buildExpiredBanner(),
                   const SizedBox(height: AppSpacing.lg),
                   Text('Choisissez votre formule', style: AppTextStyles.sectionTitle),
                   const SizedBox(height: AppSpacing.md),
@@ -197,6 +199,59 @@ class _DoctorSubscriptionPageState extends ConsumerState<DoctorSubscriptionPage>
             child: Text(statusText, style: AppTextStyles.badge.copyWith(color: statusColor)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildExpiredBanner() {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.block, color: AppColors.error, size: 22),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Votre abonnement a expiré',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.error,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Vous ne pouvez plus recevoir de nouveaux rendez-vous. '
+                    'Sélectionnez une formule ci-dessous pour réactiver votre abonnement.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
