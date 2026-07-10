@@ -26,6 +26,7 @@ class BookingBottomSheet extends ConsumerStatefulWidget {
 }
 
 class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
+  bool _showBookingChoice = true;
   DateTime? _selectedDate;
   TimeOfDay? _selectedSlot;
   bool _isLoading = false;
@@ -152,6 +153,76 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   }
 
   bool get _isBlocked => _noShowCount >= 3 || (_attendanceRate != null && _attendanceRate! < 0.50);
+
+  Widget _buildBookingChoice() {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Spacer(),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(LucideIcons.calendarPlus, size: 32, color: AppColors.primary),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'Réserver avec ${widget.doctor.name}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.doctor.specialty,
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                final phone = _doctorPhone;
+                if (phone != null && phone.isNotEmpty) {
+                  launchUrl(Uri.parse('tel:$phone'));
+                }
+              },
+              icon: const Icon(LucideIcons.phone, size: 20),
+              label: Text(l10n.bookingCallOffice),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.success,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => setState(() => _showBookingChoice = false),
+              icon: const Icon(LucideIcons.calendar, size: 20),
+              label: Text(l10n.bookingBookOnline),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
 
   Widget _buildAttendanceRateBar(double rate) {
     final l10n = AppLocalizations.of(context)!;
@@ -344,6 +415,9 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
       ),
       child: Column(
         children: [
+          if (_showBookingChoice)
+            _buildBookingChoice()
+          else ...[
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: const BoxDecoration(
@@ -697,6 +771,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
               ),
             ),
           ),
+          ],
         ],
       ),
     );

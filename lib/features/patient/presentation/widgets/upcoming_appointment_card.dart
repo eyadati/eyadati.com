@@ -116,6 +116,22 @@ class UpcomingAppointmentCard extends StatelessWidget {
                       color: AppColors.textSecondary,
                     ),
                   ),
+                  if (appointment.doctorPhone != null && appointment.doctorPhone!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Icon(LucideIcons.phone, size: 12, color: AppColors.textHint),
+                        const SizedBox(width: 4),
+                        Text(
+                          appointment.doctorPhone!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   Row(
                     children: [

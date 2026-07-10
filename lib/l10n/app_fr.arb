@@ -333,5 +333,6 @@
 
   "timeMorning": "Matin",
   "timeAfternoon": "Après-midi",
-  "timeEvening": "Soir"
+  "timeEvening": "Soir",
+  "bookingBookOnline": "Réserver en ligne"
 }

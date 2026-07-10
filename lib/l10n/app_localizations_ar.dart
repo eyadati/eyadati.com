@@ -813,8 +813,11 @@ class AppLocalizationsAr extends AppLocalizations {
   String get timeMorning => 'صباحاً';
 
   @override
-  String get timeAfternoon => 'ظهراً';
+  String get timeAfternoon => 'مساءً';
 
   @override
-  String get timeEvening => 'مساءً';
+  String get timeEvening => 'ليلاً';
+
+  @override
+  String get bookingBookOnline => 'احجز عبر الإنترنت';
 }

@@ -33,10 +33,13 @@ class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
-    // Listen to auth changes and notify GoRouter to re-run the redirect logic.
     _ref.listen(authProvider, (previous, next) {
-      print('[RouterNotifier] Auth state changed - isInitialized: ${next.isInitialized}, isAuthenticated: ${next.isAuthenticated}, isDoctor: ${next.isDoctor}, setupCompleted: ${next.setupCompleted}');
       notifyListeners();
+    });
+    _ref.listen(doctorProvider, (previous, next) {
+      if (previous?.subscriptionEnd != next.subscriptionEnd) {
+        notifyListeners();
+      }
     });
   }
 }

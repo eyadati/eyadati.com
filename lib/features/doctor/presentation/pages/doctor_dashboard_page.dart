@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_breakpoints.dart';
+import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/services/notification_service.dart';
@@ -128,16 +130,48 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
       endDrawer: DoctorNotificationSidebar(appointments: pending),
-      body: doctorState.errorMessage != null
-          ? _buildErrorView(doctorState)
-          : Skeletonizer(
-              enabled: doctorState.isLoading,
-              child: DoctorCalendarPage(
-                onBellPressed: () =>
-                    _scaffoldKey.currentState?.openEndDrawer(),
-                selectedDateNotifier: _selectedDate,
+      body: Column(
+        children: [
+          if (doctorState.isSubscriptionExpired)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: AppColors.error,
+              child: Row(
+                children: [
+                  const Icon(Icons.block, color: AppColors.white, size: 18),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Abonnement expiré — Renouvelez pour continuer',
+                      style: TextStyle(color: AppColors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push(RouteNames.doctorSubscription),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      backgroundColor: AppColors.white.withValues(alpha: 0.2),
+                    ),
+                    child: const Text('Renouveler', style: TextStyle(color: AppColors.white, fontSize: 12)),
+                  ),
+                ],
               ),
             ),
+          Expanded(
+            child: doctorState.errorMessage != null
+                ? _buildErrorView(doctorState)
+                : Skeletonizer(
+                    enabled: doctorState.isLoading,
+                    child: DoctorCalendarPage(
+                      onBellPressed: () =>
+                          _scaffoldKey.currentState?.openEndDrawer(),
+                      selectedDateNotifier: _selectedDate,
+                    ),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth >= AppBreakpoints.mobile) {

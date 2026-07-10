@@ -318,6 +318,7 @@
   "installBannerButton": "تثبيت",
 
   "timeMorning": "صباحاً",
-  "timeAfternoon": "ظهراً",
-  "timeEvening": "مساءً"
+  "timeAfternoon": "مساءً",
+  "timeEvening": "ليلاً",
+  "bookingBookOnline": "احجز عبر الإنترنت"
 }

@@ -1681,6 +1681,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Soir'**
   String get timeEvening;
+
+  /// No description provided for @bookingBookOnline.
+  ///
+  /// In fr, this message translates to:
+  /// **'Réserver en ligne'**
+  String get bookingBookOnline;
 }
 
 class _AppLocalizationsDelegate

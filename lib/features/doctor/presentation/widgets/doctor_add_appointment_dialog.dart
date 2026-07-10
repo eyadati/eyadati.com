@@ -136,6 +136,19 @@ class _DoctorAddAppointmentDialogState
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final doctorState = ref.read(doctorProvider);
+
+    if (doctorState.isSubscriptionExpired) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Votre abonnement a expiré. Renouvelez pour créer des rendez-vous.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     if (_selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -155,7 +168,6 @@ class _DoctorAddAppointmentDialogState
       return;
     }
 
-    final doctorState = ref.read(doctorProvider);
     final effectiveDuration = _isConsultation
         ? doctorState.consultationDuration
         : _selectedDuration!;
@@ -627,6 +639,30 @@ class _DoctorAddAppointmentDialogState
                   ),
                 const SizedBox(height: AppSpacing.lg),
                 _buildTimeSlots(doctorState),
+                if (doctorState.isSubscriptionExpired)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.block, color: AppColors.error, size: 16),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Abonnement expiré — Renouvelez pour créer des rendez-vous',
+                              style: TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: AppSpacing.lg),
                 SizedBox(
                   width: double.infinity,
@@ -634,7 +670,7 @@ class _DoctorAddAppointmentDialogState
                     label: _isConsultation
                         ? 'Créer la consultation'
                         : 'Créer le rendez-vous',
-                    onPressed: _save,
+                    onPressed: doctorState.isSubscriptionExpired ? null : _save,
                   ),
                 ),
               ],

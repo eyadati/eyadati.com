@@ -828,4 +828,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get timeEvening => 'Soir';
+
+  @override
+  String get bookingBookOnline => 'Réserver en ligne';
 }
