@@ -95,6 +95,11 @@
             }
           });
         });
+
+        // Auto-reload when a new service worker takes control
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          window.location.reload();
+        });
       });
     }
 

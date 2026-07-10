@@ -62,6 +62,10 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
   }
 
   void _applyUpdate() {
+    final sw = html.window.navigator.serviceWorker;
+    sw?.getRegistration().then((reg) {
+      reg?.waiting?.postMessage('SKIP_WAITING');
+    });
     html.window.location.reload();
   }
 
