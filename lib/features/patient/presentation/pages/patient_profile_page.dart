@@ -17,12 +17,6 @@ class PatientProfilePage extends ConsumerStatefulWidget {
 }
 
 class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(patientProvider.notifier).loadPatientData());
-  }
-
   Future<void> _logout() async {
     final l10nLogout = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
@@ -46,7 +40,6 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
     );
 
     if (confirmed == true && mounted) {
-      ref.read(patientProvider.notifier).clearError();
       final authNotifier = ref.read(authProvider.notifier);
       await authNotifier.logout();
     }
@@ -54,7 +47,7 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final patientState = ref.watch(patientProvider);
+    final asyncPatient = ref.watch(patientProvider);
     final localeNotifier = ref.read(localeProvider.notifier);
     final currentLocale = ref.watch(localeProvider);
     final isArabic = currentLocale.languageCode == 'ar';
@@ -67,9 +60,10 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: patientState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: asyncPatient.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('$err')),
+        data: (patientState) => SingleChildScrollView(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 children: [
@@ -169,6 +163,7 @@ class _PatientProfilePageState extends ConsumerState<PatientProfilePage> {
                 ],
               ),
             ),
+          ),
     );
   }
 }

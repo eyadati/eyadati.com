@@ -131,8 +131,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       int noShow = 0;
       for (final row in attendanceData as List) {
         final status = row['attendance_status'] as String;
-        if (status == 'present') present++;
-        else if (status == 'no_show') noShow++;
+        if (status == 'present') {
+          present++;
+        } else if (status == 'no_show') {
+          noShow++;
+        }
       }
 
       if (mounted) {

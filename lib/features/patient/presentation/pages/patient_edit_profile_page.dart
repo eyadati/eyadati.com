@@ -39,10 +39,10 @@ class _PatientEditProfilePageState extends ConsumerState<PatientEditProfilePage>
   @override
   void initState() {
     super.initState();
-    final state = ref.read(patientProvider);
-    _nameController = TextEditingController(text: state.name);
-    _phoneController = TextEditingController(text: state.phone);
-    _selectedCity = state.city;
+    final state = ref.read(patientProvider).valueOrNull;
+    _nameController = TextEditingController(text: state?.name ?? '');
+    _phoneController = TextEditingController(text: state?.phone ?? '');
+    _selectedCity = state?.city ?? '';
   }
 
   @override

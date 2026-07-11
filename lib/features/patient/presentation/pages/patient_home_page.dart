@@ -20,20 +20,10 @@ class PatientHomePage extends ConsumerStatefulWidget {
 }
 
 class _PatientHomePageState extends ConsumerState<PatientHomePage> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() {
-      ref.read(patientProvider.notifier).loadPatientData();
-      ref.read(doctorsProvider.notifier).loadDoctors();
-      ref.read(favoritesProvider.notifier).loadFavorites();
-    });
-  }
-
   Future<void> _refresh() async {
-    await ref.read(patientProvider.notifier).loadPatientData();
-    await ref.read(doctorsProvider.notifier).refresh();
-    await ref.read(favoritesProvider.notifier).refresh();
+    ref.invalidate(patientProvider);
+    ref.invalidate(doctorsProvider);
+    ref.invalidate(favoritesProvider);
   }
 
   void _showSearchDialog() {
@@ -45,7 +35,7 @@ class _PatientHomePageState extends ConsumerState<PatientHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final patientState = ref.watch(patientProvider);
+    final asyncPatient = ref.watch(patientProvider);
     final canInstall = ref.watch(installPromptProvider);
     final l10n = AppLocalizations.of(context)!;
 
@@ -74,66 +64,70 @@ class _PatientHomePageState extends ConsumerState<PatientHomePage> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        color: AppColors.primary,
-        child: CustomScrollView(
-          slivers: [
-            if (patientState.upcomingAppointments.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    AppSpacing.md,
-                    0,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(l10n.patientUpcomingAppointments, style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+      body: asyncPatient.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        error: (err, _) => Center(child: Text('$err')),
+        data: (patientState) => RefreshIndicator(
+          onRefresh: _refresh,
+          color: AppColors.primary,
+          child: CustomScrollView(
+            slivers: [
+              if (patientState.upcomingAppointments.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      0,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l10n.patientUpcomingAppointments, style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ...patientState.upcomingAppointments
-                          .take(2)
-                          .map(
-                            (appointment) => Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.sm,
+                        const SizedBox(height: AppSpacing.sm),
+                        ...patientState.upcomingAppointments
+                            .take(2)
+                            .map(
+                              (appointment) => Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.sm,
+                                ),
+                                child: UpcomingAppointmentCard(
+                                  appointment: appointment,
+                                ),
                               ),
-                              child: UpcomingAppointmentCard(
-                                appointment: appointment,
+                            ),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (patientState.upcomingAppointments.length > 2)
+                          TextButton(
+                            onPressed: () =>
+                                context.push(RouteNames.patientAppointments),
+                            child: Text(
+                              '+ ${patientState.upcomingAppointments.length - 2} ${l10n.commonMore}',
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (patientState.upcomingAppointments.length > 2)
-                        TextButton(
-                          onPressed: () =>
-                              context.push(RouteNames.patientAppointments),
-                          child: Text(
-                            '+ ${patientState.upcomingAppointments.length - 2} ${l10n.commonMore}',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            if (patientState.upcomingAppointments.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _buildEmptyState(),
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
+              if (patientState.upcomingAppointments.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildEmptyState(),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
         ),
       ),
       bottomSheet: canInstall ? _buildInstallBanner(l10n) : null,

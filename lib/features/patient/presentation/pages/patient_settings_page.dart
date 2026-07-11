@@ -21,12 +21,6 @@ class PatientSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(patientProvider.notifier).loadPatientData());
-  }
-
   Future<void> _logout() async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
@@ -50,7 +44,6 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
     );
 
     if (confirmed == true && mounted) {
-      ref.read(patientProvider.notifier).clearError();
       final authNotifier = ref.read(authProvider.notifier);
       await authNotifier.logout();
     }
@@ -151,7 +144,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final patientState = ref.watch(patientProvider);
+    final asyncPatient = ref.watch(patientProvider);
     final localeNotifier = ref.read(localeProvider.notifier);
     final currentLocale = ref.watch(localeProvider);
     final isArabic = currentLocale.languageCode == 'ar';
@@ -176,9 +169,10 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
           icon: const Icon(LucideIcons.arrowLeft, color: AppColors.textPrimary),
         ),
       ),
-      body: patientState.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
+      body: asyncPatient.when(
+        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        error: (err, _) => Center(child: Text('$err')),
+        data: (patientState) => SingleChildScrollView(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,6 +342,7 @@ class _PatientSettingsPageState extends ConsumerState<PatientSettingsPage> {
                 ],
               ),
             ),
+          ),
     );
   }
 }

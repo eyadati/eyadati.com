@@ -18,14 +18,8 @@ class PatientAppointmentsPage extends ConsumerStatefulWidget {
 
 class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPage> {
   @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(patientProvider.notifier).loadPatientData());
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final patientState = ref.watch(patientProvider);
+    final asyncPatient = ref.watch(patientProvider);
     final l10n = AppLocalizations.of(context)!;
 
     return DefaultTabController(
@@ -47,62 +41,64 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
             ],
           ),
         ),
-        body: patientState.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  if (patientState.hasSufficientHistory)
-                    _buildAttendanceRateBar(patientState.attendanceRate),
-                  if (patientState.noShowCount == 1)
-                    _buildNoShowBanner(
-                      patientState.noShowCount,
-                      AppColors.textHint,
-                      AppColors.background,
-                      Icons.info_outline,
-                    )
-                  else if (patientState.noShowCount == 2)
-                    _buildNoShowBanner(
-                      patientState.noShowCount,
-                      AppColors.warning,
-                      AppColors.warning.withValues(alpha: 0.15),
-                      Icons.warning_amber,
-                    )
-                  else if (patientState.noShowCount >= 3)
-                    _buildNoShowBanner(
-                      patientState.noShowCount,
-                      AppColors.error,
-                      AppColors.error.withValues(alpha: 0.1),
-                      Icons.block,
+        body: asyncPatient.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text('$err')),
+          data: (patientState) => Column(
+            children: [
+              if (patientState.hasSufficientHistory)
+                _buildAttendanceRateBar(patientState.attendanceRate),
+              if (patientState.noShowCount == 1)
+                _buildNoShowBanner(
+                  patientState.noShowCount,
+                  AppColors.textHint,
+                  AppColors.background,
+                  Icons.info_outline,
+                )
+              else if (patientState.noShowCount == 2)
+                _buildNoShowBanner(
+                  patientState.noShowCount,
+                  AppColors.warning,
+                  AppColors.warning.withValues(alpha: 0.15),
+                  Icons.warning_amber,
+                )
+              else if (patientState.noShowCount >= 3)
+                _buildNoShowBanner(
+                  patientState.noShowCount,
+                  AppColors.error,
+                  AppColors.error.withValues(alpha: 0.1),
+                  Icons.block,
+                ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildAppointmentsList(
+                      patientState.upcomingAppointments,
+                      l10n.appointmentsNoUpcoming,
+                      context,
+                      ref,
+                      showCancel: true,
                     ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildAppointmentsList(
-                          patientState.upcomingAppointments,
-                          l10n.appointmentsNoUpcoming,
-                          context,
-                          ref,
-                          showCancel: true,
-                        ),
-                        _buildAppointmentsList(
-                          patientState.pastAppointments,
-                          l10n.appointmentsNoPast,
-                          context,
-                          ref,
-                          showCancel: false,
-                        ),
-                        _buildAppointmentsList(
-                          patientState.cancelledAppointments,
-                          l10n.appointmentsNoCancelled,
-                          context,
-                          ref,
-                          showCancel: false,
-                        ),
-                      ],
+                    _buildAppointmentsList(
+                      patientState.pastAppointments,
+                      l10n.appointmentsNoPast,
+                      context,
+                      ref,
+                      showCancel: false,
                     ),
-                  ),
-                ],
+                    _buildAppointmentsList(
+                      patientState.cancelledAppointments,
+                      l10n.appointmentsNoCancelled,
+                      context,
+                      ref,
+                      showCancel: false,
+                    ),
+                  ],
+                ),
               ),
+            ],
+          ),
+        ),
         bottomNavigationBar: _buildBottomNav(context),
       ),
     );
@@ -141,6 +137,7 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
 
   Future<void> _showCancelDialog(BuildContext context, WidgetRef ref, PatientAppointmentViewModel appointment) async {
     final l10n = AppLocalizations.of(context)!;
+    final messenger = ScaffoldMessenger.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -164,7 +161,7 @@ class _PatientAppointmentsPageState extends ConsumerState<PatientAppointmentsPag
     if (confirmed != true || !mounted) return;
     final success = await ref.read(patientProvider.notifier).cancelAppointment(appointment.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(success ? l10n.appointmentCancelled : l10n.cancelAppointmentError),
       ),

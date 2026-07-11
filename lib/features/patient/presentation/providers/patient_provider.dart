@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
@@ -20,8 +21,6 @@ class PatientState {
   final List<PatientAppointmentViewModel> upcomingAppointments;
   final List<PatientAppointmentViewModel> pastAppointments;
   final List<PatientAppointmentViewModel> cancelledAppointments;
-  final bool isLoading;
-  final String? errorMessage;
 
   const PatientState({
     this.name = '',
@@ -37,8 +36,6 @@ class PatientState {
     this.upcomingAppointments = const [],
     this.pastAppointments = const [],
     this.cancelledAppointments = const [],
-    this.isLoading = false,
-    this.errorMessage,
   });
 
   static const double _bayesianPrior = 1.0;
@@ -66,8 +63,6 @@ class PatientState {
     List<PatientAppointmentViewModel>? upcomingAppointments,
     List<PatientAppointmentViewModel>? pastAppointments,
     List<PatientAppointmentViewModel>? cancelledAppointments,
-    bool? isLoading,
-    String? errorMessage,
   }) {
     return PatientState(
       name: name ?? this.name,
@@ -84,8 +79,6 @@ class PatientState {
       pastAppointments: pastAppointments ?? this.pastAppointments,
       cancelledAppointments:
           cancelledAppointments ?? this.cancelledAppointments,
-      isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
     );
   }
 }
@@ -148,26 +141,47 @@ class PatientAppointmentViewModel {
   }
 }
 
-final patientProvider = StateNotifierProvider<PatientNotifier, PatientState>((
-  ref,
-) {
-  return PatientNotifier(ref);
+final patientProvider =
+    AsyncNotifierProvider<PatientNotifier, PatientState>(() {
+  return PatientNotifier();
 });
 
-class PatientNotifier extends StateNotifier<PatientState> {
-  final Ref _ref;
-  final SupabaseClient _client = SupabaseInitializer.client;
+class PatientNotifier extends AsyncNotifier<PatientState> {
+  SupabaseClient get _client => SupabaseInitializer.client;
   RealtimeChannel? _appointmentsChannel;
+  Timer? _debounceTimer;
+  bool _isFetching = false;
+  StreamSubscription? _authSubscription;
 
-  PatientNotifier(this._ref) : super(const PatientState()) {
+  @override
+  Future<PatientState> build() async {
     _subscribeToAppointments();
-    loadPatientData();
+    _listenToAuth();
+    return _load();
+  }
+
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    _debounceTimer?.cancel();
+    _authSubscription?.cancel();
+  }
+
+  void _listenToAuth() {
+    _authSubscription = _client.auth.onAuthStateChange.listen((data) {
+      if (data.session == null) {
+        _appointmentsChannel?.unsubscribe();
+        _appointmentsChannel = null;
+      } else {
+        _subscribeToAppointments();
+      }
+    });
   }
 
   void _subscribeToAppointments() {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
+    _appointmentsChannel?.unsubscribe();
     _appointmentsChannel = _client
         .channel('patient_appointments_${user.id}')
         .onPostgresChanges(
@@ -179,155 +193,167 @@ class PatientNotifier extends StateNotifier<PatientState> {
             column: 'patient_id',
             value: user.id,
           ),
-          callback: (payload) => loadPatientData(),
+          callback: (_) => _silentRefresh(),
         )
         .subscribe();
   }
 
-  @override
-  void dispose() {
-    _appointmentsChannel?.unsubscribe();
-    super.dispose();
+  void _silentRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (_isFetching) return;
+      _isFetching = true;
+      try {
+        final result = await _fetchData();
+        if (result != null) state = AsyncData(result);
+      } catch (_) {
+      } finally {
+        _isFetching = false;
+      }
+    });
+  }
+
+  Future<PatientState?> _fetchData() async {
+    final userId = ref.read(authProvider).userId;
+    if (userId == null) return null;
+
+    final profileResult = await _client
+        .from('profiles')
+        .select('full_name, email, phone, city, avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+
+    final now = DateTime.now();
+    final appointmentsResult = await _client
+        .from('appointments')
+        .select(
+          'id, doctor_id, scheduled_at, duration, status, is_consultation, notes, doctors(specialty, address, maps_link, photo_url)',
+        )
+        .eq('patient_id', userId)
+        .order('scheduled_at', ascending: false)
+        .limit(50);
+
+    final attendanceData = await _client
+        .from('appointments')
+        .select('attendance_status')
+        .eq('patient_id', userId)
+        .not('attendance_status', 'is', null);
+
+    int globalPresentCount = 0;
+    int globalNoShowCount = 0;
+    for (final row in attendanceData as List) {
+      final status = row['attendance_status'] as String;
+      if (status == 'present') {
+        globalPresentCount++;
+      } else if (status == 'no_show') {
+        globalNoShowCount++;
+      }
+    }
+
+    final favoritesResult = await _client
+        .from('favorites')
+        .select('doctor_id')
+        .eq('patient_id', userId);
+
+    final doctorIds = appointmentsResult
+        .map((r) => r['doctor_id'] as String)
+        .toSet()
+        .toList();
+
+    final Map<String, Map<String, dynamic>> doctorProfileMap = {};
+    if (doctorIds.isNotEmpty) {
+      try {
+        final profiles = await _client
+            .rpc('get_doctor_profiles', params: {'doctor_ids': doctorIds});
+        for (final p in profiles) {
+          doctorProfileMap[p['id'] as String] = p as Map<String, dynamic>;
+        }
+      } catch (e) {
+        try {
+          final profiles = await _client
+              .from('profiles')
+              .select('id, full_name, avatar_url, phone')
+              .inFilter('id', doctorIds);
+          for (final p in profiles) {
+            doctorProfileMap[p['id'] as String] = p;
+          }
+        } catch (_) {}
+      }
+    }
+
+    List<PatientAppointmentViewModel> upcoming = [];
+    List<PatientAppointmentViewModel> past = [];
+    List<PatientAppointmentViewModel> cancelled = [];
+
+    for (final row in appointmentsResult) {
+      final docMap = row['doctors'] as Map<String, dynamic>?;
+      final doctorId = row['doctor_id'] as String;
+      final profileData = doctorProfileMap[doctorId];
+
+      final doctorName = profileData?['full_name'] as String? ?? 'Docteur';
+      final doctorSpecialty = docMap?['specialty'] as String? ?? '';
+      final doctorAvatar =
+          profileData?['avatar_url'] as String? ?? docMap?['photo_url'] as String?;
+      final doctorAddress = docMap?['address'] as String?;
+      final doctorPhone = profileData?['phone'] as String?;
+      final mapsLink = docMap?['maps_link'] as String?;
+
+      final apt = PatientAppointmentViewModel(
+        id: row['id'] as String,
+        doctorId: row['doctor_id'] as String,
+        doctorName: doctorName,
+        doctorSpecialty: doctorSpecialty,
+        doctorAvatar: doctorAvatar,
+        doctorAddress: doctorAddress,
+        doctorPhone: doctorPhone,
+        mapsLink: mapsLink,
+        dateTime: DateTime.parse(row['scheduled_at'] as String),
+        duration: row['duration'] as int? ?? 30,
+        status: row['status'] as String? ?? 'upcoming',
+        isConsultation: row['is_consultation'] as bool? ?? false,
+        notes: row['notes'] as String?,
+      );
+
+      if (row['status'] == 'cancelled') {
+        cancelled.add(apt);
+      } else if (apt.dateTime.isAfter(now)) {
+        upcoming.add(apt);
+      } else {
+        past.add(apt);
+      }
+    }
+
+    return PatientState(
+      name: profileResult?['full_name'] as String? ?? '',
+      email: profileResult?['email'] as String? ?? '',
+      phone: profileResult?['phone'] as String? ?? '',
+      city: profileResult?['city'] as String? ?? '',
+      avatarUrl: profileResult?['avatar_url'] as String? ?? '',
+      upcomingCount: upcoming.length,
+      favoritesCount: (favoritesResult as List).length,
+      noShowCount: globalNoShowCount,
+      globalPresentCount: globalPresentCount,
+      globalNoShowCount: globalNoShowCount,
+      upcomingAppointments: upcoming,
+      pastAppointments: past,
+      cancelledAppointments: cancelled,
+    );
+  }
+
+  Future<PatientState> _load() async {
+    if (_isFetching) return state.valueOrNull ?? const PatientState();
+    _isFetching = true;
+    try {
+      final result = await _fetchData();
+      return result ?? const PatientState();
+    } finally {
+      _isFetching = false;
+    }
   }
 
   Future<void> loadPatientData() async {
-    state = state.copyWith(isLoading: true);
-    try {
-      final authState = _ref.read(authProvider);
-      final userId = authState.userId;
-      if (userId == null) {
-        state = state.copyWith(isLoading: false);
-        return;
-      }
-
-      final profileResult = await SupabaseInitializer.client
-          .from('profiles')
-          .select('full_name, email, phone, city, avatar_url')
-          .eq('id', userId)
-          .maybeSingle();
-
-      final now = DateTime.now();
-      final appointmentsResult = await SupabaseInitializer.client
-          .from('appointments')
-          .select(
-            'id, doctor_id, scheduled_at, duration, status, is_consultation, notes, doctors(specialty, address, maps_link, photo_url)',
-          )
-          .eq('patient_id', userId)
-          .order('scheduled_at', ascending: false)
-          .limit(50);
-
-      final attendanceData = await SupabaseInitializer.client
-          .from('appointments')
-          .select('attendance_status')
-          .eq('patient_id', userId)
-          .not('attendance_status', 'is', null);
-
-      int globalPresentCount = 0;
-      int globalNoShowCount = 0;
-      for (final row in attendanceData as List) {
-        final status = row['attendance_status'] as String;
-        if (status == 'present') {
-          globalPresentCount++;
-        } else if (status == 'no_show') {
-          globalNoShowCount++;
-        }
-      }
-      final noShowCount = globalNoShowCount;
-
-      final favoritesResult = await SupabaseInitializer.client
-          .from('favorites')
-          .select('doctor_id')
-          .eq('patient_id', userId);
-
-      final doctorIds = appointmentsResult
-          .map((r) => r['doctor_id'] as String)
-          .toSet()
-          .toList();
-
-      final Map<String, Map<String, dynamic>> doctorProfileMap = {};
-      if (doctorIds.isNotEmpty) {
-        try {
-          final profiles = await SupabaseInitializer.client
-              .rpc('get_doctor_profiles', params: {'doctor_ids': doctorIds});
-          for (final p in profiles) {
-            doctorProfileMap[p['id'] as String] = p as Map<String, dynamic>;
-          }
-        } catch (e) {
-          try {
-            final profiles = await SupabaseInitializer.client
-                .from('profiles')
-                .select('id, full_name, avatar_url, phone')
-                .inFilter('id', doctorIds);
-            for (final p in profiles) {
-              doctorProfileMap[p['id'] as String] = p;
-            }
-          } catch (_) {
-          }
-        }
-      }
-
-      List<PatientAppointmentViewModel> upcoming = [];
-      List<PatientAppointmentViewModel> past = [];
-      List<PatientAppointmentViewModel> cancelled = [];
-
-      for (final row in appointmentsResult) {
-        final docMap = row['doctors'] as Map<String, dynamic>?;
-        final doctorId = row['doctor_id'] as String;
-        final profileData = doctorProfileMap[doctorId];
-
-        final doctorName = profileData?['full_name'] as String? ?? 'Docteur';
-        final doctorSpecialty = docMap?['specialty'] as String? ?? '';
-        final doctorAvatar = profileData?['avatar_url'] as String? ??
-            docMap?['photo_url'] as String?;
-        final doctorAddress = docMap?['address'] as String?;
-        final doctorPhone = profileData?['phone'] as String?;
-        final mapsLink = docMap?['maps_link'] as String?;
-
-        final apt = PatientAppointmentViewModel(
-          id: row['id'] as String,
-          doctorId: row['doctor_id'] as String,
-          doctorName: doctorName,
-          doctorSpecialty: doctorSpecialty,
-          doctorAvatar: doctorAvatar,
-          doctorAddress: doctorAddress,
-          doctorPhone: doctorPhone,
-          mapsLink: mapsLink,
-          dateTime: DateTime.parse(row['scheduled_at'] as String),
-          duration: row['duration'] as int? ?? 30,
-          status: row['status'] as String? ?? 'upcoming',
-          isConsultation: row['is_consultation'] as bool? ?? false,
-          notes: row['notes'] as String?,
-        );
-
-        if (row['status'] == 'cancelled') {
-          cancelled.add(apt);
-        } else if (apt.dateTime.isAfter(now)) {
-          upcoming.add(apt);
-        } else {
-          past.add(apt);
-        }
-      }
-
-      state = state.copyWith(
-        isLoading: false,
-        name: profileResult?['full_name'] as String? ?? '',
-        email: profileResult?['email'] as String? ?? '',
-        phone: profileResult?['phone'] as String? ?? '',
-        city: profileResult?['city'] as String? ?? '',
-        avatarUrl: profileResult?['avatar_url'] as String? ?? '',
-        upcomingCount: upcoming.length,
-        favoritesCount: (favoritesResult as List).length,
-        noShowCount: noShowCount,
-        globalPresentCount: globalPresentCount,
-        globalNoShowCount: globalNoShowCount,
-        upcomingAppointments: upcoming,
-        pastAppointments: past,
-        cancelledAppointments: cancelled,
-      );
-
-    } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
-    }
+    state = const AsyncLoading<PatientState>().copyWithPrevious(state);
+    state = await AsyncValue.guard(() => _load());
   }
 
   Future<String?> addAppointment({
@@ -345,6 +371,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return null;
 
+    final currentState = state.valueOrNull ?? const PatientState();
+
     try {
       final response = await _client.from('appointments').insert({
         'doctor_id': doctorId,
@@ -354,7 +382,7 @@ class PatientNotifier extends StateNotifier<PatientState> {
         'status': 'upcoming',
         'booking_type': 'online',
         'is_consultation': false,
-        'patient_name_snapshot': state.name.isNotEmpty ? state.name : 'Patient',
+        if (currentState.name.isNotEmpty) 'patient_name_snapshot': currentState.name,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       }).select('id');
 
@@ -375,10 +403,10 @@ class PatientNotifier extends StateNotifier<PatientState> {
         notes: notes,
       );
 
-      state = state.copyWith(
-        upcomingAppointments: [viewModel, ...state.upcomingAppointments],
-        upcomingCount: state.upcomingCount + 1,
-      );
+      state = AsyncData(currentState.copyWith(
+        upcomingAppointments: [viewModel, ...currentState.upcomingAppointments],
+        upcomingCount: currentState.upcomingCount + 1,
+      ));
 
       LocalNotificationService.scheduleAppointmentReminders(
         appointmentId: appointmentId,
@@ -401,20 +429,18 @@ class PatientNotifier extends StateNotifier<PatientState> {
         appointmentId: appointmentId,
         scheduledAt: scheduledAt,
       );
-    } catch (e) {
-      debugPrint('scheduleReminders error: $e');
-    }
+    } catch (_) {}
   }
 
   Future<bool> cancelAppointment(String appointmentId) async {
     try {
-      await SupabaseInitializer.client
+      await _client
           .from('appointments')
           .update({'status': 'cancelled', 'fcm_reminder_sent': true})
           .eq('id', appointmentId);
       await loadPatientData();
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -445,12 +471,8 @@ class PatientNotifier extends StateNotifier<PatientState> {
         return true;
       }
       return false;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
-  }
-
-  void clearError() {
-    state = state.copyWith(errorMessage: null);
   }
 }
