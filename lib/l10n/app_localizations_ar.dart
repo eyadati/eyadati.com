@@ -226,9 +226,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get doctorsSearchPlaceholder => 'ابحث عن طبيب...';
 
   @override
-  String get doctorCardAvailability => 'عرض التوفر';
-
-  @override
   String get doctorsFilterSpecialty => 'التخصص';
 
   @override
@@ -364,6 +361,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get bookingCallOffice => 'اتصل بالعيادة';
+
+  @override
+  String get bookingPhoneUnavailable => 'رقم الهاتف غير متاح';
 
   @override
   String get bookingSelectTimeError => 'الرجاء اختيار وقت';

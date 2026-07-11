@@ -79,7 +79,7 @@
 
   "doctorsBrowseTitle": "جميع الأطباء",
   "doctorsSearchPlaceholder": "ابحث عن طبيب...",
-  "doctorCardAvailability": "عرض التوفر",
+
   "doctorsFilterSpecialty": "التخصص",
   "doctorsFilterAvailability": "التوفر",
   "searchFilterRequired": "الرجاء اختيار مدينة أو تخصص",
@@ -127,6 +127,7 @@
   "bookingUnavailableTitle": "الحجز غير متاح لك",
   "bookingUnavailableMessage": "نسبة الموثوقية لديك منخفضة جداً. اتصل بالعيادة للحجز.",
   "bookingCallOffice": "اتصل بالعيادة",
+  "bookingPhoneUnavailable": "رقم الهاتف غير متاح",
   "bookingSelectTimeError": "الرجاء اختيار وقت",
   "bookingUserNotConnectedError": "خطأ: المستخدم غير متصل",
   "bookingError": "خطأ: {error}",

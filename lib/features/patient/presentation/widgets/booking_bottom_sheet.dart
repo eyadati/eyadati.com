@@ -34,7 +34,6 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   bool _noShowCheckDone = false;
   double? _attendanceRate;
   bool _hasSufficientHistory = false;
-  String? _doctorPhone;
   List<ValidStart> _availableSlots = [];
 
   List<DateTime> get _next14Days {
@@ -63,12 +62,6 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
         else if (status == 'no_show') noShow++;
       }
 
-      final profileData = await SupabaseInitializer.client
-          .from('profiles')
-          .select('phone')
-          .eq('id', widget.doctor.id)
-          .maybeSingle();
-
       if (mounted) {
         setState(() {
           _noShowCount = noShow;
@@ -79,7 +72,6 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
           } else {
             _attendanceRate = null;
           }
-          _doctorPhone = profileData?['phone'] as String?;
           _noShowCheckDone = true;
         });
       }
@@ -186,9 +178,13 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
-                final phone = _doctorPhone;
+                final phone = widget.doctor.phone;
                 if (phone != null && phone.isNotEmpty) {
                   launchUrl(Uri.parse('tel:$phone'));
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
+                  );
                 }
               },
               icon: const Icon(LucideIcons.phone, size: 20),
@@ -280,9 +276,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
     setState(() => _isLoading = true);
 
     try {
-      final authState = ref.read(authProvider);
-      final userId = authState.userId;
-      final patientName = authState.userName;
+      final userId = ref.read(authProvider).userId;
 
       if (userId == null) {
         throw Exception(l10n.bookingUserNotConnectedError);
@@ -298,24 +292,21 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
 
       final duration = widget.doctor.appointmentDuration;
 
-      final response = await SupabaseInitializer.client.from('appointments').insert({
-        'doctor_id': widget.doctor.id,
-        'patient_id': userId,
-        'scheduled_at': scheduledAt.toIso8601String(),
-        'duration': duration,
-        'status': 'upcoming',
-        'booking_type': 'online',
-        'patient_name_snapshot': (patientName?.isNotEmpty == true) ? patientName! : l10n.rolePatient,
-      }).select('id');
-
-      final newAppointmentId = (response as List).first['id'] as String;
-
-      ref.read(patientProvider.notifier).scheduleReminders(
-        appointmentId: newAppointmentId,
+      final appointmentId = await ref.read(patientProvider.notifier).addAppointment(
+        doctorId: widget.doctor.id,
+        doctorName: widget.doctor.name,
+        doctorSpecialty: widget.doctor.specialty,
+        doctorAvatar: widget.doctor.photoUrl,
+        doctorAddress: widget.doctor.address,
+        doctorPhone: widget.doctor.phone,
+        mapsLink: widget.doctor.mapsLink,
         scheduledAt: scheduledAt,
+        duration: duration,
       );
 
-      ref.invalidate(patientProvider);
+      if (appointmentId == null) {
+        throw Exception(l10n.errorsTryAgainLater);
+      }
 
       if (!mounted) return;
 
@@ -517,7 +508,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                             l10n.bookingUnavailableMessage,
                             style: TextStyle(fontSize: 11, color: AppColors.error),
                           ),
-                          if (_doctorPhone != null) ...[
+                          if (widget.doctor.phone != null) ...[
                             const SizedBox(height: 6),
                             SizedBox(
                               width: double.infinity,
@@ -530,7 +521,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                                   padding: const EdgeInsets.symmetric(vertical: 8),
                                   minimumSize: const Size.fromHeight(32),
                                 ),
-                                onPressed: () => launchUrl(Uri.parse('tel:$_doctorPhone')),
+                                onPressed: () => launchUrl(Uri.parse('tel:${widget.doctor.phone}')),
                               ),
                             ),
                           ],

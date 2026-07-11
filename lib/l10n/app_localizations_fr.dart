@@ -229,9 +229,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get doctorsSearchPlaceholder => 'Rechercher un médecin...';
 
   @override
-  String get doctorCardAvailability => 'Voir disponibilité';
-
-  @override
   String get doctorsFilterSpecialty => 'Spécialité';
 
   @override
@@ -370,6 +367,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get bookingCallOffice => 'Appeler le cabinet';
+
+  @override
+  String get bookingPhoneUnavailable => 'Téléphone non disponible';
 
   @override
   String get bookingSelectTimeError => 'Veuillez sélectionner une heure';

@@ -330,6 +330,68 @@ class PatientNotifier extends StateNotifier<PatientState> {
     }
   }
 
+  Future<String?> addAppointment({
+    required String doctorId,
+    required String doctorName,
+    required String doctorSpecialty,
+    String? doctorAvatar,
+    String? doctorAddress,
+    String? doctorPhone,
+    String? mapsLink,
+    required DateTime scheduledAt,
+    required int duration,
+    String? notes,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return null;
+
+    try {
+      final response = await _client.from('appointments').insert({
+        'doctor_id': doctorId,
+        'patient_id': userId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': duration,
+        'status': 'upcoming',
+        'booking_type': 'online',
+        'is_consultation': false,
+        'patient_name_snapshot': state.name.isNotEmpty ? state.name : 'Patient',
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      }).select('id');
+
+      final appointmentId = (response as List).first['id'] as String;
+
+      final viewModel = PatientAppointmentViewModel(
+        id: appointmentId,
+        doctorId: doctorId,
+        doctorName: doctorName,
+        doctorSpecialty: doctorSpecialty,
+        doctorAvatar: doctorAvatar,
+        doctorAddress: doctorAddress,
+        doctorPhone: doctorPhone,
+        mapsLink: mapsLink,
+        dateTime: scheduledAt,
+        duration: duration,
+        status: 'upcoming',
+        notes: notes,
+      );
+
+      state = state.copyWith(
+        upcomingAppointments: [viewModel, ...state.upcomingAppointments],
+        upcomingCount: state.upcomingCount + 1,
+      );
+
+      LocalNotificationService.scheduleAppointmentReminders(
+        appointmentId: appointmentId,
+        scheduledAt: scheduledAt,
+      );
+
+      return appointmentId;
+    } catch (e) {
+      loadPatientData();
+      return null;
+    }
+  }
+
   Future<void> scheduleReminders({
     required String appointmentId,
     required DateTime scheduledAt,

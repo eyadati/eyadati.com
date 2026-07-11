@@ -364,12 +364,18 @@ class _AppointmentCard extends StatelessWidget {
                       ),
                     ),
                     if (appointment.doctorPhone != null && appointment.doctorPhone!.isNotEmpty)
-                      Text(
-                        appointment.doctorPhone!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textHint,
-                        ),
+                      Row(
+                        children: [
+                          const Icon(Icons.phone, size: 12, color: AppColors.textHint),
+                          const SizedBox(width: 4),
+                          Text(
+                            appointment.doctorPhone!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),

@@ -524,12 +524,6 @@ abstract class AppLocalizations {
   /// **'Rechercher un médecin...'**
   String get doctorsSearchPlaceholder;
 
-  /// No description provided for @doctorCardAvailability.
-  ///
-  /// In fr, this message translates to:
-  /// **'Voir disponibilité'**
-  String get doctorCardAvailability;
-
   /// No description provided for @doctorsFilterSpecialty.
   ///
   /// In fr, this message translates to:
@@ -799,6 +793,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'Appeler le cabinet'**
   String get bookingCallOffice;
+
+  /// No description provided for @bookingPhoneUnavailable.
+  ///
+  /// In fr, this message translates to:
+  /// **'Téléphone non disponible'**
+  String get bookingPhoneUnavailable;
 
   /// No description provided for @bookingSelectTimeError.
   ///

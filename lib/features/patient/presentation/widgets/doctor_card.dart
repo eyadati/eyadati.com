@@ -103,25 +103,6 @@ class DoctorCard extends ConsumerWidget {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: onBookNow,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        l10n.doctorCardAvailability,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

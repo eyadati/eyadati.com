@@ -21,6 +21,7 @@ _$DoctorImpl _$$DoctorImplFromJson(Map<String, dynamic> json) => _$DoctorImpl(
   consultationDuration: (json['consultationDuration'] as num?)?.toInt() ?? 40,
   manualPause: json['manualPause'] as bool? ?? false,
   isTest: json['isTest'] as bool? ?? false,
+  phone: json['phone'] as String?,
   subscriptionEnd: json['subscriptionEnd'] == null
       ? null
       : DateTime.parse(json['subscriptionEnd'] as String),
@@ -45,6 +46,7 @@ Map<String, dynamic> _$$DoctorImplToJson(_$DoctorImpl instance) =>
       'consultationDuration': instance.consultationDuration,
       'manualPause': instance.manualPause,
       'isTest': instance.isTest,
+      'phone': instance.phone,
       'subscriptionEnd': instance.subscriptionEnd?.toIso8601String(),
       'createdAt': instance.createdAt?.toIso8601String(),
     };

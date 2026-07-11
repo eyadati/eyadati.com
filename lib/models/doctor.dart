@@ -20,6 +20,7 @@ class Doctor with _$Doctor {
     @Default(40) int consultationDuration,
     @Default(false) bool manualPause,
     @Default(false) bool isTest,
+    String? phone,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
   }) = _Doctor;
@@ -42,6 +43,7 @@ class Doctor with _$Doctor {
       consultationDuration: json['consultation_duration'] as int? ?? 40,
       manualPause: json['manual_pause'] as bool? ?? false,
       isTest: json['is_test'] as bool? ?? false,
+      phone: json['phone'] as String?,
       subscriptionEnd: json['subscription_end'] != null
           ? DateTime.parse(json['subscription_end'] as String)
           : null,

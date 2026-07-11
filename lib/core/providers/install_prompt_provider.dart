@@ -5,6 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class InstallPromptNotifier extends StateNotifier<bool> {
   InstallPromptNotifier() : super(false) {
     if (!kIsWeb) return;
+
+    if (html.window.matchMedia('(display-mode: standalone)').matches) {
+      state = false;
+      return;
+    }
+
     html.window.addEventListener('pwa-install-available', (_) {
       state = true;
     });

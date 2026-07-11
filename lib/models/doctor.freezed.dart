@@ -35,6 +35,7 @@ mixin _$Doctor {
   int get consultationDuration => throw _privateConstructorUsedError;
   bool get manualPause => throw _privateConstructorUsedError;
   bool get isTest => throw _privateConstructorUsedError;
+  String? get phone => throw _privateConstructorUsedError;
   DateTime? get subscriptionEnd => throw _privateConstructorUsedError;
   DateTime? get createdAt => throw _privateConstructorUsedError;
 
@@ -67,6 +68,7 @@ abstract class $DoctorCopyWith<$Res> {
     int consultationDuration,
     bool manualPause,
     bool isTest,
+    String? phone,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
   });
@@ -101,6 +103,7 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
     Object? consultationDuration = null,
     Object? manualPause = null,
     Object? isTest = null,
+    Object? phone = freezed,
     Object? subscriptionEnd = freezed,
     Object? createdAt = freezed,
   }) {
@@ -162,6 +165,10 @@ class _$DoctorCopyWithImpl<$Res, $Val extends Doctor>
                 ? _value.isTest
                 : isTest // ignore: cast_nullable_to_non_nullable
                       as bool,
+            phone: freezed == phone
+                ? _value.phone
+                : phone // ignore: cast_nullable_to_non_nullable
+                      as String?,
             subscriptionEnd: freezed == subscriptionEnd
                 ? _value.subscriptionEnd
                 : subscriptionEnd // ignore: cast_nullable_to_non_nullable
@@ -199,6 +206,7 @@ abstract class _$$DoctorImplCopyWith<$Res> implements $DoctorCopyWith<$Res> {
     int consultationDuration,
     bool manualPause,
     bool isTest,
+    String? phone,
     DateTime? subscriptionEnd,
     DateTime? createdAt,
   });
@@ -232,6 +240,7 @@ class __$$DoctorImplCopyWithImpl<$Res>
     Object? consultationDuration = null,
     Object? manualPause = null,
     Object? isTest = null,
+    Object? phone = freezed,
     Object? subscriptionEnd = freezed,
     Object? createdAt = freezed,
   }) {
@@ -293,6 +302,10 @@ class __$$DoctorImplCopyWithImpl<$Res>
             ? _value.isTest
             : isTest // ignore: cast_nullable_to_non_nullable
                   as bool,
+        phone: freezed == phone
+            ? _value.phone
+            : phone // ignore: cast_nullable_to_non_nullable
+                  as String?,
         subscriptionEnd: freezed == subscriptionEnd
             ? _value.subscriptionEnd
             : subscriptionEnd // ignore: cast_nullable_to_non_nullable
@@ -324,6 +337,7 @@ class _$DoctorImpl implements _Doctor {
     this.consultationDuration = 40,
     this.manualPause = false,
     this.isTest = false,
+    this.phone,
     this.subscriptionEnd,
     this.createdAt,
   });
@@ -364,13 +378,15 @@ class _$DoctorImpl implements _Doctor {
   @JsonKey()
   final bool isTest;
   @override
+  final String? phone;
+  @override
   final DateTime? subscriptionEnd;
   @override
   final DateTime? createdAt;
 
   @override
   String toString() {
-    return 'Doctor(id: $id, name: $name, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, manualPause: $manualPause, isTest: $isTest, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
+    return 'Doctor(id: $id, name: $name, specialty: $specialty, address: $address, city: $city, mapsLink: $mapsLink, latitude: $latitude, longitude: $longitude, bio: $bio, photoUrl: $photoUrl, appointmentDuration: $appointmentDuration, consultationDuration: $consultationDuration, manualPause: $manualPause, isTest: $isTest, phone: $phone, subscriptionEnd: $subscriptionEnd, createdAt: $createdAt)';
   }
 
   @override
@@ -400,6 +416,7 @@ class _$DoctorImpl implements _Doctor {
             (identical(other.manualPause, manualPause) ||
                 other.manualPause == manualPause) &&
             (identical(other.isTest, isTest) || other.isTest == isTest) &&
+            (identical(other.phone, phone) || other.phone == phone) &&
             (identical(other.subscriptionEnd, subscriptionEnd) ||
                 other.subscriptionEnd == subscriptionEnd) &&
             (identical(other.createdAt, createdAt) ||
@@ -424,6 +441,7 @@ class _$DoctorImpl implements _Doctor {
     consultationDuration,
     manualPause,
     isTest,
+    phone,
     subscriptionEnd,
     createdAt,
   );
@@ -458,6 +476,7 @@ abstract class _Doctor implements Doctor {
     final int consultationDuration,
     final bool manualPause,
     final bool isTest,
+    final String? phone,
     final DateTime? subscriptionEnd,
     final DateTime? createdAt,
   }) = _$DoctorImpl;
@@ -492,6 +511,8 @@ abstract class _Doctor implements Doctor {
   bool get manualPause;
   @override
   bool get isTest;
+  @override
+  String? get phone;
   @override
   DateTime? get subscriptionEnd;
   @override

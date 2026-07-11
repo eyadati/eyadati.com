@@ -228,6 +228,11 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'appointments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'doctor_id',
+            value: user.id,
+          ),
           callback: (payload) => _silentRefresh(),
         )
         .subscribe();

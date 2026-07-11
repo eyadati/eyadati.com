@@ -96,6 +96,7 @@ class DoctorsNotifier extends StateNotifier<DoctorsState> {
         return doctor.copyWith(
           name: profile?['full_name'] as String? ?? 'Docteur',
           photoUrl: profile?['avatar_url'] as String? ?? doctor.photoUrl,
+          phone: profile?['phone'] as String?,
         );
       }).toList();
 

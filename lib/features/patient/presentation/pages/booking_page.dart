@@ -36,8 +36,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   bool _noShowCheckDone = false;
   double? _attendanceRate;
   bool _hasSufficientHistory = false;
-  String? _doctorPhone;
-
   List<ValidStart> _availableSlots = [];
 
   Future<void> _loadAvailability() async {
@@ -101,18 +99,6 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           .single();
 
       final effectiveDuration = doctorData['appointment_duration'] as int? ?? 20;
-
-      final profileData = await SupabaseInitializer.client
-          .from('profiles')
-          .select('phone')
-          .eq('id', widget.doctorId)
-          .maybeSingle();
-
-      if (mounted) {
-        setState(() {
-          _doctorPhone = profileData?['phone'] as String?;
-        });
-      }
 
       final availabilityService = AvailabilityService(
         scheduleSlots: scheduleSlots,
@@ -179,6 +165,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   Future<void> _selectDate() async {
     final picked = await showDatePicker(
       context: context,
+      locale: Localizations.localeOf(context),
       initialDate: _selectedDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
@@ -236,9 +223,13 @@ class _BookingPageState extends ConsumerState<BookingPage> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  final phone = _doctorPhone;
+                  final phone = doctor.phone;
                   if (phone != null && phone.isNotEmpty) {
                     launchUrl(Uri.parse('tel:$phone'));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
+                    );
                   }
                 },
                 icon: const Icon(LucideIcons.phone, size: 20),
@@ -335,9 +326,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     setState(() => _isLoading = true);
 
     try {
-      final authState = ref.read(authProvider);
-      final userId = authState.userId;
-      final patientName = authState.userName;
+      final userId = ref.read(authProvider).userId;
       if (userId == null) {
         setState(() => _isLoading = false);
         if (!mounted) return;
@@ -367,26 +356,22 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       );
       final duration = doctor.appointmentDuration;
 
-      final response = await SupabaseInitializer.client.from('appointments').insert({
-        'doctor_id': widget.doctorId,
-        'patient_id': userId,
-        'scheduled_at': scheduledAt.toIso8601String(),
-        'duration': duration,
-        'status': 'upcoming',
-        'booking_type': 'online',
-        'is_consultation': false,
-        'patient_name_snapshot': patientName ?? 'Patient',
-        'notes': _notesController.text.isEmpty ? null : _notesController.text,
-      }).select('id');
-
-      final newAppointmentId = (response as List).first['id'] as String;
-
-      ref.read(patientProvider.notifier).scheduleReminders(
-        appointmentId: newAppointmentId,
+      final appointmentId = await ref.read(patientProvider.notifier).addAppointment(
+        doctorId: widget.doctorId,
+        doctorName: doctor.name,
+        doctorSpecialty: doctor.specialty,
+        doctorAvatar: doctor.photoUrl,
+        doctorAddress: doctor.address,
+        doctorPhone: doctor.phone,
+        mapsLink: doctor.mapsLink,
         scheduledAt: scheduledAt,
+        duration: duration,
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
       );
 
-      ref.invalidate(patientProvider);
+      if (appointmentId == null) {
+        throw Exception(l10n.errorsTryAgainLater);
+      }
 
       if (!mounted) return;
 
@@ -504,7 +489,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                       l10n.bookingUnavailableMessage,
                       style: const TextStyle(fontSize: 12, color: AppColors.error),
                     ),
-                    if (_doctorPhone != null) ...[
+                    if (doctor.phone != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       SizedBox(
                         width: double.infinity,
@@ -516,7 +501,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          onPressed: () => launchUrl(Uri.parse('tel:$_doctorPhone')),
+                          onPressed: () => launchUrl(Uri.parse('tel:${doctor.phone}')),
                         ),
                       ),
                     ],

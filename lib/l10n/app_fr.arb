@@ -86,7 +86,8 @@
 
   "doctorsBrowseTitle": "Tous les médecins",
   "doctorsSearchPlaceholder": "Rechercher un médecin...",
-  "doctorCardAvailability": "Voir disponibilité",
+
+
   "doctorsFilterSpecialty": "Spécialité",
   "doctorsFilterAvailability": "Disponibilité",
   "searchFilterRequired": "Veuillez sélectionner une ville ou une spécialité",
@@ -134,6 +135,7 @@
   "bookingUnavailableTitle": "Réservation indisponible pour vous",
   "bookingUnavailableMessage": "Votre score de fiabilité est trop bas. Contactez le cabinet pour réserver.",
   "bookingCallOffice": "Appeler le cabinet",
+  "bookingPhoneUnavailable": "Téléphone non disponible",
   "bookingSelectTimeError": "Veuillez sélectionner une heure",
   "bookingUserNotConnectedError": "Erreur: utilisateur non connecté",
   "bookingError": "Erreur: {error}",
