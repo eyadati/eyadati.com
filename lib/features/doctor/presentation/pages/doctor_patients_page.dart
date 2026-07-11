@@ -32,10 +32,8 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(patientHistoryProvider);
+    final asyncState = ref.watch(patientHistoryProvider);
     final notifier = ref.read(patientHistoryProvider.notifier);
-    final filtered = state.filteredPatients;
-    final hasQuery = state.searchQuery.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -50,63 +48,66 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
         children: [
           _buildSearchBar(notifier),
           Expanded(
-            child: state.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : state.errorMessage != null
-                    ? _buildErrorView(state, notifier)
-                    : filtered.isEmpty
-                        ? _buildEmptyState(hasQuery)
-                        : RefreshIndicator(
-                            onRefresh: notifier.loadPatients,
-                            child: ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(
-                                AppSpacing.lg, 0, AppSpacing.lg, 80,
-                              ),
-                              itemCount: filtered.length,
-                              itemBuilder: (context, index) {
-                                return _PatientTile(
-                                  summary: filtered[index],
-                                  isExpanded: state.expandedPatientIds
-                                      .contains(filtered[index].patientId),
-                                  notes: state.notesByPatient[
-                                      filtered[index].patientId],
-                                  notesLoading: state.notesLoading[
-                                          filtered[index].patientId] ??
-                                      false,
-                                  onToggle: () => notifier.toggleExpand(
-                                    filtered[index].patientId,
-                                  ),
-                                  onAddNote: (appointmentId) {
-                                    _showNoteDialog(
-                                      patientId: filtered[index].patientId,
-                                      appointmentId: appointmentId,
-                                    );
-                                  },
-                                  onEditNote: (note) {
-                                    _showNoteDialog(
-                                      patientId: filtered[index].patientId,
-                                      appointmentId: note.appointmentId,
-                                      note: note,
-                                    );
-                                  },
-                                  onDeleteNote: (note) {
-                                    _confirmDeleteNote(
-                                      notifier,
-                                      note,
-                                      filtered[index].patientId,
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ),
+            child: asyncState.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => _buildErrorView(e.toString(), notifier),
+              data: (state) {
+                final filtered = state.filteredPatients;
+                final hasQuery = state.searchQuery.isNotEmpty;
+                if (filtered.isEmpty) return _buildEmptyState(hasQuery);
+                return RefreshIndicator(
+                  onRefresh: notifier.refresh,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, 80,
+                    ),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      return _PatientTile(
+                        summary: filtered[index],
+                        isExpanded: state.expandedPatientIds
+                            .contains(filtered[index].patientId),
+                        notes: state.notesByPatient[
+                            filtered[index].patientId],
+                        notesLoading: state.notesLoading[
+                                filtered[index].patientId] ??
+                            false,
+                        onToggle: () => notifier.toggleExpand(
+                          filtered[index].patientId,
+                        ),
+                        onAddNote: (appointmentId) {
+                          _showNoteDialog(
+                            patientId: filtered[index].patientId,
+                            appointmentId: appointmentId,
+                          );
+                        },
+                        onEditNote: (note) {
+                          _showNoteDialog(
+                            patientId: filtered[index].patientId,
+                            appointmentId: note.appointmentId,
+                            note: note,
+                          );
+                        },
+                        onDeleteNote: (note) {
+                          _confirmDeleteNote(
+                            notifier,
+                            note,
+                            filtered[index].patientId,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchBar(PatientHistoryNotifier notifier) {
+  Widget _buildSearchBar(PatientHistory notifier) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.sm,
@@ -145,7 +146,7 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
     );
   }
 
-  Widget _buildErrorView(PatientHistoryState state, PatientHistoryNotifier notifier) {
+  Widget _buildErrorView(String errorMessage, PatientHistory notifier) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -160,15 +161,13 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              state.errorMessage ?? '',
+              errorMessage,
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () {
-                notifier.loadPatients();
-              },
+              onPressed: () => notifier.refresh(),
               icon: const Icon(LucideIcons.refreshCw),
               label: const Text('Réessayer'),
             ),
@@ -244,7 +243,7 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
   }
 
   void _confirmDeleteNote(
-    PatientHistoryNotifier notifier,
+    PatientHistory notifier,
     PatientNote note,
     String patientId,
   ) {

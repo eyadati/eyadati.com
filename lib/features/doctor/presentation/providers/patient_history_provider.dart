@@ -1,16 +1,16 @@
 import 'dart:async';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import 'package:eyadati/models/patient_summary.dart';
 import 'package:eyadati/models/patient_note.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+part 'patient_history_provider.g.dart';
+
 class PatientHistoryState {
   final List<PatientSummary> patients;
   final String searchQuery;
-  final bool isLoading;
-  final String? errorMessage;
   final Set<String> expandedPatientIds;
   final Map<String, List<PatientNote>> notesByPatient;
   final Map<String, bool> notesLoading;
@@ -18,8 +18,6 @@ class PatientHistoryState {
   const PatientHistoryState({
     this.patients = const [],
     this.searchQuery = '',
-    this.isLoading = false,
-    this.errorMessage,
     this.expandedPatientIds = const {},
     this.notesByPatient = const {},
     this.notesLoading = const {},
@@ -37,8 +35,6 @@ class PatientHistoryState {
   PatientHistoryState copyWith({
     List<PatientSummary>? patients,
     String? searchQuery,
-    bool? isLoading,
-    String? errorMessage,
     Set<String>? expandedPatientIds,
     Map<String, List<PatientNote>>? notesByPatient,
     Map<String, bool>? notesLoading,
@@ -46,8 +42,6 @@ class PatientHistoryState {
     return PatientHistoryState(
       patients: patients ?? this.patients,
       searchQuery: searchQuery ?? this.searchQuery,
-      isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage ?? this.errorMessage,
       expandedPatientIds: expandedPatientIds ?? this.expandedPatientIds,
       notesByPatient: notesByPatient ?? this.notesByPatient,
       notesLoading: notesLoading ?? this.notesLoading,
@@ -55,25 +49,17 @@ class PatientHistoryState {
   }
 }
 
-final patientHistoryProvider =
-    StateNotifierProvider.autoDispose<PatientHistoryNotifier, PatientHistoryState>((ref) {
-  return PatientHistoryNotifier();
-});
-
-class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
+@riverpod
+class PatientHistory extends _$PatientHistory {
   RealtimeChannel? _notesChannel;
 
-  PatientHistoryNotifier() : super(const PatientHistoryState()) {
-    loadPatients();
+  @override
+  Future<PatientHistoryState> build() async {
+    ref.onDispose(() => _notesChannel?.unsubscribe());
+    return _loadPatients();
   }
 
   SupabaseClient get _client => SupabaseInitializer.client;
-
-  @override
-  void dispose() {
-    _notesChannel?.unsubscribe();
-    super.dispose();
-  }
 
   void _subscribeToNotes(String patientId) {
     _notesChannel?.unsubscribe();
@@ -93,150 +79,140 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
         .subscribe();
   }
 
-  void setSearchQuery(String query) {
-    state = state.copyWith(searchQuery: query);
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = AsyncData(await _loadPatients());
   }
 
-  Future<void> loadPatients() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        state = state.copyWith(isLoading: false);
-        return;
-      }
+  void setSearchQuery(String query) {
+    state = AsyncData(state.requireValue.copyWith(searchQuery: query));
+  }
 
-      final data = await _client
-          .from('appointments')
-          .select('''
+  Future<PatientHistoryState> _loadPatients() async {
+    final user = _client.auth.currentUser;
+    final data = await _client
+        .from('appointments')
+        .select('''
+          id,
+          scheduled_at,
+          duration,
+          status,
+          is_consultation,
+          booking_type,
+          notes,
+          patient_id,
+          patient_name_snapshot,
+          patient_phone_snapshot,
+          patient:profiles!patient_id (
             id,
-            scheduled_at,
-            duration,
-            status,
-            is_consultation,
-            booking_type,
-            notes,
-            patient_id,
-            patient_name_snapshot,
-            patient_phone_snapshot,
-            patient:profiles!patient_id (
-              id,
-              full_name,
-              phone,
-              avatar_url
-            )
-          ''')
-          .eq('doctor_id', user.id)
-          .eq('booking_type', 'online')
-          .not('patient_id', 'is', null)
-          .order('scheduled_at', ascending: false);
+            full_name,
+            phone,
+            avatar_url
+          )
+        ''')
+        .eq('doctor_id', user!.id)
+        .eq('booking_type', 'online')
+        .not('patient_id', 'is', null)
+        .order('scheduled_at', ascending: false);
 
-      final attendanceData = await _client
-          .from('appointments')
-          .select('patient_id, scheduled_at, attendance_status')
-          .not('attendance_status', 'is', null)
-          .not('patient_id', 'is', null);
+    final attendanceData = await _client
+        .from('appointments')
+        .select('patient_id, scheduled_at, attendance_status')
+        .not('attendance_status', 'is', null)
+        .not('patient_id', 'is', null);
 
-      final Map<String, int> noShowCounts = {};
-      final Map<String, DateTime> lastNoShow = {};
-      final Map<String, int> globalPresentCount = {};
-      final Map<String, int> globalNoShowCount = {};
-      for (final row in attendanceData as List) {
-        final pid = row['patient_id'] as String;
-        final status = row['attendance_status'] as String;
-        if (status == 'no_show') {
-          noShowCounts[pid] = (noShowCounts[pid] ?? 0) + 1;
-          globalNoShowCount[pid] = (globalNoShowCount[pid] ?? 0) + 1;
-          final sched = DateTime.parse(row['scheduled_at'] as String);
-          if (!lastNoShow.containsKey(pid) || sched.isAfter(lastNoShow[pid]!)) {
-            lastNoShow[pid] = sched;
-          }
-        } else if (status == 'present') {
-          globalPresentCount[pid] = (globalPresentCount[pid] ?? 0) + 1;
+    final Map<String, int> noShowCounts = {};
+    final Map<String, DateTime> lastNoShow = {};
+    final Map<String, int> globalPresentCount = {};
+    final Map<String, int> globalNoShowCount = {};
+    for (final row in attendanceData as List) {
+      final pid = row['patient_id'] as String;
+      final status = row['attendance_status'] as String;
+      if (status == 'no_show') {
+        noShowCounts[pid] = (noShowCounts[pid] ?? 0) + 1;
+        globalNoShowCount[pid] = (globalNoShowCount[pid] ?? 0) + 1;
+        final sched = DateTime.parse(row['scheduled_at'] as String);
+        if (!lastNoShow.containsKey(pid) || sched.isAfter(lastNoShow[pid]!)) {
+          lastNoShow[pid] = sched;
         }
+      } else if (status == 'present') {
+        globalPresentCount[pid] = (globalPresentCount[pid] ?? 0) + 1;
       }
-
-      final Map<String, List<Map<String, dynamic>>> grouped = {};
-      for (final row in data as List) {
-        final pid = row['patient_id'] as String;
-        grouped.putIfAbsent(pid, () => []);
-        grouped[pid]!.add(row);
-      }
-
-      final summaries = <PatientSummary>[];
-      for (final entry in grouped.entries) {
-        final rows = entry.value;
-        final first = rows.first;
-        final patientData = first['patient'] as Map<String, dynamic>?;
-
-        final visits = rows.map((r) {
-          final start = DateTime.parse(r['scheduled_at'] as String);
-          final dur = r['duration'] as int? ?? 30;
-          return AppointmentData(
-            id: r['id'] as String,
-            startTime: start,
-            endTime: start.add(Duration(minutes: dur)),
-            patientName: patientData?['full_name'] as String? ??
-                (r['patient_name_snapshot'] as String? ?? ''),
-            patientAvatar: patientData?['avatar_url'] as String?,
-            patientPhone: patientData?['phone'] as String? ??
-                (r['patient_phone_snapshot'] as String?),
-            status: r['status'] as String,
-            isConsultation: r['is_consultation'] as bool? ?? false,
-            notes: r['notes'] as String?,
-            duration: dur,
-            patientId: entry.key,
-            bookingType: 'online',
-            doctorId: user.id,
-          );
-        }).toList();
-
-        final lastVisit = rows
-            .map((r) => DateTime.parse(r['scheduled_at'] as String))
-            .reduce((a, b) => a.isAfter(b) ? a : b);
-
-        summaries.add(PatientSummary(
-          patientId: entry.key,
-          patientName: patientData?['full_name'] as String? ??
-              (first['patient_name_snapshot'] as String? ?? 'Patient'),
-          patientPhone: patientData?['phone'] as String? ??
-              (first['patient_phone_snapshot'] as String?),
-          patientAvatar: patientData?['avatar_url'] as String?,
-          visitCount: rows.length,
-          noShowCount: noShowCounts[entry.key] ?? 0,
-          lastNoShowAt: lastNoShow[entry.key],
-          lastVisitDate: lastVisit,
-          visits: visits,
-          globalCompleted: globalPresentCount[entry.key] ?? 0,
-          globalNoShows: globalNoShowCount[entry.key] ?? 0,
-        ));
-      }
-
-      summaries.sort((a, b) => b.lastVisitDate.compareTo(a.lastVisitDate));
-
-      state = state.copyWith(
-        patients: summaries,
-        isLoading: false,
-        expandedPatientIds: {},
-        notesByPatient: {},
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      );
     }
+
+    final Map<String, List<Map<String, dynamic>>> grouped = {};
+    for (final row in data as List) {
+      final pid = row['patient_id'] as String;
+      grouped.putIfAbsent(pid, () => []);
+      grouped[pid]!.add(row);
+    }
+
+    final summaries = <PatientSummary>[];
+    for (final entry in grouped.entries) {
+      final rows = entry.value;
+      final first = rows.first;
+      final patientData = first['patient'] as Map<String, dynamic>?;
+
+      final visits = rows.map((r) {
+        final start = DateTime.parse(r['scheduled_at'] as String);
+        final dur = r['duration'] as int? ?? 30;
+        return AppointmentData(
+          id: r['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: dur)),
+          patientName: patientData?['full_name'] as String? ??
+              (r['patient_name_snapshot'] as String? ?? ''),
+          patientAvatar: patientData?['avatar_url'] as String?,
+          patientPhone: patientData?['phone'] as String? ??
+              (r['patient_phone_snapshot'] as String?),
+          status: r['status'] as String,
+          isConsultation: r['is_consultation'] as bool? ?? false,
+          notes: r['notes'] as String?,
+          duration: dur,
+          patientId: entry.key,
+          bookingType: 'online',
+          doctorId: user.id,
+        );
+      }).toList();
+
+      final lastVisit = rows
+          .map((r) => DateTime.parse(r['scheduled_at'] as String))
+          .reduce((a, b) => a.isAfter(b) ? a : b);
+
+      summaries.add(PatientSummary(
+        patientId: entry.key,
+        patientName: patientData?['full_name'] as String? ??
+            (first['patient_name_snapshot'] as String? ?? 'Patient'),
+        patientPhone: patientData?['phone'] as String? ??
+            (first['patient_phone_snapshot'] as String?),
+        patientAvatar: patientData?['avatar_url'] as String?,
+        visitCount: rows.length,
+        noShowCount: noShowCounts[entry.key] ?? 0,
+        lastNoShowAt: lastNoShow[entry.key],
+        lastVisitDate: lastVisit,
+        visits: visits,
+        globalCompleted: globalPresentCount[entry.key] ?? 0,
+        globalNoShows: globalNoShowCount[entry.key] ?? 0,
+      ));
+    }
+
+    summaries.sort((a, b) => b.lastVisitDate.compareTo(a.lastVisitDate));
+
+    return PatientHistoryState(
+      patients: summaries,
+    );
   }
 
   Future<void> toggleExpand(String patientId) async {
-    final expanded = Set<String>.from(state.expandedPatientIds);
+    final current = state.requireValue;
+    final expanded = Set<String>.from(current.expandedPatientIds);
     if (expanded.contains(patientId)) {
       expanded.remove(patientId);
-      state = state.copyWith(expandedPatientIds: expanded);
+      state = AsyncData(current.copyWith(expandedPatientIds: expanded));
     } else {
       expanded.add(patientId);
-      state = state.copyWith(expandedPatientIds: expanded);
-      if (!state.notesByPatient.containsKey(patientId)) {
+      state = AsyncData(current.copyWith(expandedPatientIds: expanded));
+      if (!current.notesByPatient.containsKey(patientId)) {
         _loadNotesForPatient(patientId);
       }
       _subscribeToNotes(patientId);
@@ -244,13 +220,12 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
   }
 
   Future<void> _loadNotesForPatient(String patientId) async {
-    state = state.copyWith(
-      notesLoading: {...state.notesLoading, patientId: true},
-    );
+    final current = state.requireValue;
+    state = AsyncData(current.copyWith(
+      notesLoading: {...current.notesLoading, patientId: true},
+    ));
     try {
       final user = _client.auth.currentUser;
-      if (user == null) return;
-
       final data = await _client
           .from('patient_notes')
           .select('''
@@ -264,7 +239,7 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
             appointment:appointments!appointment_id (scheduled_at)
           ''')
           .eq('patient_id', patientId)
-          .eq('doctor_id', user.id)
+          .eq('doctor_id', user!.id)
           .order('created_at', ascending: false);
 
       final notes = (data as List).map((row) {
@@ -281,17 +256,19 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
         );
       }).toList();
 
-      state = state.copyWith(
+      final updated = state.requireValue;
+      state = AsyncData(updated.copyWith(
         notesByPatient: {
-          ...state.notesByPatient,
+          ...updated.notesByPatient,
           patientId: notes,
         },
-        notesLoading: {...state.notesLoading, patientId: false},
-      );
-    } catch (e) {
-      state = state.copyWith(
-        notesLoading: {...state.notesLoading, patientId: false},
-      );
+        notesLoading: {...updated.notesLoading, patientId: false},
+      ));
+    } catch (_) {
+      final updated = state.requireValue;
+      state = AsyncData(updated.copyWith(
+        notesLoading: {...updated.notesLoading, patientId: false},
+      ));
     }
   }
 
@@ -313,9 +290,7 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
       });
 
       _loadNotesForPatient(patientId);
-    } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
-    }
+    } catch (_) {}
   }
 
   Future<void> updateNote({
@@ -334,9 +309,7 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
           .eq('id', noteId);
 
       _loadNotesForPatient(patientId);
-    } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
-    }
+    } catch (_) {}
   }
 
   Future<void> deleteNote({
@@ -346,8 +319,6 @@ class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
     try {
       await _client.from('patient_notes').delete().eq('id', noteId);
       _loadNotesForPatient(patientId);
-    } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
-    }
+    } catch (_) {}
   }
 }
