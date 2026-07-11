@@ -37,6 +37,14 @@ class DoctorDayListView extends StatelessWidget {
     return AppColors.aptVideoCall;
   }
 
+  Color _reliabilityColor(AppointmentData apt) {
+    if (apt.totalVisits == null || apt.totalVisits == 0) return AppColors.textHint;
+    final rate = apt.noShowCount! / apt.totalVisits!;
+    if (rate <= 0.25) return AppColors.success;
+    if (rate <= 0.50) return AppColors.warning;
+    return AppColors.error;
+  }
+
   String _appointmentLabel(AppointmentData apt) {
     if (apt.bookingType == 'home') return 'Domicile';
     if (apt.isConsultation) return 'Consultation';
@@ -94,7 +102,7 @@ class DoctorDayListView extends StatelessWidget {
       onTap: () => onEmptySlotTap(slotTime),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        height: 44,
+        height: 57,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
@@ -150,13 +158,29 @@ class DoctorDayListView extends StatelessWidget {
               children: [
                 Container(
                   width: 4,
-                  height: 44,
+                  height: 57,
                   decoration: BoxDecoration(
                     color: color,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 const SizedBox(width: 10),
+                if (apt.patientId != null) ...[
+                  Tooltip(
+                    message: apt.totalVisits != null && apt.totalVisits! > 0
+                        ? '${apt.noShowCount} absence${apt.noShowCount! > 1 ? 's' : ''} sur ${apt.totalVisits} visite${apt.totalVisits! > 1 ? 's' : ''}'
+                        : 'Aucun historique',
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _reliabilityColor(apt),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

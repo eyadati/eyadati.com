@@ -14,6 +14,8 @@ class AppointmentData {
   final String doctorId;
   final String doctorName;
   final String? attendanceStatus;
+  final int? totalVisits;
+  final int? noShowCount;
 
   AppointmentData({
     required this.id,
@@ -31,5 +33,7 @@ class AppointmentData {
     this.doctorId = '',
     this.doctorName = '',
     this.attendanceStatus,
+    this.totalVisits,
+    this.noShowCount,
   });
 }

@@ -367,6 +367,7 @@ class PatientNotifier extends AsyncNotifier<PatientState> {
     required DateTime scheduledAt,
     required int duration,
     String? notes,
+    bool isConsultation = false,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return null;
@@ -381,7 +382,7 @@ class PatientNotifier extends AsyncNotifier<PatientState> {
         'duration': duration,
         'status': 'upcoming',
         'booking_type': 'online',
-        'is_consultation': false,
+        'is_consultation': isConsultation,
         if (currentState.name.isNotEmpty) 'patient_name_snapshot': currentState.name,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       }).select('id');
@@ -400,6 +401,7 @@ class PatientNotifier extends AsyncNotifier<PatientState> {
         dateTime: scheduledAt,
         duration: duration,
         status: 'upcoming',
+        isConsultation: isConsultation,
         notes: notes,
       );
 

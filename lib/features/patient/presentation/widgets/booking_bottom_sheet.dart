@@ -30,6 +30,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedSlot;
   bool _isLoading = false;
+  bool _isConsultation = false;
   int _noShowCount = 0;
   bool _noShowCheckDone = false;
   double? _attendanceRate;
@@ -293,7 +294,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
         _selectedSlot!.minute,
       );
 
-      final duration = widget.doctor.appointmentDuration;
+      final duration = _isConsultation ? widget.doctor.consultationDuration : widget.doctor.appointmentDuration;
 
       final appointmentId = await ref.read(patientProvider.notifier).addAppointment(
         doctorId: widget.doctor.id,
@@ -305,6 +306,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
         mapsLink: widget.doctor.mapsLink,
         scheduledAt: scheduledAt,
         duration: duration,
+        isConsultation: _isConsultation,
       );
 
       if (appointmentId == null) {
@@ -556,6 +558,92 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                       ),
                     ),
                   ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _isConsultation = false),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: !_isConsultation
+                            ? AppColors.primary.withValues(alpha: 0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: !_isConsultation
+                              ? AppColors.primary
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            LucideIcons.user,
+                            color: !_isConsultation
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'RDV',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: !_isConsultation
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(() => _isConsultation = true),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _isConsultation
+                            ? AppColors.consultationColor.withValues(alpha: 0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _isConsultation
+                              ? AppColors.consultationColor
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            LucideIcons.video,
+                            color: _isConsultation
+                                ? AppColors.consultationColor
+                                : AppColors.textSecondary,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.bookingConsultation,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: _isConsultation
+                                  ? AppColors.consultationColor
+                                  : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

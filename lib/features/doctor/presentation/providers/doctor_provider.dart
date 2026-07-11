@@ -333,7 +333,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
       final profile = await _client
           .from('profiles')
-          .select()
+          .select('full_name, phone, avatar_url')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -345,7 +345,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
       final todayAppts = await _client
           .from('appointments')
-          .select()
+          .select('id')
           .eq('doctor_id', user.id)
           .eq('status', 'upcoming')
           .gte('scheduled_at', startOfDay.toIso8601String())
@@ -354,7 +354,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
       final weekAppts = await _client
           .from('appointments')
-          .select()
+          .select('id')
           .eq('doctor_id', user.id)
           .eq('status', 'upcoming')
           .gte('scheduled_at', startOfWeek.toIso8601String())
@@ -387,13 +387,67 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
       final allAppointments = allApptsData.map(_parseAppointmentRow).toList();
 
+      final patientIds = allAppointments
+          .map((a) => a.patientId)
+          .where((id) => id != null)
+          .toSet()
+          .cast<String>()
+          .toList();
+
+      if (patientIds.isNotEmpty) {
+        final attendanceData = await _client
+            .from('appointments')
+            .select('patient_id, attendance_status')
+            .not('attendance_status', 'is', null)
+            .inFilter('patient_id', patientIds);
+
+        final Map<String, int> presentCount = {};
+        final Map<String, int> noShowCount = {};
+        for (final row in attendanceData as List) {
+          final pid = row['patient_id'] as String;
+          final status = row['attendance_status'] as String;
+          if (status == 'present') {
+            presentCount[pid] = (presentCount[pid] ?? 0) + 1;
+          } else if (status == 'no_show') {
+            noShowCount[pid] = (noShowCount[pid] ?? 0) + 1;
+          }
+        }
+
+        for (int i = 0; i < allAppointments.length; i++) {
+          final pid = allAppointments[i].patientId;
+          if (pid != null) {
+            final presents = presentCount[pid] ?? 0;
+            final noshows = noShowCount[pid] ?? 0;
+            allAppointments[i] = AppointmentData(
+              id: allAppointments[i].id,
+              startTime: allAppointments[i].startTime,
+              endTime: allAppointments[i].endTime,
+              patientName: allAppointments[i].patientName,
+              patientAvatar: allAppointments[i].patientAvatar,
+              patientPhone: allAppointments[i].patientPhone,
+              status: allAppointments[i].status,
+              isConsultation: allAppointments[i].isConsultation,
+              notes: allAppointments[i].notes,
+              duration: allAppointments[i].duration,
+              patientId: pid,
+              bookingType: allAppointments[i].bookingType,
+              doctorId: allAppointments[i].doctorId,
+              doctorName: allAppointments[i].doctorName,
+              attendanceStatus: allAppointments[i].attendanceStatus,
+              totalVisits: presents + noshows,
+              noShowCount: noshows,
+            );
+          }
+        }
+      }
+
       final upcomingAppointments =
           allAppointments.where((a) => a.startTime.isAfter(now)).toList()
             ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
       final scheduleSlots = await _client
           .from('doctor_schedule')
-          .select()
+          .select('id, doctor_id, day_of_week, start_time, end_time, break_start, break_end, is_active, created_at, updated_at')
           .eq('doctor_id', user.id)
           .eq('is_active', true)
           .order('day_of_week');
@@ -550,7 +604,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     try {
       final slots = await _client
           .from('doctor_schedule')
-          .select()
+          .select('id, doctor_id, day_of_week, start_time, end_time, break_start, break_end, is_active, created_at, updated_at')
           .eq('doctor_id', userId)
           .eq('day_of_week', dayOfWeek)
           .eq('is_active', true);
@@ -773,6 +827,29 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       if (result != null) {
         final start = DateTime.parse(result['scheduled_at'] as String);
         final dur = result['duration'] as int? ?? state.appointmentDuration;
+
+        int? totalVisits;
+        int? noShowCount;
+        if (patientId != null) {
+          final attendanceData = await _client
+              .from('appointments')
+              .select('attendance_status')
+              .not('attendance_status', 'is', null)
+              .eq('patient_id', patientId);
+          int presents = 0;
+          int noshows = 0;
+          for (final row in attendanceData as List) {
+            final s = row['attendance_status'] as String;
+            if (s == 'present') {
+              presents++;
+            } else if (s == 'no_show') {
+              noshows++;
+            }
+          }
+          totalVisits = presents + noshows;
+          noShowCount = noshows;
+        }
+
         final newAppt = AppointmentData(
           id: result['id'] as String,
           startTime: start,
@@ -788,10 +865,12 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           duration: dur,
           patientId: patientId,
           bookingType: patientId != null ? 'online' : 'manual',
+          doctorId: state.userId ?? '',
+          doctorName: state.name,
+          totalVisits: totalVisits,
+          noShowCount: noShowCount,
         );
         state = state.copyWith(
-          upcomingAppointments: [...state.upcomingAppointments, newAppt]
-            ..sort((a, b) => a.startTime.compareTo(b.startTime)),
           allAppointments: [newAppt, ...state.allAppointments],
         );
         return true;
@@ -804,28 +883,19 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     }
   }
 
-  Future<bool> markAttendance(
-    String appointmentId,
-    String attendanceStatus,
-  ) async {
+  Future<bool> markAttendance(String appointmentId) async {
     try {
-      final statusMap = {
-        'present': 'completed',
-        'cancelled_with_notice': 'cancelled',
-        'no_show': 'absent',
-      };
-      final newStatus = statusMap[attendanceStatus] ?? 'completed';
-
-      final updated = await _client
+      final result = await _client
           .from('appointments')
           .update({
-            'attendance_status': attendanceStatus,
-            'status': newStatus,
+            'attendance_status': 'no_show',
+            'status': 'absent',
           })
           .eq('id', appointmentId)
-          .select();
+          .select('id')
+          .maybeSingle();
 
-      if (updated.isEmpty) return false;
+      if (result == null) return false;
 
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
@@ -836,13 +906,17 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             patientName: a.patientName,
             patientAvatar: a.patientAvatar,
             patientPhone: a.patientPhone,
-            status: newStatus,
+            status: 'absent',
             isConsultation: a.isConsultation,
             notes: a.notes,
             duration: a.duration,
             patientId: a.patientId,
             bookingType: a.bookingType,
-            attendanceStatus: attendanceStatus,
+            doctorId: a.doctorId,
+            doctorName: a.doctorName,
+            attendanceStatus: 'no_show',
+            totalVisits: a.totalVisits,
+            noShowCount: a.noShowCount,
           );
         }
         return a;
@@ -860,12 +934,13 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     String status,
   ) async {
     try {
-      final updated = await _client
+      final result = await _client
           .from('appointments')
           .update({'status': status})
           .eq('id', appointmentId)
-          .select();
-      if (updated.isEmpty) return false;
+          .select('id')
+          .maybeSingle();
+      if (result == null) return false;
 
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
@@ -882,45 +957,21 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             duration: a.duration,
             patientId: a.patientId,
             bookingType: a.bookingType,
+            doctorId: a.doctorId,
+            doctorName: a.doctorName,
+            attendanceStatus: a.attendanceStatus,
+            totalVisits: a.totalVisits,
+            noShowCount: a.noShowCount,
           );
         }
         return a;
       }).toList();
 
-      List<AppointmentData> updatedUpcoming;
-      if (status == 'cancelled' || status == 'completed') {
-        updatedUpcoming = state.upcomingAppointmentsList
-            .where((a) => a.id != appointmentId)
-            .toList();
-      } else {
-        updatedUpcoming = state.upcomingAppointmentsList.map((a) {
-          if (a.id == appointmentId) {
-            return AppointmentData(
-              id: a.id,
-              startTime: a.startTime,
-              endTime: a.endTime,
-              patientName: a.patientName,
-              patientAvatar: a.patientAvatar,
-              patientPhone: a.patientPhone,
-              status: status,
-              isConsultation: a.isConsultation,
-              notes: a.notes,
-              duration: a.duration,
-              patientId: a.patientId,
-              bookingType: a.bookingType,
-            );
-          }
-          return a;
-        }).toList();
-      }
-
       state = state.copyWith(
-        upcomingAppointments: updatedUpcoming,
         allAppointments: updatedAll,
       );
       return true;
     } catch (e) {
-      print('[DoctorNotifier] Error in updateAppointmentStatus: $e');
       state = state.copyWith(errorMessage: e.toString());
       return false;
     }
@@ -928,10 +979,14 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
   Future<bool> confirmAppointment(String appointmentId) async {
     try {
-      await _client
+      final result = await _client
           .from('appointments')
           .update({'status': 'upcoming'})
-          .eq('id', appointmentId);
+          .eq('id', appointmentId)
+          .select('id')
+          .maybeSingle();
+
+      if (result == null) return false;
 
       final updatedAll = state.allAppointments.map((a) {
         if (a.id == appointmentId) {
@@ -948,26 +1003,18 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             duration: a.duration,
             patientId: a.patientId,
             bookingType: a.bookingType,
+            doctorId: a.doctorId,
+            doctorName: a.doctorName,
+            attendanceStatus: a.attendanceStatus,
+            totalVisits: a.totalVisits,
+            noShowCount: a.noShowCount,
           );
         }
         return a;
       }).toList();
 
-      final updatedUpcoming =
-          state.upcomingAppointments
-              .where((a) => a.id != appointmentId)
-              .toList()
-            ..addAll(
-              updatedAll.where(
-                (a) =>
-                    a.status == 'upcoming' &&
-                    a.startTime.isAfter(DateTime.now()),
-              ),
-            );
-
       state = state.copyWith(
         allAppointments: updatedAll,
-        upcomingAppointments: updatedUpcoming,
       );
       return true;
     } catch (e) {
@@ -986,8 +1033,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .from('appointments')
           .delete()
           .eq('id', appointmentId)
-          .select();
-      if (deleted.isEmpty) return false;
+          .select('id')
+          .maybeSingle();
+      if (deleted == null) return false;
       final updatedUpcoming = state.upcomingAppointments
           .where((a) => a.id != appointmentId)
           .toList();
@@ -1010,7 +1058,16 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       final userId = _client.auth.currentUser?.id;
       if (userId == null) return false;
 
-      await _client.from('doctors').update({'manual_pause': paused}).eq('id', userId);
+      final result = await _client
+          .from('doctors')
+          .update({'manual_pause': paused})
+          .eq('id', userId)
+          .select('manual_pause')
+          .maybeSingle();
+
+      if (result == null) return false;
+
+      state = state.copyWith(isPaused: paused);
       return true;
     } catch (e) {
       return false;
