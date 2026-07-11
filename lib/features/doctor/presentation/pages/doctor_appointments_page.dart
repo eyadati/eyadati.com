@@ -13,8 +13,7 @@ class DoctorAppointmentsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final doctorState = ref.watch(doctorProvider);
-    final all = doctorState.allAppointments;
+    final all = ref.watch(doctorProvider.select((s) => s.allAppointments));
 
     return DefaultTabController(
       length: 3,

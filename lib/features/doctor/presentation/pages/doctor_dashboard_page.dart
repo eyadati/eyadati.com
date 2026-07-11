@@ -115,8 +115,11 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final doctorState = ref.watch(doctorProvider);
-    final pending = doctorState.allAppointments
+    final allAppointments = ref.watch(doctorProvider.select((s) => s.allAppointments));
+    final subscriptionEnd = ref.watch(doctorProvider.select((s) => s.subscriptionEnd));
+    final errorMessage = ref.watch(doctorProvider.select((s) => s.errorMessage));
+    final isLoading = ref.watch(doctorProvider.select((s) => s.isLoading));
+    final pending = allAppointments
         .where((a) => a.status == 'upcoming' && a.bookingType == 'online')
         .toList();
 
@@ -132,7 +135,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
       endDrawer: DoctorNotificationSidebar(appointments: pending),
       body: Column(
         children: [
-          if (doctorState.isSubscriptionExpired)
+          if (subscriptionEnd != null && subscriptionEnd.isBefore(DateTime.now()))
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -159,10 +162,10 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
               ),
             ),
           Expanded(
-            child: doctorState.errorMessage != null
-                ? _buildErrorView(doctorState)
+            child: errorMessage != null
+                ? _buildErrorView(errorMessage)
                 : Skeletonizer(
-                    enabled: doctorState.isLoading,
+                    enabled: isLoading,
                     child: DoctorCalendarPage(
                       onBellPressed: () =>
                           _scaffoldKey.currentState?.openEndDrawer(),
@@ -187,7 +190,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
     );
   }
 
-  Widget _buildErrorView(DoctorState doctorState) {
+  Widget _buildErrorView(String errorMessage) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -208,7 +211,7 @@ class _DoctorDashboardPageState extends ConsumerState<DoctorDashboardPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              doctorState.errorMessage ?? '',
+              errorMessage,
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textHint,

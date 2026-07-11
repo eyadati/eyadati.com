@@ -56,7 +56,7 @@ class PatientHistoryState {
 }
 
 final patientHistoryProvider =
-    StateNotifierProvider<PatientHistoryNotifier, PatientHistoryState>((ref) {
+    StateNotifierProvider.autoDispose<PatientHistoryNotifier, PatientHistoryState>((ref) {
   return PatientHistoryNotifier();
 });
 

@@ -33,7 +33,7 @@ class CallLogState {
   }
 }
 
-final callLogProvider = StateNotifierProvider<CallLogNotifier, CallLogState>((ref) {
+final callLogProvider = StateNotifierProvider.autoDispose<CallLogNotifier, CallLogState>((ref) {
   return CallLogNotifier();
 });
 
