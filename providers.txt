@@ -1,0 +1,4056 @@
+===== lib/core/providers/install_prompt_provider.dart =====
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class InstallPromptNotifier extends StateNotifier<bool> {
+  InstallPromptNotifier() : super(false) {
+    if (!kIsWeb) return;
+
+    if (html.window.matchMedia('(display-mode: standalone)').matches) {
+      state = false;
+      return;
+    }
+
+    html.window.addEventListener('pwa-install-available', (_) {
+      state = true;
+    });
+    html.window.addEventListener('pwa-installed', (_) {
+      state = false;
+    });
+    html.window.addEventListener('pwa-install-dismissed', (_) {
+      state = false;
+    });
+  }
+
+  void promptInstall() {
+    if (!kIsWeb) return;
+    html.window.dispatchEvent(html.CustomEvent('flutter-trigger-install'));
+  }
+}
+
+final installPromptProvider = StateNotifierProvider<InstallPromptNotifier, bool>((ref) {
+  return InstallPromptNotifier();
+});
+
+===== lib/core/providers/locale_provider.dart =====
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class LocaleNotifier extends StateNotifier<Locale> {
+  LocaleNotifier() : super(const Locale('fr', '')) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final code = prefs.getString('locale') ?? 'fr';
+    state = Locale(code, '');
+  }
+
+  Future<void> setLocale(String code) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('locale', code);
+    state = Locale(code, '');
+  }
+
+  bool get isArabic => state.languageCode == 'ar';
+  bool get isFrench => state.languageCode == 'fr';
+}
+
+final localeProvider = StateNotifierProvider<LocaleNotifier, Locale>((ref) {
+  return LocaleNotifier();
+});
+===== lib/features/auth/presentation/providers/auth_provider.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'auth_state.dart';
+import '../../../../core/utils/supabase_client.dart';
+import '../../../../repositories/auth_repository.dart';
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  return AuthRepository(SupabaseInitializer.client);
+});
+
+final authProvider = StateNotifierProvider<AuthNotifier, AppAuthState>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return AuthNotifier(repository);
+});
+
+class AuthNotifier extends StateNotifier<AppAuthState> {
+  final AuthRepository _repository;
+
+  AuthNotifier(this._repository) : super(const AppAuthState());
+
+  // ── Phone + Password login ──
+
+  Future<bool> loginWithPhone(String phone, String password) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.signInWithPhone(
+        phone: phone,
+        password: password,
+      );
+      if (result.isSuccess) {
+        final user = result.user!;
+        final role = await _fetchRoleFromProfile(user.id);
+        final userName = await _fetchUserName(user.id);
+        final setupCompleted = role == 'patient'
+            ? true
+            : await _checkDoctorSetup(user.id);
+        state = state.copyWith(
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          setupCompleted: setupCompleted,
+          userId: user.id,
+          phone: phone,
+          role: role,
+          isDoctor: role == 'doctor',
+          userName: userName,
+        );
+        return true;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        isInitialized: true,
+        errorMessage: result.error ?? 'Numéro ou mot de passe incorrect',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  // ── Legacy email login ──
+
+  Future<bool> login(String email, String password) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.signIn(
+          email: email, password: password);
+      if (result.isSuccess) {
+        final user = result.user!;
+        final role = await _fetchRoleFromProfile(user.id);
+        final userName = await _fetchUserName(user.id);
+        final setupCompleted = role == 'patient'
+            ? true
+            : await _checkDoctorSetup(user.id);
+        state = state.copyWith(
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          setupCompleted: setupCompleted,
+          userId: user.id,
+          email: email,
+          role: role,
+          isDoctor: role == 'doctor',
+          userName: userName,
+        );
+        return true;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        isInitialized: true,
+        errorMessage: result.error ?? 'Identifiants incorrects',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  // ── Direct phone registration (no OTP) ──
+
+  Future<bool> directPhoneRegister({
+    required String name,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final phone = state.phone;
+      if (phone == null) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Numéro de téléphone manquant',
+        );
+        return false;
+      }
+
+      final result = await _repository.signUpWithPhoneDirect(
+        phone: phone,
+        password: password,
+        fullName: name,
+        role: 'patient',
+      );
+
+      if (!result.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: result.error ?? "Erreur lors de l'inscription",
+        );
+        return false;
+      }
+
+      state = state.copyWith(
+        isAuthenticated: true,
+        isLoading: false,
+        isInitialized: true,
+        setupCompleted: true,
+        userId: result.user?.id,
+        phone: phone,
+        role: 'patient',
+        isDoctor: false,
+        userName: name,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  // ── Legacy email registration ──
+
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String name,
+    required String phone,
+    required String role,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.signUp(
+        email: email,
+        password: password,
+        fullName: name,
+        role: role,
+        phone: phone,
+      );
+      if (result.isSuccess) {
+        final setupCompleted = role == 'patient' ? true : false;
+        state = state.copyWith(
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          setupCompleted: setupCompleted,
+          userId: result.user?.id,
+          email: email,
+          role: role,
+          isDoctor: role == 'doctor',
+          userName: name,
+        );
+        return true;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        isInitialized: true,
+        errorMessage: result.error ?? "Erreur lors de l'inscription",
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        isInitialized: true,
+        errorMessage: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  // ── Forgot password: patient (phone via edge fn) ──
+
+  Future<bool> patientPasswordReset({
+    required String phone,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.resetPasswordByPhone(
+        phone: phone,
+        newPassword: newPassword,
+      );
+      state = state.copyWith(isLoading: false);
+      if (!result.isSuccess) {
+        state = state.copyWith(errorMessage: result.error);
+      }
+      return result.isSuccess;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<String?> deleteAccount() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.deleteAccount();
+      if (result.isSuccess) {
+        await _repository.signOut();
+        state = const AppAuthState(isInitialized: true);
+        return null;
+      }
+      state = state.copyWith(isLoading: false);
+      return result.error;
+    } catch (e) {
+      state = state.copyWith(isLoading: false);
+      return e.toString();
+    }
+  }
+
+  Future<void> logout() async {
+    await _repository.signOut();
+    state = const AppAuthState(isInitialized: true);
+  }
+
+  void resetState() {
+    state = const AppAuthState(isInitialized: true);
+  }
+
+  void setPhone(String phone) {
+    state = state.copyWith(phone: phone);
+  }
+
+  Future<bool> _checkDoctorSetup(String userId) async {
+    try {
+      final doctor = await SupabaseInitializer.client
+          .from('doctors')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+      return doctor != null;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<String> _fetchRoleFromProfile(String userId) async {
+    try {
+      final profile = await SupabaseInitializer.client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+      if (profile != null && profile['role'] != null) {
+        return profile['role'] as String;
+      }
+      return 'patient';
+    } catch (e) {
+      return 'patient';
+    }
+  }
+
+  Future<String?> _fetchUserName(String userId) async {
+    try {
+      final profile = await SupabaseInitializer.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle();
+      return profile?['full_name'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> checkAuthStatus() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final user = _repository.currentUser;
+      if (user != null) {
+        final role = await _fetchRoleFromProfile(user.id);
+        final userName = await _fetchUserName(user.id);
+        final setupCompleted = role == 'patient'
+            ? true
+            : await _checkDoctorSetup(user.id);
+        state = state.copyWith(
+          isAuthenticated: true,
+          isLoading: false,
+          isInitialized: true,
+          setupCompleted: setupCompleted,
+          userId: user.id,
+          email: user.email,
+          role: role,
+          isDoctor: role == 'doctor',
+          userName: userName,
+        );
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          isInitialized: true,
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        isInitialized: true,
+      );
+    }
+  }
+
+  Future<void> refreshSetupStatus() async {
+    final userId = state.userId;
+    if (userId == null || !state.isDoctor) return;
+
+    final setupCompleted = await _checkDoctorSetup(userId);
+    state = state.copyWith(setupCompleted: setupCompleted);
+  }
+
+  void clearError() {
+    state = AppAuthState(
+      isAuthenticated: state.isAuthenticated,
+      isDoctor: state.isDoctor,
+      isLoading: state.isLoading,
+      userId: state.userId,
+      email: state.email,
+      phone: state.phone,
+      role: state.role,
+      setupCompleted: state.setupCompleted,
+      userName: state.userName,
+    );
+  }
+
+  Future<bool> resetPassword(String email) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final result = await _repository.resetPassword(email);
+      state = state.copyWith(isLoading: false);
+      if (!result.isSuccess) {
+        state = AppAuthState(
+          isAuthenticated: state.isAuthenticated,
+          isDoctor: state.isDoctor,
+          isLoading: state.isLoading,
+          errorMessage: result.error,
+          userId: state.userId,
+          email: state.email,
+          role: state.role,
+          setupCompleted: state.setupCompleted,
+          userName: state.userName,
+        );
+      }
+      return result.isSuccess;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      return false;
+    }
+  }
+}
+
+===== lib/features/auth/presentation/providers/auth_state.dart =====
+class AppAuthState {
+  final bool isAuthenticated;
+  final bool isDoctor;
+  final bool isLoading;
+  final bool isInitialized;
+  final bool setupCompleted;
+  final String? errorMessage;
+  final String? userId;
+  final String? email;
+  final String? phone;
+  final String? role;
+  final String? userName;
+
+  const AppAuthState({
+    this.isAuthenticated = false,
+    this.isDoctor = false,
+    this.isLoading = false,
+    this.isInitialized = false,
+    this.setupCompleted = false,
+    this.errorMessage,
+    this.userId,
+    this.email,
+    this.phone,
+    this.role,
+    this.userName,
+  });
+
+  AppAuthState copyWith({
+    bool? isAuthenticated,
+    bool? isDoctor,
+    bool? isLoading,
+    bool? isInitialized,
+    bool? setupCompleted,
+    String? errorMessage,
+    String? userId,
+    String? email,
+    String? phone,
+    String? role,
+    String? userName,
+  }) {
+    return AppAuthState(
+      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      isDoctor: isDoctor ?? this.isDoctor,
+      isLoading: isLoading ?? this.isLoading,
+      isInitialized: isInitialized ?? this.isInitialized,
+      setupCompleted: setupCompleted ?? this.setupCompleted,
+      errorMessage: errorMessage,
+      userId: userId ?? this.userId,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      userName: userName ?? this.userName,
+    );
+  }
+}
+
+===== lib/features/doctor/presentation/providers/doctor_provider.dart =====
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/core/engine/availability_service.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/core/utils/maps_utils.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class DoctorState {
+  final String? userId;
+  final String name;
+  final String email;
+  final String specialty;
+  final String city;
+  final String phone;
+  final String address;
+  final int consultationDuration;
+  final int appointmentDuration;
+  final String avatarUrl;
+  final String? mapsLink;
+  final bool isPaused;
+  final bool isTest;
+  final int todayAppointments;
+  final int weekAppointments;
+  final int totalPatients;
+  final DateTime? subscriptionEnd;
+  final List<AppointmentData> allAppointments;
+  final List<AppointmentData> upcomingAppointments;
+  final List<ScheduleSlot> scheduleSlots;
+  final List<PatientVisitData> patients;
+  final bool isLoading;
+  final bool setupCompleted;
+  final String? errorMessage;
+
+  bool get isSubscriptionExpired =>
+      subscriptionEnd != null && subscriptionEnd!.isBefore(DateTime.now());
+
+  const DoctorState({
+    this.userId,
+    this.name = '',
+    this.email = '',
+    this.specialty = '',
+    this.city = '',
+    this.phone = '',
+    this.address = '',
+    this.consultationDuration = 30,
+    this.appointmentDuration = 20,
+    this.avatarUrl = '',
+    this.mapsLink,
+    this.isPaused = false,
+    this.isTest = false,
+    this.todayAppointments = 0,
+    this.weekAppointments = 0,
+    this.totalPatients = 0,
+    this.subscriptionEnd,
+    this.allAppointments = const [],
+    this.upcomingAppointments = const [],
+    this.scheduleSlots = const [],
+    this.patients = const [],
+    this.isLoading = false,
+    this.setupCompleted = false,
+    this.errorMessage,
+  });
+
+  AvailabilityService get availabilityService => AvailabilityService(
+    scheduleSlots: scheduleSlots,
+    appointmentDuration: appointmentDuration,
+    consultationDuration: consultationDuration,
+  );
+
+  List<AppointmentData> getAppointmentsForDay(DateTime date) {
+    return allAppointments.where((apt) {
+      return apt.startTime.year == date.year &&
+          apt.startTime.month == date.month &&
+          apt.startTime.day == date.day;
+    }).toList()..sort((a, b) => a.startTime.compareTo(b.startTime));
+  }
+
+  // Per supabase_checklist: Single source list + computed getters (not stored independently)
+  int get todayAppointmentsCount {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    return allAppointments
+        .where(
+          (apt) =>
+              apt.startTime.isAfter(startOfDay) &&
+              apt.startTime.isBefore(endOfDay) &&
+              apt.status == 'upcoming',
+        )
+        .length;
+  }
+
+  int get weekAppointmentsCount {
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeekDay = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
+    final endOfWeek = startOfWeekDay.add(const Duration(days: 7));
+    return allAppointments
+        .where(
+          (apt) =>
+              apt.startTime.isAfter(startOfWeekDay) &&
+              apt.startTime.isBefore(endOfWeek) &&
+              apt.status == 'upcoming',
+        )
+        .length;
+  }
+
+  List<AppointmentData> get upcomingAppointmentsList {
+    final now = DateTime.now();
+    return allAppointments
+        .where((apt) => apt.startTime.isAfter(now) && apt.status == 'upcoming')
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+  }
+
+  DoctorState copyWith({
+    String? userId,
+    String? name,
+    String? email,
+    String? specialty,
+    String? city,
+    String? phone,
+    String? address,
+    int? consultationDuration,
+    int? appointmentDuration,
+    String? avatarUrl,
+    String? mapsLink,
+    bool? isPaused,
+    bool? isTest,
+    int? todayAppointments,
+    int? weekAppointments,
+    int? totalPatients,
+    DateTime? subscriptionEnd,
+    List<AppointmentData>? allAppointments,
+    List<AppointmentData>? upcomingAppointments,
+    List<ScheduleSlot>? scheduleSlots,
+    List<PatientVisitData>? patients,
+    bool? isLoading,
+    bool? setupCompleted,
+    String? errorMessage,
+  }) {
+    return DoctorState(
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      specialty: specialty ?? this.specialty,
+      city: city ?? this.city,
+      phone: phone ?? this.phone,
+      address: address ?? this.address,
+      consultationDuration: consultationDuration ?? this.consultationDuration,
+      appointmentDuration: appointmentDuration ?? this.appointmentDuration,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      mapsLink: mapsLink ?? this.mapsLink,
+      isPaused: isPaused ?? this.isPaused,
+      isTest: isTest ?? this.isTest,
+      todayAppointments: todayAppointments ?? this.todayAppointments,
+      weekAppointments: weekAppointments ?? this.weekAppointments,
+      totalPatients: totalPatients ?? this.totalPatients,
+      subscriptionEnd: subscriptionEnd ?? this.subscriptionEnd,
+      allAppointments: allAppointments ?? this.allAppointments,
+      upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
+      scheduleSlots: scheduleSlots ?? this.scheduleSlots,
+      patients: patients ?? this.patients,
+      isLoading: isLoading ?? this.isLoading,
+      setupCompleted: setupCompleted ?? this.setupCompleted,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
+class PatientVisitData {
+  final String? patientId;
+  final String patientName;
+  final String? patientPhone;
+  final int totalVisits;
+  final DateTime? lastVisit;
+
+  PatientVisitData({
+    this.patientId,
+    required this.patientName,
+    this.patientPhone,
+    required this.totalVisits,
+    this.lastVisit,
+  });
+}
+
+final doctorProvider = StateNotifierProvider<DoctorNotifier, DoctorState>((
+  ref,
+) {
+  return DoctorNotifier(ref);
+});
+
+class DoctorNotifier extends StateNotifier<DoctorState> {
+  final Ref _ref;
+  SupabaseClient get _client => SupabaseInitializer.client;
+  RealtimeChannel? _appointmentsChannel;
+  RealtimeChannel? _scheduleChannel;
+  Timer? _debounceTimer;
+
+  DoctorNotifier(this._ref) : super(const DoctorState()) {
+    _subscribeToAppointments();
+    _subscribeToSchedule();
+    loadDoctorData();
+  }
+
+  @override
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribeToAppointments() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _appointmentsChannel = _client
+        .channel('doctor_appointments_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'doctor_id',
+            value: user.id,
+          ),
+          callback: (payload) => _silentRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _subscribeToSchedule() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _scheduleChannel = _client
+        .channel('doctor_schedule_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'doctor_schedule',
+          callback: (payload) => _silentRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _silentRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      loadDoctorData(silent: true);
+      loadPatients();
+    });
+  }
+
+  AppointmentData _parseAppointmentRow(Map<String, dynamic> a) {
+    final start = DateTime.parse(a['scheduled_at'] as String);
+
+    final durationValue = a['duration'];
+    if (durationValue == null) {
+      throw Exception('Appointment ${a['id']} missing duration from database');
+    }
+    final duration = durationValue as int;
+
+    final patientNameSnapshot = a['patient_name_snapshot'] as String?;
+    final patientData = a['patient'] as Map<String, dynamic>?;
+    final patientFullName = patientData?['full_name'] as String?;
+
+    final resolvedName = patientNameSnapshot ?? patientFullName;
+    if (resolvedName == null) {
+      throw Exception(
+        'Appointment ${a['id']} has no patient name (snapshot or profile)',
+      );
+    }
+
+    return AppointmentData(
+      id: a['id'] as String,
+      startTime: start,
+      endTime: start.add(Duration(minutes: duration)),
+      patientName: resolvedName,
+      patientAvatar:
+          (a['patient'] as Map<String, dynamic>?)?['avatar_url'] as String?,
+      patientPhone: a['patient_phone_snapshot'] as String?,
+      status: a['status'] as String,
+      isConsultation: a['is_consultation'] as bool? ?? false,
+      notes: a['notes'] as String?,
+      duration: duration,
+      patientId: (a['patient'] as Map<String, dynamic>?)?['id'] as String?,
+      bookingType: a['booking_type'] as String? ?? 'online',
+      doctorId: a['doctor_id'] as String? ?? '',
+      doctorName: state.name,
+      attendanceStatus: a['attendance_status'] as String?,
+    );
+  }
+
+  Future<void> loadDoctorData({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true);
+    }
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        state = state.copyWith(isLoading: false, setupCompleted: false);
+        return;
+      }
+
+      // Per supabase_checklist: Use explicit column selection to ensure data is fetched
+      final doctorData = await _client
+          .from('doctors')
+          .select(
+            'specialty, city, address, photo_url, maps_link, consultation_duration, appointment_duration, manual_pause, is_test, subscription_end',
+          )
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (doctorData == null) {
+        state = state.copyWith(
+          isLoading: false,
+          setupCompleted: false,
+          userId: user.id,
+          email: user.email ?? '',
+        );
+        return;
+      }
+
+      final profile = await _client
+          .from('profiles')
+          .select('full_name, phone, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final startOfWeek = startOfDay.subtract(Duration(days: now.weekday - 1));
+      final endOfWeek = startOfWeek.add(const Duration(days: 7));
+
+      final todayAppts = await _client
+          .from('appointments')
+          .select('id')
+          .eq('doctor_id', user.id)
+          .eq('status', 'upcoming')
+          .gte('scheduled_at', startOfDay.toIso8601String())
+          .lt('scheduled_at', endOfDay.toIso8601String())
+          .count();
+
+      final weekAppts = await _client
+          .from('appointments')
+          .select('id')
+          .eq('doctor_id', user.id)
+          .eq('status', 'upcoming')
+          .gte('scheduled_at', startOfWeek.toIso8601String())
+          .lt('scheduled_at', endOfWeek.toIso8601String())
+          .count();
+
+      // Per supabase_checklist: Use explicit columns to ensure all data is fetched
+      final allApptsData = await _client
+          .from('appointments')
+          .select('''
+            id,
+            scheduled_at,
+            duration,
+            status,
+            is_consultation,
+            booking_type,
+            notes,
+            patient_name_snapshot,
+            patient_phone_snapshot,
+            patient:profiles!patient_id (
+              id,
+              full_name,
+              avatar_url
+            ),
+          doctor_id,
+            attendance_status
+           ''')
+          .eq('doctor_id', user.id)
+          .order('scheduled_at', ascending: false);
+
+      final allAppointments = allApptsData.map(_parseAppointmentRow).toList();
+
+      final patientIds = allAppointments
+          .map((a) => a.patientId)
+          .where((id) => id != null)
+          .toSet()
+          .cast<String>()
+          .toList();
+
+      if (patientIds.isNotEmpty) {
+        final attendanceData = await _client
+            .from('appointments')
+            .select('patient_id, attendance_status')
+            .not('attendance_status', 'is', null)
+            .inFilter('patient_id', patientIds);
+
+        final Map<String, int> presentCount = {};
+        final Map<String, int> noShowCount = {};
+        for (final row in attendanceData as List) {
+          final pid = row['patient_id'] as String;
+          final status = row['attendance_status'] as String;
+          if (status == 'present') {
+            presentCount[pid] = (presentCount[pid] ?? 0) + 1;
+          } else if (status == 'no_show') {
+            noShowCount[pid] = (noShowCount[pid] ?? 0) + 1;
+          }
+        }
+
+        for (int i = 0; i < allAppointments.length; i++) {
+          final pid = allAppointments[i].patientId;
+          if (pid != null) {
+            final presents = presentCount[pid] ?? 0;
+            final noshows = noShowCount[pid] ?? 0;
+            allAppointments[i] = AppointmentData(
+              id: allAppointments[i].id,
+              startTime: allAppointments[i].startTime,
+              endTime: allAppointments[i].endTime,
+              patientName: allAppointments[i].patientName,
+              patientAvatar: allAppointments[i].patientAvatar,
+              patientPhone: allAppointments[i].patientPhone,
+              status: allAppointments[i].status,
+              isConsultation: allAppointments[i].isConsultation,
+              notes: allAppointments[i].notes,
+              duration: allAppointments[i].duration,
+              patientId: pid,
+              bookingType: allAppointments[i].bookingType,
+              doctorId: allAppointments[i].doctorId,
+              doctorName: allAppointments[i].doctorName,
+              attendanceStatus: allAppointments[i].attendanceStatus,
+              totalVisits: presents + noshows,
+              noShowCount: noshows,
+            );
+          }
+        }
+      }
+
+      final upcomingAppointments =
+          allAppointments.where((a) => a.startTime.isAfter(now)).toList()
+            ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+      final scheduleSlots = await _client
+          .from('doctor_schedule')
+          .select('id, doctor_id, day_of_week, start_time, end_time, break_start, break_end, is_active, created_at, updated_at')
+          .eq('doctor_id', user.id)
+          .eq('is_active', true)
+          .order('day_of_week');
+
+      final schedule = scheduleSlots
+          .map((s) => ScheduleSlot.fromDbMap(s))
+          .toList();
+
+      state = state.copyWith(
+        setupCompleted: true,
+        userId: user.id,
+        name:
+            profile?['full_name'] as String? ??
+            doctorData['specialty'] as String? ??
+            'Docteur',
+        email: user.email ?? '',
+        specialty: doctorData['specialty'] as String? ?? '',
+        city: doctorData['city'] as String? ?? '',
+        phone: profile?['phone'] as String? ?? '',
+        address: doctorData['address'] as String? ?? '',
+
+        consultationDuration: (doctorData['consultation_duration'] as int?) ?? 30,
+        appointmentDuration: (doctorData['appointment_duration'] as int?) ?? 20,
+        avatarUrl:
+            profile?['avatar_url'] as String? ??
+            doctorData['photo_url'] as String? ??
+            '',
+        mapsLink: doctorData['maps_link'] as String?,
+        isPaused: doctorData['manual_pause'] as bool? ?? false,
+        isTest: doctorData['is_test'] as bool? ?? false,
+        subscriptionEnd: doctorData['subscription_end'] != null
+            ? DateTime.parse(doctorData['subscription_end'] as String)
+            : null,
+        todayAppointments: todayAppts.count,
+        weekAppointments: weekAppts.count,
+        totalPatients: 0,
+        allAppointments: allAppointments,
+        upcomingAppointments: upcomingAppointments,
+        scheduleSlots: schedule,
+        isLoading: false,
+      );
+      if (!silent) {
+        await loadPatients();
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+    }
+  }
+
+  Future<void> saveSetup({
+    required int startTime,
+    required int endTime,
+    required int consultationDuration,
+    required int appointmentDuration,
+    required String specialty,
+    required String city,
+    required String address,
+    required List<String> workingDays,
+    String? phone,
+    String? mapsLink,
+    String? photoUrl,
+    int? breakStart,
+    int? breakEnd,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      final role = user.userMetadata?['role'] as String? ?? 'doctor';
+      final fullName = user.userMetadata?['full_name'] as String? ?? '';
+
+      await _client.from('profiles').upsert({
+        'id': user.id,
+        'role': role,
+        'full_name': fullName,
+        'phone': phone,
+        'city': city,
+        'avatar_url': photoUrl,
+      }, onConflict: 'id');
+
+      double? latitude;
+      double? longitude;
+      if (mapsLink != null && mapsLink.isNotEmpty) {
+        final coords = parseGoogleMapsLink(mapsLink);
+        latitude = coords.lat;
+        longitude = coords.lng;
+      }
+
+      await _client.from('doctors').upsert({
+        'id': user.id,
+        'specialty': specialty,
+        'address': address,
+        'city': city,
+        'maps_link': mapsLink,
+        'photo_url': photoUrl,
+        'latitude': latitude,
+        'longitude': longitude,
+        'consultation_duration': consultationDuration,
+        'appointment_duration': appointmentDuration,
+      }, onConflict: 'id');
+
+      await _client.from('doctor_schedule').delete().eq('doctor_id', user.id);
+
+      final dayMapping = {
+        'lundi': 1,
+        'mardi': 2,
+        'mercredi': 3,
+        'jeudi': 4,
+        'vendredi': 5,
+        'samedi': 6,
+        'dimanche': 0,
+      };
+
+      for (final day in workingDays) {
+        final dayOfWeek = dayMapping[day] ?? 1;
+        await _client.from('doctor_schedule').insert({
+          'doctor_id': user.id,
+          'day_of_week': dayOfWeek,
+          'start_time': startTime,
+          'end_time': endTime,
+          if (breakStart != null && breakEnd != null) 'break_start': breakStart,
+          if (breakStart != null && breakEnd != null) 'break_end': breakEnd,
+          'is_active': true,
+        });
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        setupCompleted: true,
+        specialty: specialty,
+        city: city,
+        phone: phone,
+        address: address,
+        consultationDuration: consultationDuration,
+        appointmentDuration: appointmentDuration,
+        mapsLink: mapsLink,
+        avatarUrl: photoUrl ?? '',
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        setupCompleted: false,
+        errorMessage: e.toString(),
+      );
+      rethrow;
+    }
+  }
+
+  Future<List<ScheduleSlot>> loadScheduleForDay(int dayOfWeek) async {
+    final userId = state.userId;
+    if (userId == null) return [];
+
+    try {
+      final slots = await _client
+          .from('doctor_schedule')
+          .select('id, doctor_id, day_of_week, start_time, end_time, break_start, break_end, is_active, created_at, updated_at')
+          .eq('doctor_id', userId)
+          .eq('day_of_week', dayOfWeek)
+          .eq('is_active', true);
+
+      return slots.map((s) => ScheduleSlot.fromDbMap(s)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addScheduleSlot({
+    required int dayOfWeek,
+    required int startTime,
+    required int endTime,
+    int? breakStart,
+    int? breakEnd,
+  }) async {
+    try {
+      final result = await _client
+          .from('doctor_schedule')
+          .insert({
+            'doctor_id': state.userId,
+            'day_of_week': dayOfWeek,
+            'start_time': startTime,
+            'end_time': endTime,
+            if (breakStart != null && breakEnd != null) 'break_start': breakStart,
+            if (breakStart != null && breakEnd != null) 'break_end': breakEnd,
+            'is_active': true,
+          })
+          .select()
+          .maybeSingle();
+
+      if (result != null) {
+        final newSlot = ScheduleSlot.fromDbMap(result);
+        state = state.copyWith(
+          scheduleSlots: [...state.scheduleSlots, newSlot],
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> updateScheduleSlot({
+    required String slotId,
+    int? startTime,
+    int? endTime,
+    int? breakStart,
+    int? breakEnd,
+    bool? isActive,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (startTime != null) updates['start_time'] = startTime;
+      if (endTime != null) updates['end_time'] = endTime;
+      if (breakStart != null && breakEnd != null) {
+        updates['break_start'] = breakStart;
+        updates['break_end'] = breakEnd;
+      }
+      if (isActive != null) updates['is_active'] = isActive;
+
+      await _client.from('doctor_schedule').update(updates).eq('id', slotId);
+
+      final updatedSlots = state.scheduleSlots.map((slot) {
+        if (slot.id == slotId) {
+          return slot.copyWith(
+            startTime: startTime,
+            endTime: endTime,
+            breakStart: breakStart,
+            breakEnd: breakEnd,
+            isActive: isActive,
+          );
+        }
+        return slot;
+      }).toList();
+      state = state.copyWith(scheduleSlots: updatedSlots);
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> deleteScheduleSlot(String slotId) async {
+    try {
+      await _client.from('doctor_schedule').delete().eq('id', slotId);
+      final updatedSlots = state.scheduleSlots
+          .where((s) => s.id != slotId)
+          .toList();
+      state = state.copyWith(scheduleSlots: updatedSlots);
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> loadPatients() async {
+    if (state.userId == null) return;
+    try {
+      final result = await _client
+          .from('appointments')
+          .select(
+            'patient_id, patient_name_snapshot, patient_phone_snapshot, scheduled_at, status',
+          )
+          .eq('doctor_id', state.userId!)
+          .eq('status', 'upcoming')
+          .order('scheduled_at', ascending: false);
+
+      final Map<String, PatientVisitData> patientMap = {};
+
+      for (final row in result as List) {
+        // FORBIDDEN FALLBACK - Per supabase_checklist: Never fallback patient data
+        final pid = row['patient_id'] as String?;
+        final patientNameSnapshot = row['patient_name_snapshot'] as String?;
+        if (patientNameSnapshot == null && pid == null) {
+          // Skip appointments with no patient identification
+          continue;
+        }
+        final key = pid ?? patientNameSnapshot ?? 'unknown';
+        final name = patientNameSnapshot ?? 'Unknown Patient';
+        final phone = row['patient_phone_snapshot'] as String?;
+        final scheduledAt = DateTime.parse(row['scheduled_at'] as String);
+
+        if (patientMap.containsKey(key)) {
+          final existing = patientMap[key]!;
+          patientMap[key] = PatientVisitData(
+            patientId: existing.patientId ?? pid,
+            patientName: existing.patientName,
+            patientPhone: existing.patientPhone ?? phone,
+            totalVisits: existing.totalVisits + 1,
+            lastVisit: scheduledAt.isAfter(existing.lastVisit!)
+                ? scheduledAt
+                : existing.lastVisit,
+          );
+        } else {
+          patientMap[key] = PatientVisitData(
+            patientId: pid,
+            patientName: name,
+            patientPhone: phone,
+            totalVisits: 1,
+            lastVisit: scheduledAt,
+          );
+        }
+      }
+
+      final sortedPatients = patientMap.values.toList()
+        ..sort(
+          (a, b) => (b.lastVisit ?? DateTime(2000)).compareTo(
+            a.lastVisit ?? DateTime(2000),
+          ),
+        );
+
+      state = state.copyWith(
+        patients: sortedPatients,
+        totalPatients: sortedPatients.length,
+      );
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchPatients(String query) async {
+    if (query.length < 2) return [];
+    try {
+      final results = await _client
+          .from('profiles')
+          .select('id, full_name, phone')
+          .eq('role', 'patient')
+          .ilike('full_name', '%$query%')
+          .limit(10);
+      return (results as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> createAppointment({
+    required DateTime scheduledAt,
+    String? patientId,
+    String? patientName,
+    String? patientPhone,
+    String? notes,
+    int? duration,
+    bool isConsultation = false,
+  }) async {
+    try {
+      final effectiveDuration =
+          duration ??
+          (isConsultation
+              ? state.consultationDuration
+              : state.appointmentDuration);
+
+      final insertData = <String, dynamic>{
+        'doctor_id': state.userId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': effectiveDuration,
+        'status': 'upcoming',
+        'booking_type': patientId != null ? 'online' : 'manual',
+        'is_consultation': isConsultation,
+      };
+
+      if (patientId != null) {
+        insertData['patient_id'] = patientId;
+      }
+
+      if (patientName != null) {
+        insertData['patient_name_snapshot'] = patientName;
+        insertData['patient_phone_snapshot'] = patientPhone ?? '';
+      }
+
+      if (notes != null && notes.isNotEmpty) {
+        insertData['notes'] = notes;
+      }
+
+      final result = await _client
+          .from('appointments')
+          .insert(insertData)
+          .select(
+            'id, scheduled_at, duration, status, patient_name_snapshot, patient_phone_snapshot',
+          )
+          .maybeSingle();
+
+      if (result != null) {
+        final start = DateTime.parse(result['scheduled_at'] as String);
+        final dur = result['duration'] as int? ?? state.appointmentDuration;
+
+        int? totalVisits;
+        int? noShowCount;
+        if (patientId != null) {
+          final attendanceData = await _client
+              .from('appointments')
+              .select('attendance_status')
+              .not('attendance_status', 'is', null)
+              .eq('patient_id', patientId);
+          int presents = 0;
+          int noshows = 0;
+          for (final row in attendanceData as List) {
+            final s = row['attendance_status'] as String;
+            if (s == 'present') {
+              presents++;
+            } else if (s == 'no_show') {
+              noshows++;
+            }
+          }
+          totalVisits = presents + noshows;
+          noShowCount = noshows;
+        }
+
+        final newAppt = AppointmentData(
+          id: result['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: dur)),
+          patientName:
+              patientName ??
+              result['patient_name_snapshot'] as String? ??
+              'Patient',
+          patientPhone:
+              patientPhone ?? result['patient_phone_snapshot'] as String?,
+          status: 'upcoming',
+          isConsultation: isConsultation,
+          duration: dur,
+          patientId: patientId,
+          bookingType: patientId != null ? 'online' : 'manual',
+          doctorId: state.userId ?? '',
+          doctorName: state.name,
+          totalVisits: totalVisits,
+          noShowCount: noShowCount,
+        );
+        state = state.copyWith(
+          allAppointments: [newAppt, ...state.allAppointments],
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('[DoctorNotifier] Error in createAppointment: $e');
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> markAttendance(String appointmentId) async {
+    try {
+      final result = await _client
+          .from('appointments')
+          .update({
+            'attendance_status': 'no_show',
+            'status': 'absent',
+          })
+          .eq('id', appointmentId)
+          .select('id')
+          .maybeSingle();
+
+      if (result == null) return false;
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: 'absent',
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+            bookingType: a.bookingType,
+            doctorId: a.doctorId,
+            doctorName: a.doctorName,
+            attendanceStatus: 'no_show',
+            totalVisits: a.totalVisits,
+            noShowCount: a.noShowCount,
+          );
+        }
+        return a;
+      }).toList();
+
+      state = state.copyWith(allAppointments: updatedAll);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateAppointmentStatus(
+    String appointmentId,
+    String status,
+  ) async {
+    try {
+      final result = await _client
+          .from('appointments')
+          .update({'status': status})
+          .eq('id', appointmentId)
+          .select('id')
+          .maybeSingle();
+      if (result == null) return false;
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: status,
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+            bookingType: a.bookingType,
+            doctorId: a.doctorId,
+            doctorName: a.doctorName,
+            attendanceStatus: a.attendanceStatus,
+            totalVisits: a.totalVisits,
+            noShowCount: a.noShowCount,
+          );
+        }
+        return a;
+      }).toList();
+
+      state = state.copyWith(
+        allAppointments: updatedAll,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> confirmAppointment(String appointmentId) async {
+    try {
+      final result = await _client
+          .from('appointments')
+          .update({'status': 'upcoming'})
+          .eq('id', appointmentId)
+          .select('id')
+          .maybeSingle();
+
+      if (result == null) return false;
+
+      final updatedAll = state.allAppointments.map((a) {
+        if (a.id == appointmentId) {
+          return AppointmentData(
+            id: a.id,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            patientName: a.patientName,
+            patientAvatar: a.patientAvatar,
+            patientPhone: a.patientPhone,
+            status: 'upcoming',
+            isConsultation: a.isConsultation,
+            notes: a.notes,
+            duration: a.duration,
+            patientId: a.patientId,
+            bookingType: a.bookingType,
+            doctorId: a.doctorId,
+            doctorName: a.doctorName,
+            attendanceStatus: a.attendanceStatus,
+            totalVisits: a.totalVisits,
+            noShowCount: a.noShowCount,
+          );
+        }
+        return a;
+      }).toList();
+
+      state = state.copyWith(
+        allAppointments: updatedAll,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> cancelAppointmentStatus(String appointmentId) async {
+    return updateAppointmentStatus(appointmentId, 'cancelled');
+  }
+
+  Future<bool> deleteAppointment(String appointmentId) async {
+    try {
+      final deleted = await _client
+          .from('appointments')
+          .delete()
+          .eq('id', appointmentId)
+          .select('id')
+          .maybeSingle();
+      if (deleted == null) return false;
+      final updatedUpcoming = state.upcomingAppointments
+          .where((a) => a.id != appointmentId)
+          .toList();
+      final updatedAll = state.allAppointments
+          .where((a) => a.id != appointmentId)
+          .toList();
+      state = state.copyWith(
+        upcomingAppointments: updatedUpcoming,
+        allAppointments: updatedAll,
+      );
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      return false;
+    }
+  }
+
+  Future<bool> togglePause(bool paused) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final result = await _client
+          .from('doctors')
+          .update({'manual_pause': paused})
+          .eq('id', userId)
+          .select('manual_pause')
+          .maybeSingle();
+
+      if (result == null) return false;
+
+      state = state.copyWith(isPaused: paused);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> refresh() async {
+    await loadDoctorData();
+    await loadPatients();
+  }
+
+  void clearError() {
+    state = state.copyWith(errorMessage: null);
+  }
+
+
+}
+
+===== lib/features/doctor/presentation/providers/providers.dart =====
+export 'doctor_provider.dart' show doctorProvider, DoctorState, PatientVisitData;
+export 'package:eyadati/models/schedule_slot_model.dart' show ScheduleSlot;
+export 'package:eyadati/models/appointment_data.dart' show AppointmentData;
+===== lib/features/doctor/presentation/providers/doctor_call_provider.dart =====
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/models/call_log.dart';
+
+class CallLogState {
+  final List<CallLog> logs;
+  final bool isLoading;
+  final String? error;
+  final String? notificationError;
+
+  const CallLogState({
+    this.logs = const [],
+    this.isLoading = false,
+    this.error,
+    this.notificationError,
+  });
+
+  CallLogState copyWith({
+    List<CallLog>? logs,
+    bool? isLoading,
+    String? error,
+    String? notificationError,
+  }) {
+    return CallLogState(
+      logs: logs ?? this.logs,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
+      notificationError: notificationError ?? this.notificationError,
+    );
+  }
+}
+
+final callLogProvider = StateNotifierProvider<CallLogNotifier, CallLogState>((ref) {
+  return CallLogNotifier();
+});
+
+class CallLogNotifier extends StateNotifier<CallLogState> {
+  RealtimeChannel? _channel;
+  StreamSubscription? _authSubscription;
+
+  SupabaseClient get _client => SupabaseInitializer.client;
+
+  CallLogNotifier() : super(const CallLogState()) {
+    _init();
+  }
+
+  void _init() {
+    final user = _client.auth.currentUser;
+    if (user != null) {
+      _subscribe(user.id);
+    }
+    _authSubscription = _client.auth.onAuthStateChange.listen((data) {
+      if (data.session?.user != null) {
+        _subscribe(data.session!.user.id);
+      } else {
+        _unsubscribe();
+      }
+    });
+  }
+
+  void _subscribe(String userId) {
+    _unsubscribe();
+    _channel = _client
+        .channel('call_logs_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'call_logs',
+          callback: (payload) {
+            try {
+              final record = payload.newRecord;
+              final log = CallLog.fromJson(record);
+              state = state.copyWith(logs: [...state.logs, log]);
+            } catch (e) {
+              debugPrint('Realtime callback error: $e');
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void _unsubscribe() {
+    _channel?.unsubscribe();
+    _channel = null;
+  }
+
+  Future<void> requestCall({
+    required String patientPhone,
+    String? patientName,
+    String? patientId,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null, notificationError: null);
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception('Not authenticated');
+
+      await _client.from('call_logs').insert({
+        'doctor_id': user.id,
+        'patient_phone': patientPhone,
+        'patient_name': patientName,
+        'patient_id': patientId,
+      });
+
+      try {
+        await _client.functions.invoke('send-call-notification', body: {
+          'patient_phone': patientPhone,
+          'patient_name': patientName ?? '',
+        });
+      } catch (e) {
+        debugPrint('Notification error: $e');
+        state = state.copyWith(notificationError: e.toString());
+      }
+
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
+
+  void clearNotificationError() {
+    state = state.copyWith(notificationError: null);
+  }
+
+  @override
+  void dispose() {
+    _unsubscribe();
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+}
+
+===== lib/features/doctor/presentation/providers/global_patient_search_provider.dart =====
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+
+class PatientSearchResult {
+  final String patientId;
+  final String fullName;
+  final String? phone;
+  final int totalVisits;
+  final int noShowCount;
+  final int? reliabilityPct;
+
+  PatientSearchResult({
+    required this.patientId,
+    required this.fullName,
+    this.phone,
+    this.totalVisits = 0,
+    this.noShowCount = 0,
+    this.reliabilityPct,
+  });
+
+  bool get hasSufficientHistory => totalVisits >= 3;
+}
+
+class GlobalPatientSearchState {
+  final String query;
+  final List<PatientSearchResult> results;
+  final bool isLoading;
+  final String? errorMessage;
+
+  const GlobalPatientSearchState({
+    this.query = '',
+    this.results = const [],
+    this.isLoading = false,
+    this.errorMessage,
+  });
+}
+
+class GlobalPatientSearchNotifier extends StateNotifier<GlobalPatientSearchState> {
+  Timer? _debounce;
+
+  GlobalPatientSearchNotifier() : super(const GlobalPatientSearchState());
+
+  void search(String query) {
+    _debounce?.cancel();
+    state = GlobalPatientSearchState(query: query, isLoading: true);
+
+    if (query.trim().length < 2) {
+      state = GlobalPatientSearchState(query: query);
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 300), () async {
+      await _performSearch(query.trim());
+    });
+  }
+
+  Future<void> _performSearch(String searchTerm) async {
+    try {
+      final data = await SupabaseInitializer.client.rpc(
+        'search_patients',
+        params: {'search_term': searchTerm},
+      );
+
+      final results = (data as List).map((row) {
+        return PatientSearchResult(
+          patientId: row['patient_id'] as String,
+          fullName: row['full_name'] as String? ?? '',
+          phone: row['phone'] as String?,
+          totalVisits: (row['total_visits'] as num?)?.toInt() ?? 0,
+          noShowCount: (row['no_show_count'] as num?)?.toInt() ?? 0,
+          reliabilityPct: (row['reliability_pct'] as num?)?.toInt(),
+        );
+      }).toList();
+
+      state = GlobalPatientSearchState(query: searchTerm, results: results);
+    } catch (e) {
+      state = GlobalPatientSearchState(
+        query: searchTerm,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+}
+
+final globalPatientSearchProvider = StateNotifierProvider<GlobalPatientSearchNotifier, GlobalPatientSearchState>((ref) {
+  return GlobalPatientSearchNotifier();
+});
+
+===== lib/features/doctor/presentation/providers/patient_history_provider.dart =====
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/models/patient_summary.dart';
+import 'package:eyadati/models/patient_note.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class PatientHistoryState {
+  final List<PatientSummary> patients;
+  final String searchQuery;
+  final bool isLoading;
+  final String? errorMessage;
+  final Set<String> expandedPatientIds;
+  final Map<String, List<PatientNote>> notesByPatient;
+  final Map<String, bool> notesLoading;
+
+  const PatientHistoryState({
+    this.patients = const [],
+    this.searchQuery = '',
+    this.isLoading = false,
+    this.errorMessage,
+    this.expandedPatientIds = const {},
+    this.notesByPatient = const {},
+    this.notesLoading = const {},
+  });
+
+  List<PatientSummary> get filteredPatients {
+    if (searchQuery.isEmpty) return patients;
+    final q = searchQuery.toLowerCase();
+    return patients.where((p) {
+      return p.patientName.toLowerCase().contains(q) ||
+          (p.patientPhone?.toLowerCase().contains(q) ?? false);
+    }).toList();
+  }
+
+  PatientHistoryState copyWith({
+    List<PatientSummary>? patients,
+    String? searchQuery,
+    bool? isLoading,
+    String? errorMessage,
+    Set<String>? expandedPatientIds,
+    Map<String, List<PatientNote>>? notesByPatient,
+    Map<String, bool>? notesLoading,
+  }) {
+    return PatientHistoryState(
+      patients: patients ?? this.patients,
+      searchQuery: searchQuery ?? this.searchQuery,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage ?? this.errorMessage,
+      expandedPatientIds: expandedPatientIds ?? this.expandedPatientIds,
+      notesByPatient: notesByPatient ?? this.notesByPatient,
+      notesLoading: notesLoading ?? this.notesLoading,
+    );
+  }
+}
+
+final patientHistoryProvider =
+    StateNotifierProvider<PatientHistoryNotifier, PatientHistoryState>((ref) {
+  return PatientHistoryNotifier();
+});
+
+class PatientHistoryNotifier extends StateNotifier<PatientHistoryState> {
+  RealtimeChannel? _notesChannel;
+
+  PatientHistoryNotifier() : super(const PatientHistoryState()) {
+    loadPatients();
+  }
+
+  SupabaseClient get _client => SupabaseInitializer.client;
+
+  @override
+  void dispose() {
+    _notesChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  void _subscribeToNotes(String patientId) {
+    _notesChannel?.unsubscribe();
+    _notesChannel = _client
+        .channel('patient_notes_$patientId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'patient_notes',
+          callback: (payload) {
+            final pid = payload.newRecord['patient_id'] as String?;
+            if (pid == patientId) {
+              _loadNotesForPatient(patientId);
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
+  }
+
+  Future<void> loadPatients() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
+      final data = await _client
+          .from('appointments')
+          .select('''
+            id,
+            scheduled_at,
+            duration,
+            status,
+            is_consultation,
+            booking_type,
+            notes,
+            patient_id,
+            patient_name_snapshot,
+            patient_phone_snapshot,
+            patient:profiles!patient_id (
+              id,
+              full_name,
+              phone,
+              avatar_url
+            )
+          ''')
+          .eq('doctor_id', user.id)
+          .eq('booking_type', 'online')
+          .not('patient_id', 'is', null)
+          .order('scheduled_at', ascending: false);
+
+      final attendanceData = await _client
+          .from('appointments')
+          .select('patient_id, scheduled_at, attendance_status')
+          .not('attendance_status', 'is', null)
+          .not('patient_id', 'is', null);
+
+      final Map<String, int> noShowCounts = {};
+      final Map<String, DateTime> lastNoShow = {};
+      final Map<String, int> globalPresentCount = {};
+      final Map<String, int> globalNoShowCount = {};
+      for (final row in attendanceData as List) {
+        final pid = row['patient_id'] as String;
+        final status = row['attendance_status'] as String;
+        if (status == 'no_show') {
+          noShowCounts[pid] = (noShowCounts[pid] ?? 0) + 1;
+          globalNoShowCount[pid] = (globalNoShowCount[pid] ?? 0) + 1;
+          final sched = DateTime.parse(row['scheduled_at'] as String);
+          if (!lastNoShow.containsKey(pid) || sched.isAfter(lastNoShow[pid]!)) {
+            lastNoShow[pid] = sched;
+          }
+        } else if (status == 'present') {
+          globalPresentCount[pid] = (globalPresentCount[pid] ?? 0) + 1;
+        }
+      }
+
+      final Map<String, List<Map<String, dynamic>>> grouped = {};
+      for (final row in data as List) {
+        final pid = row['patient_id'] as String;
+        grouped.putIfAbsent(pid, () => []);
+        grouped[pid]!.add(row);
+      }
+
+      final summaries = <PatientSummary>[];
+      for (final entry in grouped.entries) {
+        final rows = entry.value;
+        final first = rows.first;
+        final patientData = first['patient'] as Map<String, dynamic>?;
+
+        final visits = rows.map((r) {
+          final start = DateTime.parse(r['scheduled_at'] as String);
+          final dur = r['duration'] as int? ?? 30;
+          return AppointmentData(
+            id: r['id'] as String,
+            startTime: start,
+            endTime: start.add(Duration(minutes: dur)),
+            patientName: patientData?['full_name'] as String? ??
+                (r['patient_name_snapshot'] as String? ?? ''),
+            patientAvatar: patientData?['avatar_url'] as String?,
+            patientPhone: patientData?['phone'] as String? ??
+                (r['patient_phone_snapshot'] as String?),
+            status: r['status'] as String,
+            isConsultation: r['is_consultation'] as bool? ?? false,
+            notes: r['notes'] as String?,
+            duration: dur,
+            patientId: entry.key,
+            bookingType: 'online',
+            doctorId: user.id,
+          );
+        }).toList();
+
+        final lastVisit = rows
+            .map((r) => DateTime.parse(r['scheduled_at'] as String))
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+
+        summaries.add(PatientSummary(
+          patientId: entry.key,
+          patientName: patientData?['full_name'] as String? ??
+              (first['patient_name_snapshot'] as String? ?? 'Patient'),
+          patientPhone: patientData?['phone'] as String? ??
+              (first['patient_phone_snapshot'] as String?),
+          patientAvatar: patientData?['avatar_url'] as String?,
+          visitCount: rows.length,
+          noShowCount: noShowCounts[entry.key] ?? 0,
+          lastNoShowAt: lastNoShow[entry.key],
+          lastVisitDate: lastVisit,
+          visits: visits,
+          globalCompleted: globalPresentCount[entry.key] ?? 0,
+          globalNoShows: globalNoShowCount[entry.key] ?? 0,
+        ));
+      }
+
+      summaries.sort((a, b) => b.lastVisitDate.compareTo(a.lastVisitDate));
+
+      state = state.copyWith(
+        patients: summaries,
+        isLoading: false,
+        expandedPatientIds: {},
+        notesByPatient: {},
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> toggleExpand(String patientId) async {
+    final expanded = Set<String>.from(state.expandedPatientIds);
+    if (expanded.contains(patientId)) {
+      expanded.remove(patientId);
+      state = state.copyWith(expandedPatientIds: expanded);
+    } else {
+      expanded.add(patientId);
+      state = state.copyWith(expandedPatientIds: expanded);
+      if (!state.notesByPatient.containsKey(patientId)) {
+        _loadNotesForPatient(patientId);
+      }
+      _subscribeToNotes(patientId);
+    }
+  }
+
+  Future<void> _loadNotesForPatient(String patientId) async {
+    state = state.copyWith(
+      notesLoading: {...state.notesLoading, patientId: true},
+    );
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return;
+
+      final data = await _client
+          .from('patient_notes')
+          .select('''
+            id,
+            patient_id,
+            doctor_id,
+            appointment_id,
+            note_text,
+            created_at,
+            updated_at,
+            appointment:appointments!appointment_id (scheduled_at)
+          ''')
+          .eq('patient_id', patientId)
+          .eq('doctor_id', user.id)
+          .order('created_at', ascending: false);
+
+      final notes = (data as List).map((row) {
+        final appointment = row['appointment'] as Map<String, dynamic>?;
+        return PatientNote(
+          id: row['id'] as String,
+          patientId: row['patient_id'] as String,
+          doctorId: row['doctor_id'] as String,
+          appointmentId: row['appointment_id'] as String,
+          noteText: row['note_text'] as String,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          appointmentDate: appointment?['scheduled_at'] as String?,
+        );
+      }).toList();
+
+      state = state.copyWith(
+        notesByPatient: {
+          ...state.notesByPatient,
+          patientId: notes,
+        },
+        notesLoading: {...state.notesLoading, patientId: false},
+      );
+    } catch (e) {
+      state = state.copyWith(
+        notesLoading: {...state.notesLoading, patientId: false},
+      );
+    }
+  }
+
+  Future<void> addNote({
+    required String patientId,
+    required String appointmentId,
+    required String noteText,
+  }) async {
+    if (noteText.trim().isEmpty) return;
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return;
+
+      await _client.from('patient_notes').insert({
+        'patient_id': patientId,
+        'doctor_id': user.id,
+        'appointment_id': appointmentId,
+        'note_text': noteText.trim(),
+      });
+
+      _loadNotesForPatient(patientId);
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> updateNote({
+    required String noteId,
+    required String noteText,
+    required String patientId,
+  }) async {
+    if (noteText.trim().isEmpty) return;
+    try {
+      await _client
+          .from('patient_notes')
+          .update({
+            'note_text': noteText.trim(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', noteId);
+
+      _loadNotesForPatient(patientId);
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> deleteNote({
+    required String noteId,
+    required String patientId,
+  }) async {
+    try {
+      await _client.from('patient_notes').delete().eq('id', noteId);
+      _loadNotesForPatient(patientId);
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+}
+
+===== lib/features/doctor/presentation/providers/subscription_provider.dart =====
+import 'dart:html' as html;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/models/payment_history.dart';
+
+class SubscriptionState {
+  final DateTime? subscriptionEnd;
+  final PaymentHistory? lastPayment;
+  final String? planType;
+  final bool isLoading;
+  final bool isCreatingCheckout;
+  final String? error;
+  final String? checkoutUrl;
+
+  const SubscriptionState({
+    this.subscriptionEnd,
+    this.lastPayment,
+    this.planType,
+    this.isLoading = false,
+    this.isCreatingCheckout = false,
+    this.error,
+    this.checkoutUrl,
+  });
+
+  bool get isActive => subscriptionEnd != null && subscriptionEnd!.isAfter(DateTime.now());
+
+  int get remainingDays {
+    if (subscriptionEnd == null) return 0;
+    final diff = subscriptionEnd!.difference(DateTime.now());
+    return diff.isNegative ? 0 : diff.inDays;
+  }
+
+  String get statusLabel {
+    if (subscriptionEnd == null) return 'Aucun abonnement';
+    if (!isActive) return 'Expiré';
+    if (remainingDays <= 7) return 'Expire bientôt';
+    return 'Actif';
+  }
+
+  SubscriptionState copyWith({
+    DateTime? subscriptionEnd,
+    PaymentHistory? lastPayment,
+    String? planType,
+    bool? isLoading,
+    bool? isCreatingCheckout,
+    String? error,
+    String? checkoutUrl,
+  }) {
+    return SubscriptionState(
+      subscriptionEnd: subscriptionEnd ?? this.subscriptionEnd,
+      lastPayment: lastPayment ?? this.lastPayment,
+      planType: planType ?? this.planType,
+      isLoading: isLoading ?? this.isLoading,
+      isCreatingCheckout: isCreatingCheckout ?? this.isCreatingCheckout,
+      error: error,
+      checkoutUrl: checkoutUrl,
+    );
+  }
+}
+
+final subscriptionProvider =
+    StateNotifierProvider<SubscriptionNotifier, SubscriptionState>((ref) {
+  return SubscriptionNotifier();
+});
+
+class SubscriptionNotifier extends StateNotifier<SubscriptionState> {
+  SubscriptionNotifier() : super(const SubscriptionState()) {
+    loadSubscription();
+  }
+
+  Future<void> loadSubscription() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final user = SupabaseInitializer.client.auth.currentUser;
+      if (user == null) {
+        state = state.copyWith(isLoading: false, error: 'Non authentifié');
+        return;
+      }
+
+      final doctorResponse = await SupabaseInitializer.client
+          .from('doctors')
+          .select('subscription_end, plan_type')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      DateTime? subEnd;
+      String? planType;
+      if (doctorResponse != null) {
+        if (doctorResponse['subscription_end'] != null) {
+          subEnd = DateTime.parse(doctorResponse['subscription_end'] as String);
+        }
+        planType = doctorResponse['plan_type'] as String?;
+      }
+
+      PaymentHistory? lastPayment;
+      final paymentResponse = await SupabaseInitializer.client
+          .from('payment_history')
+          .select()
+          .eq('doctor_id', user.id)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (paymentResponse != null) {
+        lastPayment = PaymentHistory.fromDatabase(paymentResponse);
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        subscriptionEnd: subEnd,
+        planType: planType,
+        lastPayment: lastPayment,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Erreur lors du chargement: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<String?> createCheckout({
+    String? successUrl,
+    String? failureUrl,
+    String planType = 'monthly',
+  }) async {
+    state = state.copyWith(isCreatingCheckout: true, error: null, checkoutUrl: null);
+    try {
+      final session = SupabaseInitializer.client.auth.currentSession;
+      if (session == null) {
+        state = state.copyWith(
+          isCreatingCheckout: false,
+          error: 'Non authentifié',
+        );
+        return null;
+      }
+
+      final user = SupabaseInitializer.client.auth.currentUser!;
+      final origin = html.window.location.origin;
+      final baseUrl =
+          successUrl?.replaceAll('/payment/success', '') ?? origin;
+
+      final response = await SupabaseInitializer.client.functions.invoke(
+        'create-checkout',
+        body: {
+          'doctor_id': user.id,
+          'plan_type': planType,
+          'success_url': successUrl ?? '$baseUrl/payment/success',
+          'failure_url': failureUrl ?? '$baseUrl/payment/failure',
+        },
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final checkoutUrl = data['checkout_url'] as String?;
+
+      if (checkoutUrl == null) {
+        state = state.copyWith(
+          isCreatingCheckout: false,
+          error: 'Impossible de créer le paiement',
+        );
+        return null;
+      }
+
+      state = state.copyWith(
+        isCreatingCheckout: false,
+        checkoutUrl: checkoutUrl,
+      );
+
+      return checkoutUrl;
+    } catch (e) {
+      state = state.copyWith(
+        isCreatingCheckout: false,
+        error: 'Erreur: ${e.toString()}',
+      );
+      return null;
+    }
+  }
+
+  void clearCheckoutUrl() {
+    state = state.copyWith(checkoutUrl: null);
+  }
+
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
+}
+
+===== lib/features/patient/presentation/providers/patient_provider.dart =====
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
+import 'package:eyadati/repositories/profile_repository.dart';
+import 'package:eyadati/services/local_notification_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class PatientState {
+  final String name;
+  final String email;
+  final String phone;
+  final String city;
+  final String avatarUrl;
+  final int upcomingCount;
+  final int favoritesCount;
+  final int noShowCount;
+  final int globalPresentCount;
+  final int globalNoShowCount;
+  final List<PatientAppointmentViewModel> upcomingAppointments;
+  final List<PatientAppointmentViewModel> pastAppointments;
+  final List<PatientAppointmentViewModel> cancelledAppointments;
+
+  const PatientState({
+    this.name = '',
+    this.email = '',
+    this.phone = '',
+    this.city = '',
+    this.avatarUrl = '',
+    this.upcomingCount = 0,
+    this.favoritesCount = 0,
+    this.noShowCount = 0,
+    this.globalPresentCount = 0,
+    this.globalNoShowCount = 0,
+    this.upcomingAppointments = const [],
+    this.pastAppointments = const [],
+    this.cancelledAppointments = const [],
+  });
+
+  static const double _bayesianPrior = 1.0;
+  static const int _minHistory = 3;
+
+  int get totalGlobalAppts => globalPresentCount + globalNoShowCount;
+  bool get hasSufficientHistory => totalGlobalAppts >= _minHistory;
+  double get attendanceRate {
+    final total = totalGlobalAppts;
+    if (total == 0) return 1.0;
+    return (globalPresentCount + _bayesianPrior) / (total + _bayesianPrior);
+  }
+
+  PatientState copyWith({
+    String? name,
+    String? email,
+    String? phone,
+    String? city,
+    String? avatarUrl,
+    int? upcomingCount,
+    int? favoritesCount,
+    int? noShowCount,
+    int? globalPresentCount,
+    int? globalNoShowCount,
+    List<PatientAppointmentViewModel>? upcomingAppointments,
+    List<PatientAppointmentViewModel>? pastAppointments,
+    List<PatientAppointmentViewModel>? cancelledAppointments,
+  }) {
+    return PatientState(
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      city: city ?? this.city,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      upcomingCount: upcomingCount ?? this.upcomingCount,
+      favoritesCount: favoritesCount ?? this.favoritesCount,
+      noShowCount: noShowCount ?? this.noShowCount,
+      globalPresentCount: globalPresentCount ?? this.globalPresentCount,
+      globalNoShowCount: globalNoShowCount ?? this.globalNoShowCount,
+      upcomingAppointments: upcomingAppointments ?? this.upcomingAppointments,
+      pastAppointments: pastAppointments ?? this.pastAppointments,
+      cancelledAppointments:
+          cancelledAppointments ?? this.cancelledAppointments,
+    );
+  }
+}
+
+class PatientAppointmentViewModel {
+  final String id;
+  final String doctorId;
+  final String doctorName;
+  final String doctorSpecialty;
+  final String? doctorAvatar;
+  final String? doctorAddress;
+  final String? doctorPhone;
+  final String? mapsLink;
+  final DateTime dateTime;
+  final int duration;
+  final String status;
+  final bool isConsultation;
+  final String? notes;
+
+  PatientAppointmentViewModel({
+    required this.id,
+    required this.doctorId,
+    required this.doctorName,
+    required this.doctorSpecialty,
+    this.doctorAvatar,
+    this.doctorAddress,
+    this.doctorPhone,
+    this.mapsLink,
+    required this.dateTime,
+    required this.duration,
+    required this.status,
+    this.isConsultation = false,
+    this.notes,
+  });
+
+  factory PatientAppointmentViewModel.fromMap(
+    Map<String, dynamic> map,
+    String doctorName,
+    String doctorSpecialty,
+    String? doctorAvatar,
+    String? doctorAddress,
+    String? doctorPhone,
+    String? mapsLink,
+  ) {
+    return PatientAppointmentViewModel(
+      id: map['id'] as String,
+      doctorId: map['doctor_id'] as String,
+      doctorName: doctorName,
+      doctorSpecialty: doctorSpecialty,
+      doctorAvatar: doctorAvatar,
+      doctorAddress: doctorAddress,
+      doctorPhone: doctorPhone,
+      mapsLink: mapsLink,
+      dateTime: DateTime.parse(map['scheduled_at'] as String),
+      duration: map['duration'] as int? ?? 30,
+      status: map['status'] as String? ?? 'upcoming',
+      isConsultation: map['is_consultation'] as bool? ?? false,
+      notes: map['notes'] as String?,
+    );
+  }
+}
+
+final patientProvider =
+    AsyncNotifierProvider<PatientNotifier, PatientState>(() {
+  return PatientNotifier();
+});
+
+class PatientNotifier extends AsyncNotifier<PatientState> {
+  SupabaseClient get _client => SupabaseInitializer.client;
+  RealtimeChannel? _appointmentsChannel;
+  Timer? _debounceTimer;
+  bool _isFetching = false;
+  StreamSubscription? _authSubscription;
+
+  @override
+  Future<PatientState> build() async {
+    _subscribeToAppointments();
+    _listenToAuth();
+    return _load();
+  }
+
+  void dispose() {
+    _appointmentsChannel?.unsubscribe();
+    _debounceTimer?.cancel();
+    _authSubscription?.cancel();
+  }
+
+  void _listenToAuth() {
+    _authSubscription = _client.auth.onAuthStateChange.listen((data) {
+      if (data.session == null) {
+        _appointmentsChannel?.unsubscribe();
+        _appointmentsChannel = null;
+      } else {
+        _subscribeToAppointments();
+      }
+    });
+  }
+
+  void _subscribeToAppointments() {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    _appointmentsChannel?.unsubscribe();
+    _appointmentsChannel = _client
+        .channel('patient_appointments_${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'patient_id',
+            value: user.id,
+          ),
+          callback: (_) => _silentRefresh(),
+        )
+        .subscribe();
+  }
+
+  void _silentRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (_isFetching) return;
+      _isFetching = true;
+      try {
+        final result = await _fetchData();
+        if (result != null) state = AsyncData(result);
+      } catch (_) {
+      } finally {
+        _isFetching = false;
+      }
+    });
+  }
+
+  Future<PatientState?> _fetchData() async {
+    final userId = ref.read(authProvider).userId;
+    if (userId == null) return null;
+
+    final profileResult = await _client
+        .from('profiles')
+        .select('full_name, email, phone, city, avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+
+    final now = DateTime.now();
+    final appointmentsResult = await _client
+        .from('appointments')
+        .select(
+          'id, doctor_id, scheduled_at, duration, status, is_consultation, notes, doctors(specialty, address, maps_link, photo_url)',
+        )
+        .eq('patient_id', userId)
+        .order('scheduled_at', ascending: false)
+        .limit(50);
+
+    final attendanceData = await _client
+        .from('appointments')
+        .select('attendance_status')
+        .eq('patient_id', userId)
+        .not('attendance_status', 'is', null);
+
+    int globalPresentCount = 0;
+    int globalNoShowCount = 0;
+    for (final row in attendanceData as List) {
+      final status = row['attendance_status'] as String;
+      if (status == 'present') {
+        globalPresentCount++;
+      } else if (status == 'no_show') {
+        globalNoShowCount++;
+      }
+    }
+
+    final favoritesResult = await _client
+        .from('favorites')
+        .select('doctor_id')
+        .eq('patient_id', userId);
+
+    final doctorIds = appointmentsResult
+        .map((r) => r['doctor_id'] as String)
+        .toSet()
+        .toList();
+
+    final Map<String, Map<String, dynamic>> doctorProfileMap = {};
+    if (doctorIds.isNotEmpty) {
+      try {
+        final profiles = await _client
+            .rpc('get_doctor_profiles', params: {'doctor_ids': doctorIds});
+        for (final p in profiles) {
+          doctorProfileMap[p['id'] as String] = p as Map<String, dynamic>;
+        }
+      } catch (e) {
+        try {
+          final profiles = await _client
+              .from('profiles')
+              .select('id, full_name, avatar_url, phone')
+              .inFilter('id', doctorIds);
+          for (final p in profiles) {
+            doctorProfileMap[p['id'] as String] = p;
+          }
+        } catch (_) {}
+      }
+    }
+
+    List<PatientAppointmentViewModel> upcoming = [];
+    List<PatientAppointmentViewModel> past = [];
+    List<PatientAppointmentViewModel> cancelled = [];
+
+    for (final row in appointmentsResult) {
+      final docMap = row['doctors'] as Map<String, dynamic>?;
+      final doctorId = row['doctor_id'] as String;
+      final profileData = doctorProfileMap[doctorId];
+
+      final doctorName = profileData?['full_name'] as String? ?? 'Docteur';
+      final doctorSpecialty = docMap?['specialty'] as String? ?? '';
+      final doctorAvatar =
+          profileData?['avatar_url'] as String? ?? docMap?['photo_url'] as String?;
+      final doctorAddress = docMap?['address'] as String?;
+      final doctorPhone = profileData?['phone'] as String?;
+      final mapsLink = docMap?['maps_link'] as String?;
+
+      final apt = PatientAppointmentViewModel(
+        id: row['id'] as String,
+        doctorId: row['doctor_id'] as String,
+        doctorName: doctorName,
+        doctorSpecialty: doctorSpecialty,
+        doctorAvatar: doctorAvatar,
+        doctorAddress: doctorAddress,
+        doctorPhone: doctorPhone,
+        mapsLink: mapsLink,
+        dateTime: DateTime.parse(row['scheduled_at'] as String),
+        duration: row['duration'] as int? ?? 30,
+        status: row['status'] as String? ?? 'upcoming',
+        isConsultation: row['is_consultation'] as bool? ?? false,
+        notes: row['notes'] as String?,
+      );
+
+      if (row['status'] == 'cancelled') {
+        cancelled.add(apt);
+      } else if (apt.dateTime.isAfter(now)) {
+        upcoming.add(apt);
+      } else {
+        past.add(apt);
+      }
+    }
+
+    return PatientState(
+      name: profileResult?['full_name'] as String? ?? '',
+      email: profileResult?['email'] as String? ?? '',
+      phone: profileResult?['phone'] as String? ?? '',
+      city: profileResult?['city'] as String? ?? '',
+      avatarUrl: profileResult?['avatar_url'] as String? ?? '',
+      upcomingCount: upcoming.length,
+      favoritesCount: (favoritesResult as List).length,
+      noShowCount: globalNoShowCount,
+      globalPresentCount: globalPresentCount,
+      globalNoShowCount: globalNoShowCount,
+      upcomingAppointments: upcoming,
+      pastAppointments: past,
+      cancelledAppointments: cancelled,
+    );
+  }
+
+  Future<PatientState> _load() async {
+    if (_isFetching) return state.valueOrNull ?? const PatientState();
+    _isFetching = true;
+    try {
+      final result = await _fetchData();
+      return result ?? const PatientState();
+    } finally {
+      _isFetching = false;
+    }
+  }
+
+  Future<void> loadPatientData() async {
+    state = const AsyncLoading<PatientState>().copyWithPrevious(state);
+    state = await AsyncValue.guard(() => _load());
+  }
+
+  Future<String?> addAppointment({
+    required String doctorId,
+    required String doctorName,
+    required String doctorSpecialty,
+    String? doctorAvatar,
+    String? doctorAddress,
+    String? doctorPhone,
+    String? mapsLink,
+    required DateTime scheduledAt,
+    required int duration,
+    String? notes,
+    bool isConsultation = false,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return null;
+
+    final currentState = state.valueOrNull ?? const PatientState();
+
+    try {
+      final response = await _client.from('appointments').insert({
+        'doctor_id': doctorId,
+        'patient_id': userId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': duration,
+        'status': 'upcoming',
+        'booking_type': 'online',
+        'is_consultation': isConsultation,
+        if (currentState.name.isNotEmpty) 'patient_name_snapshot': currentState.name,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      }).select('id');
+
+      final appointmentId = (response as List).first['id'] as String;
+
+      final viewModel = PatientAppointmentViewModel(
+        id: appointmentId,
+        doctorId: doctorId,
+        doctorName: doctorName,
+        doctorSpecialty: doctorSpecialty,
+        doctorAvatar: doctorAvatar,
+        doctorAddress: doctorAddress,
+        doctorPhone: doctorPhone,
+        mapsLink: mapsLink,
+        dateTime: scheduledAt,
+        duration: duration,
+        status: 'upcoming',
+        isConsultation: isConsultation,
+        notes: notes,
+      );
+
+      state = AsyncData(currentState.copyWith(
+        upcomingAppointments: [viewModel, ...currentState.upcomingAppointments],
+        upcomingCount: currentState.upcomingCount + 1,
+      ));
+
+      LocalNotificationService.scheduleAppointmentReminders(
+        appointmentId: appointmentId,
+        scheduledAt: scheduledAt,
+      );
+
+      return appointmentId;
+    } catch (e) {
+      loadPatientData();
+      return null;
+    }
+  }
+
+  Future<void> scheduleReminders({
+    required String appointmentId,
+    required DateTime scheduledAt,
+  }) async {
+    try {
+      await LocalNotificationService.scheduleAppointmentReminders(
+        appointmentId: appointmentId,
+        scheduledAt: scheduledAt,
+      );
+    } catch (_) {}
+  }
+
+  Future<bool> cancelAppointment(String appointmentId) async {
+    try {
+      await _client
+          .from('appointments')
+          .update({'status': 'cancelled', 'fcm_reminder_sent': true})
+          .eq('id', appointmentId);
+      await loadPatientData();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> refreshAppointments() async {
+    await loadPatientData();
+  }
+
+  Future<bool> updateProfile({
+    required String fullName,
+    required String phone,
+    required String city,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final repo = ProfileRepository(_client);
+      final result = await repo.updateProfile(
+        userId: userId,
+        fullName: fullName,
+        phone: phone,
+        city: city,
+      );
+
+      if (result.isSuccess) {
+        await loadPatientData();
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+===== lib/features/patient/presentation/providers/doctors_provider.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/models/doctor.dart';
+
+const _sentinel = Object();
+
+class DoctorsState {
+  final List<Doctor> allDoctors; // Source of truth
+  final List<Doctor> doctors; // Filtered/computed list
+  final String searchQuery;
+  final String selectedSpecialty;
+  final String? selectedCity;
+  final bool isLoading;
+  final String? errorMessage;
+
+  const DoctorsState({
+    this.allDoctors = const [],
+    this.doctors = const [],
+    this.searchQuery = '',
+    this.selectedSpecialty = '',
+    this.selectedCity,
+    this.isLoading = false,
+    this.errorMessage,
+  });
+
+  DoctorsState copyWith({
+    List<Doctor>? allDoctors,
+    List<Doctor>? doctors,
+    String? searchQuery,
+    String? selectedSpecialty,
+    Object? selectedCity = _sentinel,
+    bool? isLoading,
+    Object? errorMessage = _sentinel,
+  }) {
+    return DoctorsState(
+      allDoctors: allDoctors ?? this.allDoctors,
+      doctors: doctors ?? this.doctors,
+      searchQuery: searchQuery ?? this.searchQuery,
+      selectedSpecialty: selectedSpecialty ?? this.selectedSpecialty,
+      selectedCity: selectedCity == _sentinel
+          ? this.selectedCity
+          : selectedCity as String?,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage == _sentinel
+          ? this.errorMessage
+          : errorMessage as String?,
+    );
+  }
+}
+
+final doctorsProvider = StateNotifierProvider<DoctorsNotifier, DoctorsState>((
+  ref,
+) {
+  return DoctorsNotifier();
+});
+
+class DoctorsNotifier extends StateNotifier<DoctorsState> {
+  DoctorsNotifier() : super(const DoctorsState()) {
+    loadDoctors();
+  }
+
+  Future<void> loadDoctors() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final now = DateTime.now().toIso8601String();
+      final result = await SupabaseInitializer.client
+          .from('doctors')
+          .select(
+            'id, specialty, address, city, bio, photo_url, maps_link, latitude, longitude, manual_pause, subscription_end, appointment_duration, consultation_duration, created_at',
+          )
+          .eq('manual_pause', false)
+          .eq('is_test', false)
+          .gt('subscription_end', now)
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      final doctorIds = result.map((r) => r['id'] as String).toList();
+
+      final Map<String, Map<String, dynamic>> profileMap = {};
+      if (doctorIds.isNotEmpty) {
+        try {
+          final profiles = await SupabaseInitializer.client
+              .rpc('get_doctor_profiles', params: {'doctor_ids': doctorIds});
+          for (final p in profiles) {
+            profileMap[p['id'] as String] = p as Map<String, dynamic>;
+          }
+        } catch (_) {
+          // RPC may not exist yet; fall back gracefully
+        }
+      }
+
+      final fetchedDoctors = (result as List).map((row) {
+        final doctorId = row['id'] as String;
+        final profile = profileMap[doctorId];
+        final doctor = Doctor.fromDatabase(row as Map<String, dynamic>);
+        return doctor.copyWith(
+          name: profile?['full_name'] as String? ?? 'Docteur',
+          photoUrl: profile?['avatar_url'] as String? ?? doctor.photoUrl,
+          phone: profile?['phone'] as String?,
+        );
+      }).toList();
+
+      state = state.copyWith(isLoading: false, allDoctors: fetchedDoctors);
+      _applyFilters();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+    }
+  }
+
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
+    _applyFilters();
+  }
+
+  void setSpecialty(String specialty) {
+    state = state.copyWith(selectedSpecialty: specialty);
+    _applyFilters();
+  }
+
+  void setCity(String? city) {
+    state = state.copyWith(selectedCity: city);
+    _applyFilters();
+  }
+
+  void clearSearch() {
+    state = state.copyWith(searchQuery: '');
+    _applyFilters();
+  }
+
+  void clearFilters() {
+    state = state.copyWith(
+      searchQuery: '',
+      selectedSpecialty: '',
+      selectedCity: null,
+    );
+    _applyFilters();
+  }
+
+  Future<void> refresh() async {
+    await loadDoctors();
+  }
+
+  void _applyFilters() {
+    final query = state.searchQuery.toLowerCase();
+    final specialty = state.selectedSpecialty.toLowerCase();
+    final city = state.selectedCity?.toLowerCase();
+
+    final filtered = state.allDoctors.where((d) {
+      final matchesQuery =
+          query.isEmpty ||
+          d.name.toLowerCase().contains(query) ||
+          d.specialty.toLowerCase().contains(query) ||
+          (d.city?.toLowerCase().contains(query) ?? false);
+
+      final matchesSpecialty =
+          specialty.isEmpty || d.specialty.toLowerCase() == specialty;
+
+      final matchesCity =
+          city == null || city.isEmpty || (d.city?.toLowerCase() == city);
+
+      return matchesQuery && matchesSpecialty && matchesCity;
+    }).toList();
+
+    state = state.copyWith(doctors: filtered);
+  }
+}
+
+===== lib/features/patient/presentation/providers/favorites_provider.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
+
+class FavoritesState {
+  final List<String> favoriteDoctorIds;
+  final bool isLoading;
+  final String? errorMessage;
+
+  const FavoritesState({
+    this.favoriteDoctorIds = const [],
+    this.isLoading = false,
+    this.errorMessage,
+  });
+
+  FavoritesState copyWith({
+    List<String>? favoriteDoctorIds,
+    bool? isLoading,
+    String? errorMessage,
+  }) {
+    return FavoritesState(
+      favoriteDoctorIds: favoriteDoctorIds ?? this.favoriteDoctorIds,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
+    );
+  }
+}
+
+final favoritesProvider = StateNotifierProvider<FavoritesNotifier, FavoritesState>((ref) {
+  return FavoritesNotifier(ref);
+});
+
+class FavoritesNotifier extends StateNotifier<FavoritesState> {
+  final Ref _ref;
+
+  FavoritesNotifier(this._ref) : super(const FavoritesState());
+
+  Future<void> loadFavorites() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final authState = _ref.read(authProvider);
+      final userId = authState.userId;
+      if (userId == null) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
+      final result = await SupabaseInitializer.client
+          .from('favorites')
+          .select('doctor_id')
+          .eq('patient_id', userId);
+
+      final ids = (result as List).map((row) => row['doctor_id'] as String).toList();
+      state = state.copyWith(
+        isLoading: false,
+        favoriteDoctorIds: ids,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  bool isFavorite(String doctorId) {
+    return state.favoriteDoctorIds.contains(doctorId);
+  }
+
+  Future<void> toggleFavorite(String doctorId) async {
+    try {
+      final authState = _ref.read(authProvider);
+      final userId = authState.userId;
+      if (userId == null) return;
+
+      if (isFavorite(doctorId)) {
+        await SupabaseInitializer.client
+            .from('favorites')
+            .delete()
+            .eq('patient_id', userId)
+            .eq('doctor_id', doctorId);
+        state = state.copyWith(
+          favoriteDoctorIds: state.favoriteDoctorIds.where((id) => id != doctorId).toList(),
+        );
+      } else {
+        await SupabaseInitializer.client
+            .from('favorites')
+            .insert({'patient_id': userId, 'doctor_id': doctorId});
+        state = state.copyWith(
+          favoriteDoctorIds: [...state.favoriteDoctorIds, doctorId],
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+    }
+  }
+
+  Future<void> refresh() async {
+    await loadFavorites();
+  }
+}
+===== lib/features/patient/presentation/providers/providers.dart =====
+export 'doctors_provider.dart' show doctorsProvider, DoctorsState;
+export 'package:eyadati/models/doctor.dart' show Doctor;
+export 'patient_provider.dart' show patientProvider, PatientState, PatientAppointmentViewModel;
+export 'favorites_provider.dart' show favoritesProvider, FavoritesState;
+===== lib/features/clinic/presentation/providers/clinic_provider.dart =====
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/core/utils/doctor_colors.dart';
+import 'package:eyadati/models/appointment_data.dart';
+import 'package:eyadati/models/schedule_slot_model.dart';
+import 'package:eyadati/features/clinic/data/clinic_booking_service.dart';
+import 'package:uuid/uuid.dart';
+
+class ClinicGroupMember {
+  final String doctorId;
+  final String doctorName;
+  final Color color;
+  final DateTime? subscriptionEnd;
+  final bool isPaused;
+  final bool isTest;
+  final List<DaySchedule> schedules;
+
+  ClinicGroupMember({
+    required this.doctorId,
+    required this.doctorName,
+    this.color = Colors.blueGrey,
+    this.subscriptionEnd,
+    this.isPaused = false,
+    this.isTest = false,
+    this.schedules = const [],
+  });
+
+  bool get isAvailable {
+    if (isTest) return false;
+    if (isPaused) return false;
+    if (subscriptionEnd != null && subscriptionEnd!.isBefore(DateTime.now())) return false;
+    return true;
+  }
+
+  String? get unavailabilityReason {
+    if (isTest) return 'Profil test';
+    if (isPaused) return 'Profil suspendu';
+    if (subscriptionEnd != null && subscriptionEnd!.isBefore(DateTime.now())) return 'Abonnement expiré';
+    return null;
+  }
+}
+
+class ClinicState {
+  final List<ClinicGroupMember> members;
+  final List<AppointmentData> appointments;
+  final String? clinicGroupId;
+  final String clinicName;
+  final bool isLoading;
+  final String? error;
+  final Set<String> hiddenDoctorIds;
+
+  const ClinicState({
+    this.members = const [],
+    this.appointments = const [],
+    this.clinicGroupId,
+    this.clinicName = '',
+    this.isLoading = false,
+    this.error,
+    this.hiddenDoctorIds = const {},
+  });
+
+  int get pendingCount {
+    return appointments.where((a) => a.status == 'upcoming' && a.bookingType == 'online').length;
+  }
+
+  int get availableDoctorCount {
+    return members.where((m) => m.isAvailable).length;
+  }
+
+  List<AppointmentData> get filteredAppointments {
+    if (hiddenDoctorIds.isEmpty) return appointments;
+    return appointments.where((a) => !hiddenDoctorIds.contains(a.doctorId)).toList();
+  }
+
+  ClinicState copyWith({
+    List<ClinicGroupMember>? members,
+    List<AppointmentData>? appointments,
+    String? clinicGroupId,
+    String? clinicName,
+    bool? isLoading,
+    String? error,
+    Set<String>? hiddenDoctorIds,
+    bool clearError = false,
+  }) {
+    return ClinicState(
+      members: members ?? this.members,
+      appointments: appointments ?? this.appointments,
+      clinicGroupId: clinicGroupId ?? this.clinicGroupId,
+      clinicName: clinicName ?? this.clinicName,
+      isLoading: isLoading ?? this.isLoading,
+      error: clearError ? null : error ?? this.error,
+      hiddenDoctorIds: hiddenDoctorIds ?? this.hiddenDoctorIds,
+    );
+  }
+}
+
+final clinicProvider = StateNotifierProvider<ClinicNotifier, ClinicState>((ref) {
+  return ClinicNotifier();
+});
+
+class ClinicNotifier extends StateNotifier<ClinicState> {
+  RealtimeChannel? _appointmentChannel;
+  RealtimeChannel? _scheduleChannel;
+  RealtimeChannel? _membersChannel;
+  RealtimeChannel? _healthChannel;
+  Timer? _debounceTimer;
+  String? lastSelectedDoctorId;
+
+  SupabaseClient get _client => SupabaseInitializer.client;
+
+  ClinicNotifier() : super(const ClinicState());
+
+  void clearError() {
+    state = state.copyWith(clearError: true);
+  }
+
+  String? suggestMostAvailableDoctor(DateTime dateTime) {
+    return ClinicBookingService.suggestMostAvailableDoctor(
+      members: state.members,
+      appointments: state.appointments,
+      dateTime: dateTime,
+    );
+  }
+
+  Future<void> loadClinicGroup() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        state = state.copyWith(isLoading: false, error: 'Not authenticated');
+        return;
+      }
+
+      final memberRows = await _client
+          .from('clinic_group_members')
+          .select('clinic_group_id, doctor_id, color')
+          .eq('doctor_id', user.id)
+          .limit(1);
+
+      if (memberRows.isEmpty) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
+      final groupId = memberRows[0]['clinic_group_id'] as String;
+
+      final groupInfo = await _client
+          .from('clinic_groups')
+          .select('name')
+          .eq('id', groupId)
+          .limit(1)
+          .maybeSingle();
+      final clinicName = groupInfo?['name'] as String? ?? '';
+
+      final allMembers = await _client
+          .from('clinic_group_members')
+          .select('doctor_id, color')
+          .eq('clinic_group_id', groupId);
+
+      final doctorIds = allMembers
+          .map((m) => m['doctor_id'] as String)
+          .toList();
+
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name')
+          .inFilter('id', doctorIds);
+
+      final nameMap = <String, String>{};
+      for (final p in profiles) {
+        nameMap[p['id'] as String] = p['full_name'] as String? ?? '';
+      }
+
+      final colorGen = DoctorColorGenerator();
+      final scheduleMap = await _fetchDoctorSchedules(doctorIds);
+      final healthMap = await _fetchDoctorHealth(doctorIds);
+      final members = <ClinicGroupMember>[];
+      for (int i = 0; i < allMembers.length; i++) {
+        final m = allMembers[i];
+        final docId = m['doctor_id'] as String;
+        final health = healthMap[docId] ?? {};
+        members.add(ClinicGroupMember(
+          doctorId: docId,
+          doctorName: nameMap[docId] ?? '',
+          color: colorGen.getColor(docId),
+          subscriptionEnd: health['subscription_end'] != null
+              ? DateTime.parse(health['subscription_end'] as String)
+              : null,
+          isPaused: health['manual_pause'] as bool? ?? false,
+          isTest: health['is_test'] as bool? ?? false,
+          schedules: scheduleMap[docId] ?? [],
+        ));
+      }
+
+      state = state.copyWith(
+        members: members,
+        clinicGroupId: groupId,
+        clinicName: clinicName,
+      );
+
+      await _loadAppointments(doctorIds, nameMap, colorGen);
+      _subscribeAll(groupId, doctorIds: doctorIds);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> _loadAppointments(
+    List<String> doctorIds,
+    Map<String, String> nameMap,
+    DoctorColorGenerator colorGen,
+  ) async {
+    try {
+      final data = await _client
+          .from('appointments')
+          .select('''
+            id,
+            scheduled_at,
+            duration,
+            status,
+            is_consultation,
+            booking_type,
+            notes,
+            patient_name_snapshot,
+            patient_phone_snapshot,
+            patient:profiles!patient_id (
+              id,
+              full_name,
+              avatar_url
+            ),
+            doctor_id
+          ''')
+           .inFilter('doctor_id', doctorIds)
+          .gte('scheduled_at', DateTime.now().subtract(const Duration(days: 30)).toUtc().toIso8601String())
+          .lte('scheduled_at', DateTime.now().add(const Duration(days: 90)).toUtc().toIso8601String())
+          .order('scheduled_at', ascending: false);
+
+      final appointments = data.map((a) {
+        final start = DateTime.parse(a['scheduled_at'] as String);
+        final duration = a['duration'] as int? ?? 30;
+        final patientNameSnapshot = a['patient_name_snapshot'] as String?;
+        final patientData = a['patient'] as Map<String, dynamic>?;
+        final patientFullName = patientData?['full_name'] as String?;
+        final resolvedName = patientNameSnapshot ?? patientFullName ?? 'Patient';
+        final docId = a['doctor_id'] as String? ?? '';
+
+        return AppointmentData(
+          id: a['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: duration)),
+          patientName: resolvedName,
+          patientAvatar: (patientData)?['avatar_url'] as String?,
+          patientPhone: a['patient_phone_snapshot'] as String?,
+          status: a['status'] as String,
+          isConsultation: a['is_consultation'] as bool? ?? false,
+          notes: a['notes'] as String?,
+          duration: duration,
+          patientId: (patientData)?['id'] as String?,
+          bookingType: a['booking_type'] as String? ?? 'online',
+          doctorId: docId,
+          doctorName: nameMap[docId] ?? '',
+        );
+      }).toList();
+
+      state = state.copyWith(
+        appointments: appointments,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<Map<String, List<DaySchedule>>> _fetchDoctorSchedules(List<String> doctorIds) async {
+    try {
+      final rows = await _client
+          .from('doctor_schedule')
+          .select()
+          .inFilter('doctor_id', doctorIds)
+          .eq('is_active', true);
+      final map = <String, List<DaySchedule>>{};
+      for (final row in rows) {
+        final slot = DaySchedule.fromDbMap(row);
+        map.putIfAbsent(slot.doctorId, () => []).add(slot);
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _fetchDoctorHealth(List<String> doctorIds) async {
+    try {
+      final rows = await _client
+          .from('doctors')
+          .select('id, subscription_end, manual_pause, is_test')
+          .inFilter('id', doctorIds);
+      final map = <String, Map<String, dynamic>>{};
+      for (final row in rows) {
+        map[row['id'] as String] = row;
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Creates a walk-in appointment after validating availability.
+  /// Throws with a user-friendly message if the slot is invalid.
+  Future<void> createWalkIn({
+    required String doctorId,
+    required String patientName,
+    String? patientPhone,
+    required DateTime scheduledAt,
+    required int duration,
+    bool isConsultation = false,
+  }) async {
+    final validationError = ClinicBookingService.validateWalkInSlot(
+      members: state.members,
+      appointments: state.appointments,
+      doctorId: doctorId,
+      scheduledAt: scheduledAt,
+      duration: duration,
+    );
+    if (validationError != null) {
+      throw Exception(validationError);
+    }
+
+    state = state.copyWith(isLoading: true);
+
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) throw Exception('Non connecté');
+
+      final result = await _client.rpc('create_clinic_appointment', params: {
+        'p_doctor_id': doctorId,
+        'p_scheduled_at': scheduledAt.toUtc().toIso8601String(),
+        'p_duration': duration,
+        'p_patient_name': patientName,
+        'p_patient_phone': patientPhone ?? '',
+        'p_is_consultation': isConsultation,
+      });
+
+      if (result is Map && result['success'] == false) {
+        throw Exception(result['error'] ?? 'Créneau non disponible');
+      }
+
+      state = state.copyWith(isLoading: false);
+      await refresh();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  void toggleDoctorFilter(String doctorId) {
+    final hidden = Set<String>.from(state.hiddenDoctorIds);
+    if (hidden.contains(doctorId)) {
+      hidden.remove(doctorId);
+    } else {
+      hidden.add(doctorId);
+    }
+    state = state.copyWith(hiddenDoctorIds: hidden);
+  }
+
+  void showAllDoctors() {
+    state = state.copyWith(hiddenDoctorIds: const {});
+  }
+
+  Future<void> removeDoctor(String doctorId) async {
+    if (state.clinicGroupId == null) return;
+
+    try {
+      await _client
+          .from('clinic_group_members')
+          .delete()
+          .eq('clinic_group_id', state.clinicGroupId!)
+          .eq('doctor_id', doctorId);
+
+      final user = _client.auth.currentUser;
+      if (user != null && doctorId == user.id) {
+        state = const ClinicState();
+        return;
+      }
+
+      await refresh();
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<String?> addDoctorByEmail(String email) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return 'Non connecté';
+
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name')
+          .eq('email', email)
+          .or('role.eq.doctor,id.eq.${user.id}')
+          .limit(1);
+
+      if (profiles.isEmpty) {
+        return 'Aucun médecin trouvé avec cet email';
+      }
+
+      final doctorId = profiles[0]['id'] as String;
+      final doctorName = profiles[0]['full_name'] as String? ?? '';
+
+      late final String groupId;
+
+      if (state.clinicGroupId != null) {
+        final existing = await _client
+            .from('clinic_group_members')
+            .select('id')
+            .eq('clinic_group_id', state.clinicGroupId!)
+            .eq('doctor_id', doctorId)
+            .limit(1);
+
+        if (existing.isNotEmpty) {
+          return '${doctorName} est déjà dans la clinique';
+        }
+        groupId = state.clinicGroupId!;
+      } else {
+        final existingGroup = await _client
+            .from('clinic_group_members')
+            .select('clinic_group_id')
+            .eq('doctor_id', user.id)
+            .limit(1);
+
+        if (existingGroup.isNotEmpty) {
+          groupId = existingGroup[0]['clinic_group_id'] as String;
+          state = state.copyWith(clinicGroupId: groupId);
+
+          final existingMember = await _client
+              .from('clinic_group_members')
+              .select('id')
+              .eq('clinic_group_id', groupId)
+              .eq('doctor_id', doctorId)
+              .limit(1);
+
+          if (existingMember.isNotEmpty) {
+            await refresh();
+            return '${doctorName} est déjà dans la clinique';
+          }
+        } else {
+          groupId = const Uuid().v4();
+
+          await _client.from('clinic_groups').insert({
+            'id': groupId,
+            'name': 'Ma clinique',
+          });
+
+          await _client.from('clinic_group_members').insert({
+            'clinic_group_id': groupId,
+            'doctor_id': user.id,
+          });
+
+          state = state.copyWith(clinicGroupId: groupId, clinicName: 'Ma clinique');
+        }
+      }
+
+      if (doctorId != user.id) {
+        await _client.from('clinic_group_members').insert({
+          'clinic_group_id': groupId,
+          'doctor_id': doctorId,
+        });
+      }
+
+      await refresh();
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<void> refresh() async {
+    final groupId = state.clinicGroupId;
+    if (groupId == null) return;
+
+    try {
+      final allMembers = await _client
+          .from('clinic_group_members')
+          .select('doctor_id, color')
+          .eq('clinic_group_id', groupId);
+
+      final doctorIds = allMembers.map((m) => m['doctor_id'] as String).toList();
+
+      final profiles = await _client
+          .from('profiles')
+          .select('id, full_name')
+          .inFilter('id', doctorIds);
+
+      final nameMap = <String, String>{};
+      for (final p in profiles) {
+        nameMap[p['id'] as String] = p['full_name'] as String? ?? '';
+      }
+
+      final colorGen = DoctorColorGenerator();
+      final scheduleMap = await _fetchDoctorSchedules(doctorIds);
+      final healthMap = await _fetchDoctorHealth(doctorIds);
+      final members = <ClinicGroupMember>[];
+      for (int i = 0; i < allMembers.length; i++) {
+        final m = allMembers[i];
+        final docId = m['doctor_id'] as String;
+        final health = healthMap[docId] ?? {};
+        members.add(ClinicGroupMember(
+          doctorId: docId,
+          doctorName: nameMap[docId] ?? '',
+          color: colorGen.getColor(docId),
+          subscriptionEnd: health['subscription_end'] != null
+              ? DateTime.parse(health['subscription_end'] as String)
+              : null,
+          isPaused: health['manual_pause'] as bool? ?? false,
+          isTest: health['is_test'] as bool? ?? false,
+          schedules: scheduleMap[docId] ?? [],
+        ));
+      }
+
+      state = state.copyWith(members: members);
+      await _loadAppointments(doctorIds, nameMap, colorGen);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+    }
+  }
+
+  void _silentRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      refresh();
+    });
+  }
+
+  void _subscribeAll(String groupId, {List<String>? doctorIds}) {
+    _appointmentChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
+    _membersChannel?.unsubscribe();
+    _healthChannel?.unsubscribe();
+
+    _appointmentChannel = _client
+        .channel('clinic_appointments_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'appointments',
+          callback: (_) => _silentRefresh(),
+          filter: doctorIds != null && doctorIds.length == 1
+              ? PostgresChangeFilter(
+                  type: PostgresChangeFilterType.eq,
+                  column: 'doctor_id',
+                  value: doctorIds.first,
+                )
+              : null,
+        )
+        .subscribe();
+
+    _scheduleChannel = _client
+        .channel('clinic_schedule_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'doctor_schedule',
+          callback: (_) => _silentRefresh(),
+        )
+        .subscribe();
+
+    _membersChannel = _client
+        .channel('clinic_members_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'clinic_group_members',
+          callback: (_) => _silentRefresh(),
+        )
+        .subscribe();
+
+    _healthChannel = _client
+        .channel('clinic_health_$groupId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'doctors',
+          callback: (_) => _silentRefresh(),
+          filter: doctorIds != null && doctorIds.length == 1
+              ? PostgresChangeFilter(
+                  type: PostgresChangeFilterType.eq,
+                  column: 'id',
+                  value: doctorIds.first,
+                )
+              : null,
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _appointmentChannel?.unsubscribe();
+    _scheduleChannel?.unsubscribe();
+    _membersChannel?.unsubscribe();
+    _healthChannel?.unsubscribe();
+    super.dispose();
+  }
+}
+
+===== lib/features/favorites/presentation/providers/favorite_providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../models/doctor.dart';
+import '../../../../repositories/favorite_repository.dart';
+import '../../../../services/providers.dart';
+
+final favoritesProvider = FutureProvider<List<Doctor>>((ref) async {
+  final repository = ref.watch(favoriteRepositoryProvider);
+  return repository.getFavorites();
+});
+
+final isFavoriteProvider = FutureProvider.family<bool, String>((ref, doctorId) async {
+  final repository = ref.watch(favoriteRepositoryProvider);
+  return repository.isFavorite(doctorId);
+});
+
+class FavoriteNotifier extends StateNotifier<AsyncValue<void>> {
+  final FavoriteRepository _repository;
+
+  FavoriteNotifier(this._repository) : super(const AsyncValue.data(null));
+
+  Future<bool> toggleFavorite(String doctorId) async {
+    state = const AsyncValue.loading();
+    try {
+      final result = await _repository.toggleFavorite(doctorId);
+      state = const AsyncValue.data(null);
+      return result.isSuccess;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> addFavorite(String doctorId) async {
+    state = const AsyncValue.loading();
+    try {
+      final result = await _repository.addFavorite(doctorId);
+      state = const AsyncValue.data(null);
+      return result.isSuccess;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> removeFavorite(String doctorId) async {
+    state = const AsyncValue.loading();
+    try {
+      final result = await _repository.removeFavorite(doctorId);
+      state = const AsyncValue.data(null);
+      return result.isSuccess;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+}
+
+final favoriteNotifierProvider = StateNotifierProvider<FavoriteNotifier, AsyncValue<void>>((ref) {
+  final repository = ref.watch(favoriteRepositoryProvider);
+  return FavoriteNotifier(repository);
+});
+
+===== lib/features/doctors/presentation/providers/doctor_providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:eyadati/models/doctor.dart';
+import 'package:eyadati/services/providers.dart';
+
+final doctorsProvider = FutureProvider.family<List<Doctor>, DoctorFilter>((ref, filter) async {
+  final repository = ref.watch(doctorRepositoryProvider);
+  return repository.getActiveDoctors(
+    specialty: filter.specialty,
+    city: filter.city,
+    searchQuery: filter.searchQuery,
+  );
+});
+
+final activeDoctorsProvider = FutureProvider<List<Doctor>>((ref) async {
+  final repository = ref.watch(doctorRepositoryProvider);
+  return repository.getActiveDoctors();
+});
+
+final doctorProvider = FutureProvider.family<Doctor?, String>((ref, doctorId) async {
+  final repository = ref.watch(doctorRepositoryProvider);
+  return repository.getDoctor(doctorId);
+});
+
+final myDoctorProfileProvider = FutureProvider<Doctor?>((ref) async {
+  final repository = ref.watch(doctorRepositoryProvider);
+  final profileAsync = ref.watch(currentProfileDataProvider);
+  
+  final profile = profileAsync.valueOrNull;
+  if (profile == null) return null;
+  if (profile['role'] != 'doctor') return null;
+  
+  return repository.getMyDoctorProfile(profile['id'] as String);
+});
+
+final specialtiesProvider = FutureProvider<List<String>>((ref) async {
+  final repository = ref.watch(doctorRepositoryProvider);
+  return repository.getSpecialties();
+});
+
+final citiesProvider = FutureProvider<List<String>>((ref) async {
+  final repository = ref.watch(doctorRepositoryProvider);
+  return repository.getCities();
+});
+
+class DoctorFilter {
+  final String? specialty;
+  final String? city;
+  final String? searchQuery;
+
+  DoctorFilter({this.specialty, this.city, this.searchQuery});
+}
+===== lib/features/appointments/presentation/providers/appointment_providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../models/appointment.dart';
+import '../../../../repositories/appointment_repository.dart';
+import '../../../../services/providers.dart';
+
+final patientAppointmentsProvider = FutureProvider<List<Appointment>>((ref) async {
+  final repository = ref.watch(appointmentRepositoryProvider);
+  return repository.getPatientAppointments();
+});
+
+final upcomingAppointmentsProvider = FutureProvider<List<Appointment>>((ref) async {
+  final repository = ref.watch(appointmentRepositoryProvider);
+  return repository.getPatientAppointments(status: 'upcoming');
+});
+
+final doctorAppointmentsProvider = FutureProvider<List<Appointment>>((ref) async {
+  final repository = ref.watch(appointmentRepositoryProvider);
+  return repository.getDoctorAppointments();
+});
+
+final doctorAppointmentsByDateProvider = FutureProvider.family<List<Appointment>, DateTime>((ref, date) async {
+  final repository = ref.watch(appointmentRepositoryProvider);
+  return repository.getDoctorAppointmentsByDate(date);
+});
+
+final appointmentProvider = FutureProvider.family<Appointment?, String>((ref, id) async {
+  final repository = ref.watch(appointmentRepositoryProvider);
+  return repository.getAppointment(id);
+});
+
+class BookingState {
+  final bool isLoading;
+  final String? error;
+  final Appointment? appointment;
+
+  const BookingState({
+    this.isLoading = false,
+    this.error,
+    this.appointment,
+  });
+
+  BookingState copyWith({
+    bool? isLoading,
+    String? error,
+    Appointment? appointment,
+  }) {
+    return BookingState(
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+      appointment: appointment ?? this.appointment,
+    );
+  }
+}
+
+class BookingNotifier extends StateNotifier<BookingState> {
+  final AppointmentRepository _repository;
+
+  BookingNotifier(this._repository) : super(const BookingState());
+
+  Future<bool> bookAppointment({
+    required String doctorId,
+    required DateTime scheduledAt,
+    required int duration,
+    required String patientName,
+    String? patientPhone,
+    bool isConsultation = false,
+    String? notes,
+  }) async {
+    state = const BookingState(isLoading: true);
+
+    final result = await _repository.createAppointment(
+      doctorId: doctorId,
+      scheduledAt: scheduledAt,
+      duration: duration,
+      patientName: patientName,
+      patientPhone: patientPhone,
+      isConsultation: isConsultation,
+      notes: notes,
+    );
+
+    if (result.isSuccess) {
+      state = BookingState(appointment: result.appointment);
+      return true;
+    } else {
+      state = BookingState(error: result.error);
+      return false;
+    }
+  }
+
+  Future<bool> createManualAppointment({
+    required String doctorId,
+    required DateTime scheduledAt,
+    required int duration,
+    required String patientName,
+    String? patientPhone,
+    String? notes,
+  }) async {
+    state = const BookingState(isLoading: true);
+
+    final result = await _repository.createManualAppointment(
+      doctorId: doctorId,
+      scheduledAt: scheduledAt,
+      duration: duration,
+      patientName: patientName,
+      patientPhone: patientPhone,
+      notes: notes,
+    );
+
+    if (result.isSuccess) {
+      state = BookingState(appointment: result.appointment);
+      return true;
+    } else {
+      state = BookingState(error: result.error);
+      return false;
+    }
+  }
+
+  Future<bool> cancelAppointment(String appointmentId) async {
+    state = const BookingState(isLoading: true);
+
+    final result = await _repository.cancelAppointment(appointmentId);
+
+    if (result.isSuccess) {
+      state = BookingState(appointment: result.appointment);
+      return true;
+    } else {
+      state = BookingState(error: result.error);
+      return false;
+    }
+  }
+
+  Future<bool> updateStatus(String appointmentId, AppointmentStatus status) async {
+    state = const BookingState(isLoading: true);
+
+    final result = await _repository.updateAppointmentStatus(appointmentId, status);
+
+    if (result.isSuccess) {
+      state = BookingState(appointment: result.appointment);
+      return true;
+    } else {
+      state = BookingState(error: result.error);
+      return false;
+    }
+  }
+
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
+
+  void reset() {
+    state = const BookingState();
+  }
+}
+
+final bookingProvider = StateNotifierProvider<BookingNotifier, BookingState>((ref) {
+  final repository = ref.watch(appointmentRepositoryProvider);
+  return BookingNotifier(repository);
+});
+
+final availableSlotsProvider = FutureProvider.family<List<TimeSlot>, SlotRequest>((ref, request) async {
+  final repository = ref.watch(appointmentRepositoryProvider);
+  return repository.generateAvailableSlots(
+    doctorId: request.doctorId,
+    date: request.date,
+    durationMinutes: request.durationMinutes,
+  );
+});
+
+class SlotRequest {
+  final String doctorId;
+  final DateTime date;
+  final int durationMinutes;
+
+  const SlotRequest({
+    required this.doctorId,
+    required this.date,
+    required this.durationMinutes,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SlotRequest &&
+          runtimeType == other.runtimeType &&
+          doctorId == other.doctorId &&
+          date == other.date &&
+          durationMinutes == other.durationMinutes;
+
+  @override
+  int get hashCode => doctorId.hashCode ^ date.hashCode ^ durationMinutes.hashCode;
+}
+

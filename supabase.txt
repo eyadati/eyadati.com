@@ -1,0 +1,1975 @@
+===== lib/core/utils/supabase_client.dart =====
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/environment.dart';
+
+class SupabaseInitializer {
+  static SupabaseClient? _client;
+  static bool _isInitializing = false;
+
+  static Future<void> initialize() async {
+    if (_client != null) return;
+    if (_isInitializing) {
+      while (_client == null) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+      return;
+    }
+
+    _isInitializing = true;
+
+    try {
+      String supabaseUrl;
+      String supabaseAnonKey;
+
+      if (kDebugMode) {
+        await dotenv.load(fileName: '.env');
+        supabaseUrl = dotenv.env['SUPABASE_URL'] ?? Environments.production.supabaseUrl;
+        supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? Environments.production.supabaseAnonKey;
+      } else {
+        supabaseUrl = Environments.production.supabaseUrl;
+        supabaseAnonKey = Environments.production.supabaseAnonKey;
+      }
+
+      if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+        throw Exception('Supabase credentials not configured');
+      }
+
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseAnonKey,
+      );
+
+      _client = Supabase.instance.client;
+    } finally {
+      _isInitializing = false;
+    }
+  }
+
+  static SupabaseClient get client {
+    if (_client == null) {
+      throw Exception('Supabase not initialized. Call SupabaseInitializer.initialize() first.');
+    }
+    return _client!;
+  }
+}
+
+===== lib/repositories/appointment_repository.dart =====
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/appointment.dart';
+import '../core/utils/input_validator.dart';
+import '../core/utils/security_validator.dart';
+
+class AppointmentRepository {
+  final SupabaseClient _client;
+
+  AppointmentRepository(this._client);
+
+  Future<List<Appointment>> getPatientAppointments({
+    String? status,
+    int? limit,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      if (status != null && !_isValidStatus(status)) {
+        return [];
+      }
+
+      final query = _client
+          .from('appointments')
+          .select()
+          .eq('patient_id', userId);
+
+      PostgrestFilterBuilder<PostgrestList> filteredQuery;
+      
+      if (status != null) {
+        filteredQuery = query.eq('status', status);
+      } else {
+        filteredQuery = query;
+      }
+
+      if (limit != null) {
+        final response = await filteredQuery.limit(limit).order('scheduled_at', ascending: false);
+        return (response as List)
+            .map((json) => Appointment.fromDatabase(json))
+            .toList();
+      }
+
+      final response = await filteredQuery.order('scheduled_at', ascending: false);
+      return (response as List)
+          .map((json) => Appointment.fromDatabase(json))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Appointment>> getDoctorAppointments({
+    String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int? limit,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      if (status != null && !_isValidStatus(status)) {
+        return [];
+      }
+
+      var query = _client
+          .from('appointments')
+          .select()
+          .eq('doctor_id', userId);
+
+      if (status != null) {
+        query = query.eq('status', status);
+      }
+
+      if (fromDate != null) {
+        query = query.gte('scheduled_at', fromDate.toIso8601String());
+      }
+
+      if (toDate != null) {
+        query = query.lte('scheduled_at', toDate.toIso8601String());
+      }
+
+      final response = await query.order('scheduled_at', ascending: true);
+      return (response as List)
+          .map((json) => Appointment.fromDatabase(json))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Appointment>> getDoctorAppointmentsByDate(DateTime date) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final response = await _client
+          .from('appointments')
+          .select()
+          .eq('doctor_id', userId)
+          .gte('scheduled_at', startOfDay.toIso8601String())
+          .lt('scheduled_at', endOfDay.toIso8601String())
+          .order('scheduled_at', ascending: true);
+
+      return (response as List)
+          .map((json) => Appointment.fromDatabase(json))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<Appointment?> getAppointment(String appointmentId) async {
+    try {
+      if (!SecurityValidator.isValidUuid(appointmentId)) {
+        return null;
+      }
+
+      final response = await _client
+          .from('appointments')
+          .select()
+          .eq('id', appointmentId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return Appointment.fromDatabase(response);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<AppointmentResult> createAppointment({
+    required String doctorId,
+    required DateTime scheduledAt,
+    required int duration,
+    required String patientName,
+    String? patientPhone,
+    bool isConsultation = false,
+    String? notes,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return AppointmentResult.failure('User not authenticated');
+      }
+
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return AppointmentResult.failure('Invalid doctor ID');
+      }
+
+      final dateError = InputValidator.validateAppointmentDate(scheduledAt);
+      if (dateError != null) {
+        return AppointmentResult.failure(dateError);
+      }
+
+      final durationError = InputValidator.validateDuration(duration);
+      if (durationError != null) {
+        return AppointmentResult.failure(durationError);
+      }
+
+      final nameError = InputValidator.validateRequired(patientName, 'Patient name');
+      if (nameError != null) {
+        return AppointmentResult.failure(nameError);
+      }
+
+      if (patientPhone != null && patientPhone.isNotEmpty) {
+        final phoneError = InputValidator.validatePhone(patientPhone);
+        if (phoneError != null) {
+          return AppointmentResult.failure(phoneError);
+        }
+      }
+
+      final sanitizedName = SecurityValidator.sanitizeHtml(patientName.trim());
+      final sanitizedPhone = patientPhone?.trim();
+      final sanitizedNotes = notes?.trim();
+
+      final data = {
+        'doctor_id': doctorId,
+        'patient_id': userId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': duration,
+        'status': 'upcoming',
+        'booking_type': 'online',
+        'is_consultation': isConsultation,
+        'patient_name_snapshot': sanitizedName,
+        'patient_phone_snapshot': sanitizedPhone,
+        'notes': sanitizedNotes,
+      };
+
+      final response = await _client
+          .from('appointments')
+          .insert(data)
+          .select()
+          .maybeSingle();
+
+      if (response == null) {
+        return AppointmentResult.failure('Failed to create appointment');
+      }
+
+      return AppointmentResult.success(Appointment.fromDatabase(response));
+    } catch (e) {
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('not available') || errorMsg.contains('conflict')) {
+        return AppointmentResult.failure('This time slot is not available');
+      }
+      if (errorMsg.contains('not available for booking')) {
+        return AppointmentResult.failure('Doctor is not available for booking');
+      }
+      if (errorMsg.contains('invalid appointment date')) {
+        return AppointmentResult.failure('Invalid appointment date. Must be at least 30 minutes in the future.');
+      }
+      if (errorMsg.contains('invalid duration')) {
+        return AppointmentResult.failure('Invalid duration. Must be between 5 and 180 minutes.');
+      }
+      return AppointmentResult.failure('Failed to create appointment');
+    }
+  }
+
+  Future<AppointmentResult> createManualAppointment({
+    required String doctorId,
+    required DateTime scheduledAt,
+    required int duration,
+    required String patientName,
+    String? patientPhone,
+    String? notes,
+  }) async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return AppointmentResult.failure('User not authenticated');
+      }
+
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return AppointmentResult.failure('Invalid doctor ID');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, doctorId)) {
+        return AppointmentResult.failure('Only doctors can create manual appointments');
+      }
+
+      final dateError = InputValidator.validateAppointmentDate(scheduledAt);
+      if (dateError != null) {
+        return AppointmentResult.failure(dateError);
+      }
+
+      final durationError = InputValidator.validateDuration(duration);
+      if (durationError != null) {
+        return AppointmentResult.failure(durationError);
+      }
+
+      final nameError = InputValidator.validateRequired(patientName, 'Patient name');
+      if (nameError != null) {
+        return AppointmentResult.failure(nameError);
+      }
+
+      if (patientPhone != null && patientPhone.isNotEmpty) {
+        final phoneError = InputValidator.validatePhone(patientPhone);
+        if (phoneError != null) {
+          return AppointmentResult.failure(phoneError);
+        }
+      }
+
+      final sanitizedName = SecurityValidator.sanitizeHtml(patientName.trim());
+      final sanitizedPhone = patientPhone?.trim();
+      final sanitizedNotes = notes?.trim();
+
+      final data = {
+        'doctor_id': doctorId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'duration': duration,
+        'status': 'upcoming',
+        'booking_type': 'manual',
+        'is_consultation': false,
+        'patient_name_snapshot': sanitizedName,
+        'patient_phone_snapshot': sanitizedPhone,
+        'notes': sanitizedNotes,
+      };
+
+      final response = await _client
+          .from('appointments')
+          .insert(data)
+          .select()
+          .maybeSingle();
+
+      if (response == null) {
+        return AppointmentResult.failure('Failed to create manual appointment');
+      }
+
+      return AppointmentResult.success(Appointment.fromDatabase(response));
+    } catch (e) {
+      return AppointmentResult.failure('Failed to create manual appointment');
+    }
+  }
+
+  Future<AppointmentResult> cancelAppointment(String appointmentId) async {
+    try {
+      if (!SecurityValidator.isValidUuid(appointmentId)) {
+        return AppointmentResult.failure('Invalid appointment ID');
+      }
+
+      final appointment = await getAppointment(appointmentId);
+      if (appointment == null) {
+        return AppointmentResult.failure('Appointment not found');
+      }
+
+      if (appointment.status != AppointmentStatus.upcoming) {
+        return AppointmentResult.failure('Can only cancel upcoming appointments');
+      }
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return AppointmentResult.failure('User not authenticated');
+      }
+
+      if (!SecurityValidator.canModifyAppointment(userId, appointment.doctorId, appointment.patientId, 'upcoming')) {
+        return AppointmentResult.failure('You can only cancel your own appointments');
+      }
+
+      await _client
+          .from('appointments')
+          .update({'status': 'cancelled'})
+          .eq('id', appointmentId)
+          .eq('status', 'upcoming');
+      
+      return AppointmentResult.success(appointment);
+    } catch (e) {
+      return AppointmentResult.failure('Failed to cancel appointment');
+    }
+  }
+
+  Future<AppointmentResult> updateAppointmentStatus(
+    String appointmentId,
+    AppointmentStatus status,
+  ) async {
+    try {
+      if (!SecurityValidator.isValidUuid(appointmentId)) {
+        return AppointmentResult.failure('Invalid appointment ID');
+      }
+
+      final appointment = await getAppointment(appointmentId);
+      if (appointment == null) {
+        return AppointmentResult.failure('Appointment not found');
+      }
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return AppointmentResult.failure('User not authenticated');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, appointment.doctorId)) {
+        return AppointmentResult.failure('Only doctors can update appointment status');
+      }
+
+      await _client
+          .from('appointments')
+          .update({'status': status.name})
+          .eq('id', appointmentId);
+      
+      return AppointmentResult.success(appointment);
+    } catch (e) {
+      return AppointmentResult.failure('Failed to update appointment');
+    }
+  }
+
+  Future<List<TimeSlot>> generateAvailableSlots({
+    required String doctorId,
+    required DateTime date,
+    required int durationMinutes,
+  }) async {
+    try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return [];
+      }
+
+      final durationError = InputValidator.validateDuration(durationMinutes);
+      if (durationError != null) {
+        return [];
+      }
+
+      final dayOfWeek = _getDayOfWeek(date);
+      final schedule = await _client
+          .from('doctor_schedule')
+          .select('start_time, end_time, break_start, break_end')
+          .eq('doctor_id', doctorId)
+          .eq('day_of_week', dayOfWeek)
+          .maybeSingle();
+
+      if (schedule == null) return [];
+
+      final startMinutes = schedule['start_time'] as int;
+      final endMinutes = schedule['end_time'] as int;
+      final breakStart = schedule['break_start'] as int?;
+      final breakEnd = schedule['break_end'] as int?;
+
+      final existingAppointments = await getDoctorAppointmentsByDate(date);
+
+      final slots = <TimeSlot>[];
+
+      for (var m = startMinutes; m < endMinutes; m += durationMinutes) {
+        final slotEndM = m + durationMinutes;
+        if (slotEndM > endMinutes) continue;
+
+        final startTime = DateTime(
+          date.year, date.month, date.day, m ~/ 60, m % 60,
+        );
+        final endTime = DateTime(
+          date.year, date.month, date.day, slotEndM ~/ 60, slotEndM % 60,
+        );
+
+        bool isBreak = false;
+        if (breakStart != null && breakEnd != null) {
+          if ((m >= breakStart && m < breakEnd) ||
+              (slotEndM > breakStart && slotEndM <= breakEnd)) {
+            isBreak = true;
+          }
+        }
+
+        bool isBooked = existingAppointments.any((apt) {
+          final aptEnd = apt.scheduledAt.add(Duration(minutes: apt.duration));
+          return startTime.isBefore(aptEnd) && endTime.isAfter(apt.scheduledAt);
+        });
+
+        slots.add(TimeSlot(
+          startTime: startTime,
+          endTime: endTime,
+          durationMinutes: durationMinutes,
+          isAvailable: !isBreak && !isBooked && startTime.isAfter(DateTime.now()),
+        ));
+      }
+
+      return slots;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  int _getDayOfWeek(DateTime date) {
+    return date.weekday == DateTime.sunday ? 0 : date.weekday;
+  }
+
+  bool _isValidStatus(String status) {
+    return ['upcoming', 'completed', 'cancelled', 'absent'].contains(status);
+  }
+}
+
+class AppointmentResult {
+  final bool isSuccess;
+  final Appointment? appointment;
+  final String? error;
+
+  AppointmentResult._({
+    required this.isSuccess,
+    this.appointment,
+    this.error,
+  });
+
+  factory AppointmentResult.success(Appointment appointment) {
+    return AppointmentResult._(isSuccess: true, appointment: appointment);
+  }
+
+  factory AppointmentResult.failure(String error) {
+    return AppointmentResult._(isSuccess: false, error: error);
+  }
+}
+
+===== lib/repositories/auth_repository.dart =====
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:functions_client/functions_client.dart';
+import '../core/utils/input_validator.dart';
+import '../core/utils/security_validator.dart';
+
+class AuthRepository {
+  final SupabaseClient _client;
+
+  AuthRepository(this._client);
+
+  Stream<User?> get authStateChanges => _client.auth.onAuthStateChange.map(
+        (event) => event.session?.user,
+      );
+
+  User? get currentUser => _client.auth.currentUser;
+
+  bool get isAuthenticated => currentUser != null;
+
+  // ── Phone + Password login ──
+
+  Future<AuthResult> signInWithPhone({
+    required String phone,
+    required String password,
+  }) async {
+    final phoneError = InputValidator.validateAlgerianPhone(phone);
+    if (phoneError != null) {
+      return AuthResult.failure(phoneError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      final response = await _client.auth.signInWithPassword(
+        phone: formattedPhone,
+        password: password,
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure('Numéro ou mot de passe incorrect');
+      }
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
+    }
+  }
+
+  // ── Legacy email login (kept during transition) ──
+
+  Future<AuthResult> signIn({
+    required String email,
+    required String password,
+  }) async {
+    final emailError = InputValidator.validateEmail(email);
+    if (emailError != null) {
+      return AuthResult.failure(emailError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    try {
+      final response = await _client.auth.signInWithPassword(
+        email: email.trim().toLowerCase(),
+        password: password,
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure('Invalid email or password');
+      }
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Connection error. Please try again.');
+    }
+  }
+
+  // ── Legacy email signup (kept during transition) ──
+
+  Future<AuthResult> signUp({
+    required String email,
+    required String password,
+    required String fullName,
+    required String role,
+    String? phone,
+  }) async {
+    final emailError = InputValidator.validateEmail(email);
+    if (emailError != null) {
+      return AuthResult.failure(emailError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    final nameError = InputValidator.validateFullName(fullName);
+    if (nameError != null) {
+      return AuthResult.failure(nameError);
+    }
+
+    if (role != 'patient' && role != 'doctor') {
+      return AuthResult.failure('Invalid role. Must be patient or doctor.');
+    }
+
+    try {
+      final sanitizedName = SecurityValidator.sanitizeHtml(fullName.trim());
+
+      final metadata = <String, dynamic>{
+        'full_name': sanitizedName,
+        'role': role,
+      };
+      if (phone != null && phone.trim().isNotEmpty) {
+        metadata['phone'] = phone.trim();
+      }
+
+      final response = await _client.auth.signUp(
+        email: email.trim().toLowerCase(),
+        password: password,
+        data: metadata,
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure('Registration failed. Please try again.');
+      }
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Connection error. Please try again.');
+    }
+  }
+
+  // ── Direct phone + password signup (no OTP) ──
+
+  Future<AuthResult> signUpWithPhoneDirect({
+    required String phone,
+    required String password,
+    required String fullName,
+    required String role,
+  }) async {
+    final phoneError = InputValidator.validateAlgerianPhone(phone);
+    if (phoneError != null) {
+      return AuthResult.failure(phoneError);
+    }
+
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    final nameError = InputValidator.validateFullName(fullName);
+    if (nameError != null) {
+      return AuthResult.failure(nameError);
+    }
+
+    try {
+      final sanitizedName = SecurityValidator.sanitizeHtml(fullName.trim());
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+
+      final response = await _client.auth.signUp(
+        phone: formattedPhone,
+        password: password,
+        data: {
+          'full_name': sanitizedName,
+          'role': role,
+          'phone': formattedPhone,
+        },
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure("Erreur lors de l'inscription");
+      }
+
+      await _client.from('profiles').upsert({
+        'id': response.user!.id,
+        'full_name': sanitizedName,
+        'role': role,
+        'phone': formattedPhone,
+      });
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
+    }
+  }
+
+  // ── Reset password by phone (via edge function) ──
+
+  Future<AuthResult> resetPasswordByPhone({
+    required String phone,
+    required String newPassword,
+  }) async {
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      final response = await _client.functions.invoke(
+        'patient-reset-password',
+        body: {'phone': formattedPhone, 'new_password': newPassword},
+      );
+      if (response.status >= 200 && response.status < 300) {
+        return AuthResult.success(null);
+      }
+      final body = response.data as Map<String, dynamic>?;
+      return AuthResult.failure(
+        (body?['error'] as String?) ?? 'Erreur lors de la réinitialisation',
+      );
+    } on FunctionException catch (e) {
+      return AuthResult.failure(
+        e.details?.toString() ?? 'Erreur lors de la réinitialisation',
+      );
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
+    }
+  }
+
+  // ── Phone OTP ──
+
+  Future<AuthResult> sendOtp(String phone) async {
+    final phoneError = InputValidator.validateAlgerianPhone(phone);
+    if (phoneError != null) {
+      return AuthResult.failure(phoneError);
+    }
+
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      await _client.auth.signInWithOtp(phone: formattedPhone);
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur d\'envoi du code. Réessayez.');
+    }
+  }
+
+  Future<AuthResult> verifyOtp({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+      final response = await _client.auth.verifyOTP(
+        phone: formattedPhone,
+        token: token,
+        type: OtpType.sms,
+      );
+
+      if (response.user == null) {
+        return AuthResult.failure('Code invalide ou expiré');
+      }
+
+      return AuthResult.success(response.user!);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur de vérification. Réessayez.');
+    }
+  }
+
+  // ── Post-verification setup ──
+
+  Future<AuthResult> setPassword(String password) async {
+    final passwordError = InputValidator.validatePassword(password);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    try {
+      await _client.auth.updateUser(UserAttributes(password: password));
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur. Réessayez.');
+    }
+  }
+
+  Future<AuthResult> setProfileData({
+    required String name,
+    required String role,
+    required String phone,
+  }) async {
+    try {
+      final sanitizedName = SecurityValidator.sanitizeHtml(name.trim());
+      final formattedPhone = InputValidator.formatPhoneForE164(phone);
+
+      await _client.auth.updateUser(UserAttributes(
+        data: {
+          'full_name': sanitizedName,
+          'role': role,
+          'phone': formattedPhone,
+        },
+      ));
+
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        return AuthResult.failure('Utilisateur non trouvé');
+      }
+
+      await _client.from('profiles').upsert({
+        'id': user.id,
+        'full_name': sanitizedName,
+        'role': role,
+        'phone': formattedPhone,
+      });
+
+      return AuthResult.success(user);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Erreur. Réessayez.');
+    }
+  }
+
+  Future<AuthResult> deleteAccount() async {
+    try {
+      final response = await _client.functions.invoke('delete-account');
+      if (response.status >= 200 && response.status < 300) {
+        return AuthResult.success(null);
+      }
+      return AuthResult.failure('Erreur lors de la suppression');
+    } on FunctionException catch (e) {
+      return AuthResult.failure(
+        e.details?.toString() ?? 'Erreur lors de la suppression',
+      );
+    } catch (e) {
+      return AuthResult.failure('Erreur de connexion. Réessayez.');
+    }
+  }
+
+  Future<void> signOut() async {
+    await _client.auth.signOut();
+  }
+
+  Future<AuthResult> resetPassword(String email) async {
+    final emailError = InputValidator.validateEmail(email);
+    if (emailError != null) {
+      return AuthResult.failure(emailError);
+    }
+
+    try {
+      await _client.auth.resetPasswordForEmail(email.trim().toLowerCase());
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Connection error. Please try again.');
+    }
+  }
+
+  Future<AuthResult> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    String? phone,
+  }) async {
+    final passwordError = InputValidator.validatePassword(newPassword);
+    if (passwordError != null) {
+      return AuthResult.failure(passwordError);
+    }
+
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        return AuthResult.failure('Not authenticated');
+      }
+
+      if (phone != null) {
+        final formattedPhone = InputValidator.formatPhoneForE164(phone);
+        final reauth = await _client.auth.signInWithPassword(
+          phone: formattedPhone,
+          password: currentPassword,
+        );
+        if (reauth.user == null) {
+          return AuthResult.failure('Current password is incorrect');
+        }
+      } else if (user.email != null) {
+        final reauth = await _client.auth.signInWithPassword(
+          email: user.email!,
+          password: currentPassword,
+        );
+        if (reauth.user == null) {
+          return AuthResult.failure('Current password is incorrect');
+        }
+      } else {
+        return AuthResult.failure('Cannot re-authenticate');
+      }
+
+      await _client.auth.updateUser(UserAttributes(password: newPassword));
+      return AuthResult.success(null);
+    } on AuthException catch (e) {
+      return AuthResult.failure(_mapAuthError(e.message));
+    } catch (e) {
+      return AuthResult.failure('Connection error. Please try again.');
+    }
+  }
+
+  String _mapAuthError(String message) {
+    final lowerMessage = message.toLowerCase();
+    if (lowerMessage.contains('invalid login credentials')) {
+      return 'Numéro ou mot de passe incorrect';
+    } else if (lowerMessage.contains('already registered')) {
+      return 'Ce numéro est déjà inscrit';
+    } else if (lowerMessage.contains('password')) {
+      return 'Le mot de passe doit contenir au moins 6 caractères';
+    } else if (lowerMessage.contains('phone') || lowerMessage.contains('sms')) {
+      return 'Numéro de téléphone invalide';
+    } else if (lowerMessage.contains('email')) {
+      return 'Veuillez entrer un email valide';
+    } else if (lowerMessage.contains('rate limit') || lowerMessage.contains('too many')) {
+      return 'Trop de tentatives. Réessayez dans quelques minutes.';
+    }
+    return message;
+  }
+}
+
+class AuthResult {
+  final bool isSuccess;
+  final User? user;
+  final String? error;
+
+  AuthResult._({
+    required this.isSuccess,
+    this.user,
+    this.error,
+  });
+
+  factory AuthResult.success(User? user) {
+    return AuthResult._(isSuccess: true, user: user);
+  }
+
+  factory AuthResult.failure(String error) {
+    return AuthResult._(isSuccess: false, error: error);
+  }
+}
+
+===== lib/repositories/doctor_repository.dart =====
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/doctor.dart';
+import '../core/utils/input_validator.dart';
+import '../core/utils/security_validator.dart';
+import '../core/utils/pagination.dart';
+import '../core/utils/cache.dart';
+
+class DoctorRepository {
+  final SupabaseClient _client;
+  final MemoryCache _cache = MemoryCache();
+
+  DoctorRepository(this._client) {
+    _cache.startCleanupTimer();
+  }
+
+  Future<List<Doctor>> getActiveDoctors({
+    String? specialty,
+    String? city,
+    String? searchQuery,
+    PaginationParams? pagination,
+  }) async {
+    try {
+      final effectivePagination = pagination ?? const PaginationParams();
+      
+      PostgrestFilterBuilder query = _client
+          .from('doctors')
+          .select()
+          .eq('manual_pause', false)
+          .eq('is_test', false)
+          .gt('subscription_end', DateTime.now().toIso8601String());
+
+      if (specialty != null && specialty.isNotEmpty) {
+        final sanitizedSpecialty = SecurityValidator.sanitizeHtml(specialty.trim());
+        query = query.ilike('specialty', '%$sanitizedSpecialty%');
+      }
+
+      if (city != null && city.isNotEmpty) {
+        final sanitizedCity = SecurityValidator.sanitizeHtml(city.trim());
+        query = query.ilike('city', '%$sanitizedCity%');
+      }
+
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final sanitizedQuery = SecurityValidator.sanitizeHtml(searchQuery.trim());
+        query = query.or('specialty.ilike.%$sanitizedQuery%,address.ilike.%$sanitizedQuery%,bio.ilike.%$sanitizedQuery%');
+      }
+
+      if (effectivePagination.hasPagination) {
+        final response = await query
+            .order('created_at', ascending: false)
+            .range(effectivePagination.effectiveOffset, effectivePagination.effectiveOffset + effectivePagination.effectiveLimit - 1);
+        return (response as List)
+            .map((json) => Doctor.fromDatabase(json))
+            .toList();
+      }
+
+      final response = await query.order('created_at', ascending: false);
+
+      return (response as List)
+          .map((json) => Doctor.fromDatabase(json))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<PaginatedResult<Doctor>> getActiveDoctorsPaginated({
+    String? specialty,
+    String? city,
+    String? searchQuery,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final doctors = await getActiveDoctors(
+      specialty: specialty,
+      city: city,
+      searchQuery: searchQuery,
+      pagination: PaginationParams(page: page, pageSize: pageSize),
+    );
+
+    return PaginatedResult.fromItems(
+      items: doctors,
+      totalCount: doctors.length,
+      page: page,
+      pageSize: pageSize,
+    );
+  }
+
+  Future<Doctor?> getDoctor(String doctorId) async {
+    try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return null;
+      }
+
+      final cacheKey = CacheKeys.doctor(doctorId);
+      if (_cache.contains(cacheKey)) {
+        return _cache.get<Doctor>(cacheKey);
+      }
+
+      final response = await _client
+          .from('doctors')
+          .select()
+          .eq('id', doctorId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      
+      final doctor = Doctor.fromDatabase(response);
+      _cache.put(cacheKey, doctor, ttl: const Duration(minutes: 5));
+      
+      return doctor;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Doctor?> getMyDoctorProfile(String userId) async {
+    try {
+      if (!SecurityValidator.isValidUuid(userId)) {
+        return null;
+      }
+
+      final response = await _client
+          .from('doctors')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return Doctor.fromDatabase(response);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<DoctorResult> createDoctorProfile({
+    required String userId,
+    required String specialty,
+    required String address,
+    String? city,
+    String? mapsLink,
+    String? bio,
+    int appointmentDuration = 20,
+    int consultationDuration = 40,
+  }) async {
+    try {
+      if (!SecurityValidator.isValidUuid(userId)) {
+        return DoctorResult.failure('Invalid user ID');
+      }
+
+      final specialtyError = InputValidator.validateRequired(specialty, 'Specialty');
+      if (specialtyError != null) {
+        return DoctorResult.failure(specialtyError);
+      }
+
+      final addressError = InputValidator.validateRequired(address, 'Address');
+      if (addressError != null) {
+        return DoctorResult.failure(addressError);
+      }
+
+      final durationError = InputValidator.validateDuration(appointmentDuration);
+      if (durationError != null) {
+        return DoctorResult.failure(durationError);
+      }
+
+      final bioError = InputValidator.validateBio(bio);
+      if (bioError != null) {
+        return DoctorResult.failure(bioError);
+      }
+
+      final data = {
+        'id': userId,
+        'specialty': SecurityValidator.sanitizeHtml(specialty.trim()),
+        'address': SecurityValidator.sanitizeHtml(address.trim()),
+        'city': city?.trim(),
+        'maps_link': mapsLink?.trim(),
+        'bio': bio?.trim(),
+        'appointment_duration': appointmentDuration,
+        'consultation_duration': consultationDuration,
+        'subscription_end': DateTime.now().add(const Duration(days: 14)).toIso8601String(),
+      };
+
+      final response = await _client
+          .from('doctors')
+          .insert(data)
+          .select()
+          .maybeSingle();
+
+      if (response == null) {
+        return DoctorResult.failure('Failed to create doctor profile');
+      }
+
+      _cache.removeByPrefix(CacheKeys.doctors);
+
+      return DoctorResult.success(Doctor.fromDatabase(response));
+    } catch (e) {
+      return DoctorResult.failure('Failed to create doctor profile');
+    }
+  }
+
+  Future<DoctorResult> updateDoctorProfile({
+    required String doctorId,
+    required String userId,
+    String? specialty,
+    String? address,
+    String? city,
+    String? mapsLink,
+    double? latitude,
+    double? longitude,
+    String? bio,
+    String? photoUrl,
+    int? appointmentDuration,
+    int? consultationDuration,
+    bool? manualPause,
+  }) async {
+    try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return DoctorResult.failure('Invalid doctor ID');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, doctorId)) {
+        return DoctorResult.failure('You can only update your own profile');
+      }
+
+      final updates = <String, dynamic>{};
+      
+      if (specialty != null) {
+        final specialtyError = InputValidator.validateRequired(specialty, 'Specialty');
+        if (specialtyError != null) {
+          return DoctorResult.failure(specialtyError);
+        }
+        updates['specialty'] = SecurityValidator.sanitizeHtml(specialty.trim());
+      }
+      
+      if (address != null) {
+        final addressError = InputValidator.validateRequired(address, 'Address');
+        if (addressError != null) {
+          return DoctorResult.failure(addressError);
+        }
+        updates['address'] = SecurityValidator.sanitizeHtml(address.trim());
+      }
+      
+      if (city != null) {
+        final cityError = InputValidator.validateCity(city);
+        if (cityError != null) {
+          return DoctorResult.failure(cityError);
+        }
+        updates['city'] = city.trim();
+      }
+      
+      if (mapsLink != null) {
+        updates['maps_link'] = mapsLink.trim();
+      }
+      
+      if (latitude != null) {
+        updates['latitude'] = latitude;
+      }
+      
+      if (longitude != null) {
+        updates['longitude'] = longitude;
+      }
+      
+      if (bio != null) {
+        final bioError = InputValidator.validateBio(bio);
+        if (bioError != null) {
+          return DoctorResult.failure(bioError);
+        }
+        updates['bio'] = bio.trim();
+      }
+      
+      if (photoUrl != null) {
+        updates['photo_url'] = photoUrl.trim();
+      }
+      
+      if (appointmentDuration != null) {
+        final durationError = InputValidator.validateDuration(appointmentDuration);
+        if (durationError != null) {
+          return DoctorResult.failure(durationError);
+        }
+        updates['appointment_duration'] = appointmentDuration;
+      }
+      
+      if (consultationDuration != null) {
+        final durationError = InputValidator.validateDuration(consultationDuration);
+        if (durationError != null) {
+          return DoctorResult.failure(durationError);
+        }
+        updates['consultation_duration'] = consultationDuration;
+      }
+      
+      if (manualPause != null) updates['manual_pause'] = manualPause;
+
+      if (updates.isEmpty) {
+        return DoctorResult.failure('No fields to update');
+      }
+
+      final response = await _client
+          .from('doctors')
+          .update(updates)
+          .eq('id', doctorId)
+          .select()
+          .maybeSingle();
+
+      if (response == null) {
+        return DoctorResult.failure('Failed to update doctor profile');
+      }
+
+      _cache.remove(CacheKeys.doctor(doctorId));
+      _cache.removeByPrefix(CacheKeys.doctors);
+
+      return DoctorResult.success(Doctor.fromDatabase(response));
+    } catch (e) {
+      return DoctorResult.failure('Failed to update doctor profile');
+    }
+  }
+
+  Future<DoctorResult> pauseProfile(String doctorId, String userId, bool pause) async {
+    try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return DoctorResult.failure('Invalid doctor ID');
+      }
+
+      if (!SecurityValidator.isValidDoctorOwnership(userId, doctorId)) {
+        return DoctorResult.failure('You can only pause your own profile');
+      }
+
+      await _client
+          .from('doctors')
+          .update({'manual_pause': pause})
+          .eq('id', doctorId);
+      
+      _cache.remove(CacheKeys.doctor(doctorId));
+      _cache.removeByPrefix(CacheKeys.doctors);
+      
+      return DoctorResult.success(Doctor(
+        id: doctorId,
+        name: 'Docteur',
+        specialty: '',
+        address: '',
+        manualPause: pause,
+      ));
+    } catch (e) {
+      return DoctorResult.failure('Failed to pause profile');
+    }
+  }
+
+  Future<List<String>> getSpecialties() async {
+    try {
+      if (_cache.contains(CacheKeys.specialties)) {
+        return _cache.get<List<String>>(CacheKeys.specialties) ?? [];
+      }
+
+      final response = await _client
+          .from('doctors')
+          .select('specialty')
+          .eq('manual_pause', false)
+          .eq('is_test', false)
+          .gt('subscription_end', DateTime.now().toIso8601String());
+
+      final specialties = (response as List)
+          .map((e) => e['specialty'] as String)
+          .toSet()
+          .toList();
+      specialties.sort();
+
+      _cache.put(CacheKeys.specialties, specialties, ttl: const Duration(minutes: 15));
+
+      return specialties;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<String>> getCities() async {
+    try {
+      if (_cache.contains(CacheKeys.cities)) {
+        return _cache.get<List<String>>(CacheKeys.cities) ?? [];
+      }
+
+      final response = await _client
+          .from('doctors')
+          .select('city')
+          .eq('manual_pause', false)
+          .eq('is_test', false)
+          .gt('subscription_end', DateTime.now().toIso8601String());
+
+      final cities = (response as List)
+          .map((e) => e['city'] as String?)
+          .where((city) => city != null && city.isNotEmpty)
+          .cast<String>()
+          .toSet()
+          .toList();
+      cities.sort();
+
+      _cache.put(CacheKeys.cities, cities, ttl: const Duration(minutes: 15));
+
+      return cities;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  void clearCache() {
+    _cache.clear();
+  }
+}
+
+class DoctorResult {
+  final bool isSuccess;
+  final Doctor? doctor;
+  final String? error;
+
+  DoctorResult._({
+    required this.isSuccess,
+    this.doctor,
+    this.error,
+  });
+
+  factory DoctorResult.success(Doctor doctor) {
+    return DoctorResult._(isSuccess: true, doctor: doctor);
+  }
+
+  factory DoctorResult.failure(String error) {
+    return DoctorResult._(isSuccess: false, error: error);
+  }
+}
+
+===== lib/repositories/favorite_repository.dart =====
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/doctor.dart';
+import '../core/utils/security_validator.dart';
+
+class FavoriteRepository {
+  final SupabaseClient _client;
+
+  FavoriteRepository(this._client);
+
+  Future<List<Doctor>> getFavorites() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return [];
+
+      final response = await _client
+          .from('favorites')
+          .select('doctor_id, doctors(*)')
+          .eq('patient_id', userId)
+          .order('created_at', ascending: false);
+
+      final favorites = <Doctor>[];
+      for (final item in response as List) {
+        final doctorData = item['doctors'] as Map<String, dynamic>?;
+        if (doctorData != null) {
+          favorites.add(Doctor.fromDatabase(doctorData));
+        }
+      }
+      return favorites;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> isFavorite(String doctorId) async {
+    try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return false;
+      }
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return false;
+
+      final response = await _client
+          .from('favorites')
+          .select('patient_id')
+          .eq('patient_id', userId)
+          .eq('doctor_id', doctorId)
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<FavoriteResult> addFavorite(String doctorId) async {
+    try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return FavoriteResult.failure('Invalid doctor ID');
+      }
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return FavoriteResult.failure('User not authenticated');
+      }
+
+      final isAlreadyFavorite = await isFavorite(doctorId);
+      if (isAlreadyFavorite) {
+        return FavoriteResult.failure('Doctor is already in favorites');
+      }
+
+      await _client.from('favorites').insert({
+        'patient_id': userId,
+        'doctor_id': doctorId,
+      });
+
+      return FavoriteResult.success();
+    } catch (e) {
+      return FavoriteResult.failure('Failed to add favorite');
+    }
+  }
+
+  Future<FavoriteResult> removeFavorite(String doctorId) async {
+    try {
+      if (!SecurityValidator.isValidUuid(doctorId)) {
+        return FavoriteResult.failure('Invalid doctor ID');
+      }
+
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        return FavoriteResult.failure('User not authenticated');
+      }
+
+      await _client
+          .from('favorites')
+          .delete()
+          .eq('patient_id', userId)
+          .eq('doctor_id', doctorId);
+
+      return FavoriteResult.success();
+    } catch (e) {
+      return FavoriteResult.failure('Failed to remove favorite');
+    }
+  }
+
+  Future<FavoriteResult> toggleFavorite(String doctorId) async {
+    if (!SecurityValidator.isValidUuid(doctorId)) {
+      return FavoriteResult.failure('Invalid doctor ID');
+    }
+
+    final isFav = await isFavorite(doctorId);
+    if (isFav) {
+      return await removeFavorite(doctorId);
+    } else {
+      return await addFavorite(doctorId);
+    }
+  }
+
+  Future<int> getFavoritesCount() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) return 0;
+
+      final response = await _client
+          .from('favorites')
+          .select()
+          .eq('patient_id', userId);
+
+      return (response as List).length;
+    } catch (e) {
+      return 0;
+    }
+  }
+}
+
+class FavoriteResult {
+  final bool isSuccess;
+  final String? error;
+
+  FavoriteResult._({
+    required this.isSuccess,
+    this.error,
+  });
+
+  factory FavoriteResult.success() {
+    return FavoriteResult._(isSuccess: true);
+  }
+
+  factory FavoriteResult.failure(String error) {
+    return FavoriteResult._(isSuccess: false, error: error);
+  }
+}
+
+===== lib/repositories/profile_repository.dart =====
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/profile.dart';
+
+class ProfileRepository {
+  final SupabaseClient _client;
+
+  ProfileRepository(this._client);
+
+  Future<Profile?> getProfile(String userId) async {
+    try {
+      final response = await _client
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return Profile.fromDatabase(response);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Profile?> getCurrentUserProfile() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return null;
+    return getProfile(user.id);
+  }
+
+  Future<ProfileResult> updateProfile({
+    required String userId,
+    String? fullName,
+    String? phone,
+    String? city,
+    String? avatarUrl,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (fullName != null) updates['full_name'] = fullName;
+      if (phone != null) updates['phone'] = phone;
+      if (city != null) updates['city'] = city;
+      if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+
+      if (updates.isEmpty) {
+        return ProfileResult.failure('No fields to update');
+      }
+
+      final response = await _client
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+
+      if (response == null) {
+        return ProfileResult.failure('Failed to update profile');
+      }
+
+      return ProfileResult.success(Profile.fromDatabase(response));
+    } catch (e) {
+      return ProfileResult.failure('Failed to update profile');
+    }
+  }
+
+  Future<ProfileResult> updateDoctorProfile({
+    required String userId,
+    String? specialty,
+    String? address,
+    String? city,
+    String? mapsLink,
+    String? bio,
+    int? appointmentDuration,
+    int? consultationDuration,
+    bool? manualPause,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (specialty != null) updates['specialty'] = specialty;
+      if (address != null) updates['address'] = address;
+      if (city != null) updates['city'] = city;
+      if (mapsLink != null) updates['maps_link'] = mapsLink;
+      if (bio != null) updates['bio'] = bio;
+      if (appointmentDuration != null) {
+        updates['appointment_duration'] = appointmentDuration;
+      }
+      if (consultationDuration != null) {
+        updates['consultation_duration'] = consultationDuration;
+      }
+      if (manualPause != null) updates['manual_pause'] = manualPause;
+
+      if (updates.isEmpty) {
+        return ProfileResult.failure('No fields to update');
+      }
+
+      final response = await _client
+          .from('doctors')
+          .update(updates)
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+
+      if (response == null) {
+        return ProfileResult.failure('Failed to update doctor profile');
+      }
+
+      return ProfileResult.success(null);
+    } catch (e) {
+      return ProfileResult.failure('Failed to update doctor profile');
+    }
+  }
+}
+
+class ProfileResult {
+  final bool isSuccess;
+  final Profile? profile;
+  final String? error;
+
+  ProfileResult._({
+    required this.isSuccess,
+    this.profile,
+    this.error,
+  });
+
+  factory ProfileResult.success(Profile? profile) {
+    return ProfileResult._(isSuccess: true, profile: profile);
+  }
+
+  factory ProfileResult.failure(String error) {
+    return ProfileResult._(isSuccess: false, error: error);
+  }
+}
+
+===== lib/repositories/schedule_repository.dart =====
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/schedule_slot_model.dart';
+
+class ScheduleRepository {
+  final SupabaseClient _client;
+
+  ScheduleRepository(this._client);
+
+  Future<List<ScheduleSlot>> getDoctorSchedule(String doctorId) async {
+    final response = await _client
+        .from('doctor_schedule')
+        .select()
+        .eq('doctor_id', doctorId)
+        .eq('is_active', true)
+        .order('day_of_week')
+        .order('start_time');
+
+    return (response as List)
+        .map((json) => ScheduleSlot.fromJson(json))
+        .toList();
+  }
+
+  Future<List<ScheduleSlot>> getDoctorScheduleByDay(String doctorId, int dayOfWeek) async {
+    final response = await _client
+        .from('doctor_schedule')
+        .select()
+        .eq('doctor_id', doctorId)
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_active', true)
+        .order('start_time');
+
+    return (response as List)
+        .map((json) => ScheduleSlot.fromJson(json))
+        .toList();
+  }
+
+  Future<ScheduleSlot> createScheduleSlot({
+    required String doctorId,
+    required int dayOfWeek,
+    required String startTime,
+    required String endTime,
+  }) async {
+    final response = await _client.from('doctor_schedule').insert({
+      'doctor_id': doctorId,
+      'day_of_week': dayOfWeek,
+      'start_time': startTime,
+      'end_time': endTime,
+    }).select().single();
+
+    return ScheduleSlot.fromJson(response);
+  }
+
+  Future<ScheduleSlot> updateScheduleSlot({
+    required String slotId,
+    int? dayOfWeek,
+    String? startTime,
+    String? endTime,
+    bool? isActive,
+  }) async {
+    final Map<String, dynamic> updates = {};
+    if (dayOfWeek != null) updates['day_of_week'] = dayOfWeek;
+    if (startTime != null) updates['start_time'] = startTime;
+    if (endTime != null) updates['end_time'] = endTime;
+    if (isActive != null) updates['is_active'] = isActive;
+
+    final response = await _client
+        .from('doctor_schedule')
+        .update(updates)
+        .eq('id', slotId)
+        .select()
+        .single();
+
+    return ScheduleSlot.fromJson(response);
+  }
+
+  Future<void> deleteScheduleSlot(String slotId) async {
+    await _client.from('doctor_schedule').delete().eq('id', slotId);
+  }
+
+  Future<void> deleteAllDoctorSchedule(String doctorId) async {
+    await _client.from('doctor_schedule').delete().eq('doctor_id', doctorId);
+  }
+
+  Future<void> bulkCreateSchedule({
+    required String doctorId,
+    required List<Map<String, dynamic>> slots,
+  }) async {
+    final slotsWithDoctor = slots.map((slot) => {
+      ...slot,
+      'doctor_id': doctorId,
+    }).toList();
+
+    await _client.from('doctor_schedule').insert(slotsWithDoctor);
+  }
+
+  Future<bool> checkSlotAvailability({
+    required String doctorId,
+    required DateTime slotTime,
+    required int duration,
+  }) async {
+    final response = await _client.rpc(
+      'check_schedule_slot_availability',
+      params: {
+        'doctor_uuid': doctorId,
+        'slot_time': slotTime.toIso8601String(),
+        'slot_duration': duration,
+      },
+    );
+    return response as bool;
+  }
+}
+===== lib/services/providers.dart =====
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/utils/supabase_client.dart';
+import '../../repositories/repositories.dart';
+
+final supabaseClientProvider = Provider<SupabaseClient>((ref) {
+  return SupabaseInitializer.client;
+});
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return AuthRepository(client);
+});
+
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return ProfileRepository(client);
+});
+
+final doctorRepositoryProvider = Provider<DoctorRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return DoctorRepository(client);
+});
+
+final appointmentRepositoryProvider = Provider<AppointmentRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return AppointmentRepository(client);
+});
+
+final favoriteRepositoryProvider = Provider<FavoriteRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return FavoriteRepository(client);
+});
+
+final scheduleRepositoryProvider = Provider<ScheduleRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return ScheduleRepository(client);
+});
+
+final currentProfileDataProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  final client = ref.watch(supabaseClientProvider);
+  final userId = client.auth.currentUser?.id;
+  if (userId == null) return null;
+  
+  final response = await client
+      .from('profiles')
+      .select()
+      .eq('id', userId)
+      .maybeSingle();
+  return response;
+});
+
+final authStateProvider = StreamProvider<AuthState>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return client.auth.onAuthStateChange.map((event) => AuthState(
+    userId: event.session?.user.id,
+    email: event.session?.user.email,
+    isAuthenticated: event.session != null,
+  ));
+});
+
+class AuthState {
+  final String? userId;
+  final String? email;
+  final bool isAuthenticated;
+
+  AuthState({this.userId, this.email, this.isAuthenticated = false});
+}
+===== lib/services/notification_service.dart =====
+import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:eyadati/core/utils/supabase_client.dart';
+
+class NotificationService {
+  static final NotificationService _instance = NotificationService._();
+  factory NotificationService() => _instance;
+  NotificationService._();
+
+  final StreamController<RemoteMessage> _messageController = StreamController<RemoteMessage>.broadcast();
+  Stream<RemoteMessage> get onMessage => _messageController.stream;
+
+  FirebaseMessaging? _messaging;
+  bool _initialized = false;
+
+  Future<void> init({required bool isMobile}) async {
+    if (_initialized) return;
+    _initialized = true;
+
+    try {
+      _messaging = FirebaseMessaging.instance;
+    } catch (_) {
+      return;
+    }
+
+    final permission = await _messaging!.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (permission.authorizationStatus == AuthorizationStatus.denied ||
+        permission.authorizationStatus == AuthorizationStatus.notDetermined) {
+      return;
+    }
+
+    try {
+      final token = await _messaging!.getToken(
+        vapidKey: 'BE-a13FMcHWXi287vRmw6N0oNIOh9eoP6KOP71eIpTjjUc63Vmi7di_6X-CbT77zAF2-dhKytlE-XTnGIcr685k',
+      );
+      if (token != null) {
+        await _saveToken(token, isMobile: isMobile);
+      }
+    } catch (_) {}
+
+    _messaging!.onTokenRefresh.listen((token) {
+      _saveToken(token, isMobile: isMobile);
+    });
+
+    FirebaseMessaging.onMessage.listen((message) {
+      _messageController.add(message);
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      _messageController.add(message);
+    });
+
+    try {
+      final initialMessage = await _messaging!.getInitialMessage();
+      if (initialMessage != null) {
+        _messageController.add(initialMessage);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveToken(String token, {required bool isMobile}) async {
+    final user = SupabaseInitializer.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await SupabaseInitializer.client.from('push_tokens').upsert(
+        {
+          'user_id': user.id,
+          'token': token,
+          'platform': isMobile ? 'web_mobile' : 'web_desktop',
+        },
+        onConflict: 'user_id, token',
+      );
+    } catch (_) {}
+  }
+
+  Future<void> deleteToken() async {
+    try {
+      final token = await _messaging?.getToken();
+      if (token != null) {
+        final user = SupabaseInitializer.client.auth.currentUser;
+        if (user != null) {
+          await SupabaseInitializer.client
+              .from('push_tokens')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('token', token);
+        }
+        await _messaging?.deleteToken();
+      }
+    } catch (_) {}
+  }
+
+  void dispose() {
+    _messageController.close();
+  }
+}
+
+final notificationService = NotificationService();
+
