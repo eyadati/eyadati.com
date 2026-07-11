@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,17 +7,17 @@ import '../config/environment.dart';
 class SupabaseInitializer {
   static SupabaseClient? _client;
   static bool _isInitializing = false;
+  static Completer<void>? _initCompleter;
 
   static Future<void> initialize() async {
     if (_client != null) return;
     if (_isInitializing) {
-      while (_client == null) {
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
+      await _initCompleter?.future;
       return;
     }
 
     _isInitializing = true;
+    _initCompleter = Completer<void>();
 
     try {
       String supabaseUrl;
@@ -41,9 +42,14 @@ class SupabaseInitializer {
       );
 
       _client = Supabase.instance.client;
-    } finally {
+      _initCompleter!.complete();
+    } catch (e) {
+      _initCompleter!.completeError(e);
       _isInitializing = false;
+      rethrow;
     }
+
+    _isInitializing = false;
   }
 
   static SupabaseClient get client {
