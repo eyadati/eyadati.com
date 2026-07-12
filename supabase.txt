@@ -1973,3 +1973,26 @@ class NotificationService {
 
 final notificationService = NotificationService();
 
+===== Performance: loadDoctorData removed from mutations (2026-07-12) =====
+Each mutation (create/update/delete appointment) used to call loadDoctorData(silent: true)
+after the DB write, which ran 7 Supabase queries (profile, today count, week count,
+all appointments + join, attendance batch, schedule slots). This caused DB slowdowns
+as appointment count grew.
+
+Fix: Mutations now only do DB write + local state update (instant UI). Realtime
+subscription + _silentRefresh handle eventual reconciliation. The _lastLocalMutation
+guard prevents the mutation from triggering a realtime refresh (since local state
+is already the latest).
+
+Affected methods in DoctorNotifier:
+  - createAppointment: local state addition restored
+  - markAttendance: local state update restored
+  - updateAppointmentStatus: local state update restored
+  - confirmAppointment: local state update restored
+  - deleteAppointment: local state filter-out restored
+
+Calendar page also fixed:
+  - Stale closure in build() replaced with ref.listenManual in initState
+  - Refresh button added to desktop header (LucideIcons.refreshCw)
+  - tablet appointmentBuilder now passes all AppointmentData fields
+

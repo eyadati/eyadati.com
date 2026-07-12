@@ -830,8 +830,31 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .maybeSingle();
 
       if (result != null) {
+        final start = DateTime.parse(result['scheduled_at'] as String);
+        final dur = result['duration'] as int? ?? state.appointmentDuration;
+
+        final newAppt = AppointmentData(
+          id: result['id'] as String,
+          startTime: start,
+          endTime: start.add(Duration(minutes: dur)),
+          patientName:
+              patientName ??
+              result['patient_name_snapshot'] as String? ??
+              'Patient',
+          patientPhone:
+              patientPhone ?? result['patient_phone_snapshot'] as String?,
+          status: 'upcoming',
+          isConsultation: isConsultation,
+          duration: dur,
+          patientId: patientId,
+          bookingType: patientId != null ? 'online' : 'manual',
+          doctorId: state.userId ?? '',
+          doctorName: state.name,
+        );
+        state = state.copyWith(
+          allAppointments: [newAppt, ...state.allAppointments],
+        );
         _lastLocalMutation = DateTime.now();
-        loadDoctorData(silent: true);
         return true;
       }
       return false;
@@ -883,7 +906,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         }).toList(),
       );
       _lastLocalMutation = DateTime.now();
-      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       return false;
@@ -930,7 +952,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         }).toList(),
       );
       _lastLocalMutation = DateTime.now();
-      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -976,7 +997,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         }).toList(),
       );
       _lastLocalMutation = DateTime.now();
-      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -1004,7 +1024,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             .toList(),
       );
       _lastLocalMutation = DateTime.now();
-      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
