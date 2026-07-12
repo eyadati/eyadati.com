@@ -37,7 +37,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
   final CalendarController _calendarController = CalendarController();
   final _CalendarDataSource _dataSource = _CalendarDataSource([]);
 
-  String _lastUpdateKey = '';
   bool _isExpanded = true;
 
   void _toggleExpanded() {
@@ -55,6 +54,13 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _updateDataSource(ref.read(doctorProvider));
+      ref.listenManual(doctorProvider, (_, next) {
+        if (!mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _updateDataSource(next);
+        });
+      });
     });
   }
 
@@ -144,6 +150,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             patientAvatar: apt.patientAvatar,
             patientId: apt.patientId,
             bookingType: apt.bookingType,
+            totalVisits: apt.totalVisits,
+            noShowCount: apt.noShowCount,
+            doctorId: apt.doctorId,
+            doctorName: apt.doctorName,
           ),
         )
         .toList();
@@ -441,18 +451,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
 
     final screenWidth = MediaQuery.of(context).size.width;
     final (startHour, endHour) = _getVisibleHours(doctorState);
-
-    final currentKey = doctorState.allAppointments
-        .map((a) => '${a.id}:${a.status}')
-        .join(',');
-    if (currentKey != _lastUpdateKey) {
-      _lastUpdateKey = currentKey;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _updateDataSource(doctorState);
-      });
-    }
-
     final breakRegions = _buildBreakRegions(
       doctorState.scheduleSlots,
       _focusedDay,
@@ -620,6 +618,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
                     patientAvatar: apt.patientAvatar,
                     patientId: apt.patientId,
                     bookingType: apt.bookingType,
+                    totalVisits: apt.totalVisits,
+                    noShowCount: apt.noShowCount,
+                    doctorId: apt.doctorId,
+                    doctorName: apt.doctorName,
                   ),
                 ),
               );
@@ -1070,6 +1072,10 @@ class _AppointmentWrapper extends Appointment {
   final String? patientAvatar;
   final String? patientId;
   final String bookingType;
+  final int? totalVisits;
+  final int? noShowCount;
+  final String doctorId;
+  final String doctorName;
 
   _AppointmentWrapper({
     required this.id,
@@ -1084,6 +1090,10 @@ class _AppointmentWrapper extends Appointment {
     this.patientAvatar,
     this.patientId,
     this.bookingType = 'online',
+    this.totalVisits,
+    this.noShowCount,
+    this.doctorId = '',
+    this.doctorName = '',
   }) : super(
          id: id,
          startTime: startTime,
