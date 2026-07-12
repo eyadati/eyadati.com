@@ -203,6 +203,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   RealtimeChannel? _appointmentsChannel;
   RealtimeChannel? _scheduleChannel;
   Timer? _debounceTimer;
+  DateTime? _lastLocalMutation;
 
   DoctorNotifier(this._ref) : super(const DoctorState()) {
     _subscribeToAppointments();
@@ -254,6 +255,10 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   }
 
   void _silentRefresh() {
+    if (_lastLocalMutation != null &&
+        DateTime.now().difference(_lastLocalMutation!) < const Duration(seconds: 2)) {
+      return;
+    }
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       loadDoctorData(silent: true);
@@ -825,54 +830,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .maybeSingle();
 
       if (result != null) {
-        final start = DateTime.parse(result['scheduled_at'] as String);
-        final dur = result['duration'] as int? ?? state.appointmentDuration;
-
-        int? totalVisits;
-        int? noShowCount;
-        if (patientId != null) {
-          final attendanceData = await _client
-              .from('appointments')
-              .select('attendance_status')
-              .not('attendance_status', 'is', null)
-              .eq('patient_id', patientId);
-          int presents = 0;
-          int noshows = 0;
-          for (final row in attendanceData as List) {
-            final s = row['attendance_status'] as String;
-            if (s == 'present') {
-              presents++;
-            } else if (s == 'no_show') {
-              noshows++;
-            }
-          }
-          totalVisits = presents + noshows;
-          noShowCount = noshows;
-        }
-
-        final newAppt = AppointmentData(
-          id: result['id'] as String,
-          startTime: start,
-          endTime: start.add(Duration(minutes: dur)),
-          patientName:
-              patientName ??
-              result['patient_name_snapshot'] as String? ??
-              'Patient',
-          patientPhone:
-              patientPhone ?? result['patient_phone_snapshot'] as String?,
-          status: 'upcoming',
-          isConsultation: isConsultation,
-          duration: dur,
-          patientId: patientId,
-          bookingType: patientId != null ? 'online' : 'manual',
-          doctorId: state.userId ?? '',
-          doctorName: state.name,
-          totalVisits: totalVisits,
-          noShowCount: noShowCount,
-        );
-        state = state.copyWith(
-          allAppointments: [newAppt, ...state.allAppointments],
-        );
+        _lastLocalMutation = DateTime.now();
+        loadDoctorData(silent: true);
         return true;
       }
       return false;
@@ -897,32 +856,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
       if (result == null) return false;
 
-      final updatedAll = state.allAppointments.map((a) {
-        if (a.id == appointmentId) {
-          return AppointmentData(
-            id: a.id,
-            startTime: a.startTime,
-            endTime: a.endTime,
-            patientName: a.patientName,
-            patientAvatar: a.patientAvatar,
-            patientPhone: a.patientPhone,
-            status: 'absent',
-            isConsultation: a.isConsultation,
-            notes: a.notes,
-            duration: a.duration,
-            patientId: a.patientId,
-            bookingType: a.bookingType,
-            doctorId: a.doctorId,
-            doctorName: a.doctorName,
-            attendanceStatus: 'no_show',
-            totalVisits: a.totalVisits,
-            noShowCount: a.noShowCount,
-          );
-        }
-        return a;
-      }).toList();
-
-      state = state.copyWith(allAppointments: updatedAll);
+      _lastLocalMutation = DateTime.now();
+      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       return false;
@@ -942,34 +877,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .maybeSingle();
       if (result == null) return false;
 
-      final updatedAll = state.allAppointments.map((a) {
-        if (a.id == appointmentId) {
-          return AppointmentData(
-            id: a.id,
-            startTime: a.startTime,
-            endTime: a.endTime,
-            patientName: a.patientName,
-            patientAvatar: a.patientAvatar,
-            patientPhone: a.patientPhone,
-            status: status,
-            isConsultation: a.isConsultation,
-            notes: a.notes,
-            duration: a.duration,
-            patientId: a.patientId,
-            bookingType: a.bookingType,
-            doctorId: a.doctorId,
-            doctorName: a.doctorName,
-            attendanceStatus: a.attendanceStatus,
-            totalVisits: a.totalVisits,
-            noShowCount: a.noShowCount,
-          );
-        }
-        return a;
-      }).toList();
-
-      state = state.copyWith(
-        allAppointments: updatedAll,
-      );
+      _lastLocalMutation = DateTime.now();
+      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -988,34 +897,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
 
       if (result == null) return false;
 
-      final updatedAll = state.allAppointments.map((a) {
-        if (a.id == appointmentId) {
-          return AppointmentData(
-            id: a.id,
-            startTime: a.startTime,
-            endTime: a.endTime,
-            patientName: a.patientName,
-            patientAvatar: a.patientAvatar,
-            patientPhone: a.patientPhone,
-            status: 'upcoming',
-            isConsultation: a.isConsultation,
-            notes: a.notes,
-            duration: a.duration,
-            patientId: a.patientId,
-            bookingType: a.bookingType,
-            doctorId: a.doctorId,
-            doctorName: a.doctorName,
-            attendanceStatus: a.attendanceStatus,
-            totalVisits: a.totalVisits,
-            noShowCount: a.noShowCount,
-          );
-        }
-        return a;
-      }).toList();
-
-      state = state.copyWith(
-        allAppointments: updatedAll,
-      );
+      _lastLocalMutation = DateTime.now();
+      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
@@ -1036,16 +919,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           .select('id')
           .maybeSingle();
       if (deleted == null) return false;
-      final updatedUpcoming = state.upcomingAppointments
-          .where((a) => a.id != appointmentId)
-          .toList();
-      final updatedAll = state.allAppointments
-          .where((a) => a.id != appointmentId)
-          .toList();
-      state = state.copyWith(
-        upcomingAppointments: updatedUpcoming,
-        allAppointments: updatedAll,
-      );
+
+      _lastLocalMutation = DateTime.now();
+      loadDoctorData(silent: true);
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
