@@ -933,16 +933,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
-          if (!isMobile) ...[
-            const SizedBox(width: 4),
-            IconButton(
-              icon: const Icon(LucideIcons.refreshCw, size: 20, color: AppColors.textPrimary),
-              tooltip: 'Rafraîchir',
-              onPressed: () => ref.read(doctorProvider.notifier).refresh(),
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              padding: EdgeInsets.zero,
-            ),
-          ],
           const SizedBox(width: 4),
           InkWell(
             onTap: _toggleExpanded,

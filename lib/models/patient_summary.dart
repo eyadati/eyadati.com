@@ -11,7 +11,7 @@ class PatientSummary {
   final DateTime lastVisitDate;
   final String? latestNotePreview;
   final List<AppointmentData> visits;
-  final int globalCompleted;
+  final int globalTotal;
   final int globalNoShows;
 
   PatientSummary({
@@ -25,23 +25,20 @@ class PatientSummary {
     required this.lastVisitDate,
     this.latestNotePreview,
     required this.visits,
-    this.globalCompleted = 0,
+    this.globalTotal = 0,
     this.globalNoShows = 0,
   });
 
-  static const double _bayesianPrior = 1.0;
   static const int _minHistory = 3;
 
-  int get totalGlobalPresent => globalCompleted;
+  int get totalGlobalAppts => globalTotal;
   int get totalGlobalNoShows => globalNoShows;
-  int get totalGlobalAppts => globalCompleted + globalNoShows;
 
   bool get hasSufficientHistory => totalGlobalAppts >= _minHistory;
 
   double get attendanceRate {
     final total = totalGlobalAppts;
     if (total == 0) return 1.0;
-    return (totalGlobalPresent + _bayesianPrior) /
-        (total + _bayesianPrior);
+    return (total - totalGlobalNoShows) / total;
   }
 }

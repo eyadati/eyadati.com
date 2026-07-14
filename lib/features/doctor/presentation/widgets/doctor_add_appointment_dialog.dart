@@ -206,6 +206,11 @@ class _DoctorAddAppointmentDialogState
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Création en cours...'), duration: const Duration(seconds: 30)),
+    );
+
     final success = await ref
         .read(doctorProvider.notifier)
         .createAppointment(
@@ -219,9 +224,10 @@ class _DoctorAddAppointmentDialogState
         );
 
     if (mounted) {
+      messenger.hideCurrentSnackBar();
       if (success) {
         Navigator.pop(context, true);
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text(
               _isConsultation ? 'Consultation créée' : 'Rendez-vous créé',
@@ -230,7 +236,7 @@ class _DoctorAddAppointmentDialogState
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(
             content: Text('Erreur lors de la création'),
             backgroundColor: AppColors.error,

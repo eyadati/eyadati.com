@@ -174,10 +174,15 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                         icon: LucideIcons.xCircle,
                         color: AppColors.error,
                         onTap: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('Marquage en cours...'), duration: const Duration(seconds: 30)),
+                          );
                           final ok = await ref.read(doctorProvider.notifier).markAttendance(appointment.id);
                           if (context.mounted) {
+                            messenger.hideCurrentSnackBar();
                             Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(ok ? 'Marqué comme absent sans préavis' : 'Erreur', style: TextStyle(color: AppColors.white)),
                                 backgroundColor: ok ? AppColors.error : AppColors.warning,
@@ -208,11 +213,16 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                               ],
                             ),
                           );
-                          if (confirm == true) {
+                          if (confirm == true && context.mounted) {
+                            final messenger = ScaffoldMessenger.of(context);
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Annulation en cours...'), duration: const Duration(seconds: 30)),
+                            );
                             final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'cancelled');
                             if (context.mounted) {
+                              messenger.hideCurrentSnackBar();
                               Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text(ok ? 'Rendez-vous annulé' : 'Erreur lors de l\'annulation', style: TextStyle(color: AppColors.white)),
                                   backgroundColor: ok ? AppColors.error : AppColors.warning,
@@ -257,11 +267,16 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                             ],
                           ),
                         );
-                        if (confirm == true) {
+                        if (confirm == true && context.mounted) {
+                          final messenger = ScaffoldMessenger.of(context);
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('Annulation en cours...'), duration: const Duration(seconds: 30)),
+                          );
                           final ok = await ref.read(doctorProvider.notifier).updateAppointmentStatus(appointment.id, 'cancelled');
                           if (context.mounted) {
+                            messenger.hideCurrentSnackBar();
                             Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            messenger.showSnackBar(
                               SnackBar(
                                 content: Text(ok ? 'Rendez-vous annulé' : 'Erreur lors de l\'annulation', style: TextStyle(color: AppColors.white)),
                                 backgroundColor: ok ? AppColors.error : AppColors.warning,
@@ -296,11 +311,16 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                         ],
                       ),
                     );
-                    if (confirm == true) {
+                    if (confirm == true && context.mounted) {
+                      final messenger = ScaffoldMessenger.of(context);
+                      messenger.showSnackBar(
+                        SnackBar(content: Text('Suppression en cours...'), duration: const Duration(seconds: 30)),
+                      );
                       final ok = await ref.read(doctorProvider.notifier).deleteAppointment(appointment.id);
                       if (context.mounted) {
+                        messenger.hideCurrentSnackBar();
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           SnackBar(
                             content: Text(ok ? 'Rendez-vous supprimé' : 'Erreur lors de la suppression', style: TextStyle(color: AppColors.white)),
                             backgroundColor: ok ? AppColors.error : AppColors.warning,

@@ -117,17 +117,17 @@ class PatientHistory extends _$PatientHistory {
 
     final attendanceData = await _client
         .from('appointments')
-        .select('patient_id, scheduled_at, attendance_status')
-        .not('attendance_status', 'is', null)
+        .select('patient_id, attendance_status')
         .not('patient_id', 'is', null);
 
     final Map<String, int> noShowCounts = {};
     final Map<String, DateTime> lastNoShow = {};
-    final Map<String, int> globalPresentCount = {};
+    final Map<String, int> globalTotalCount = {};
     final Map<String, int> globalNoShowCount = {};
     for (final row in attendanceData as List) {
       final pid = row['patient_id'] as String;
-      final status = row['attendance_status'] as String;
+      globalTotalCount[pid] = (globalTotalCount[pid] ?? 0) + 1;
+      final status = row['attendance_status'] as String?;
       if (status == 'no_show') {
         noShowCounts[pid] = (noShowCounts[pid] ?? 0) + 1;
         globalNoShowCount[pid] = (globalNoShowCount[pid] ?? 0) + 1;
@@ -135,8 +135,6 @@ class PatientHistory extends _$PatientHistory {
         if (!lastNoShow.containsKey(pid) || sched.isAfter(lastNoShow[pid]!)) {
           lastNoShow[pid] = sched;
         }
-      } else if (status == 'present') {
-        globalPresentCount[pid] = (globalPresentCount[pid] ?? 0) + 1;
       }
     }
 
@@ -191,7 +189,7 @@ class PatientHistory extends _$PatientHistory {
         lastNoShowAt: lastNoShow[entry.key],
         lastVisitDate: lastVisit,
         visits: visits,
-        globalCompleted: globalPresentCount[entry.key] ?? 0,
+        globalTotal: globalTotalCount[entry.key] ?? 0,
         globalNoShows: globalNoShowCount[entry.key] ?? 0,
       ));
     }

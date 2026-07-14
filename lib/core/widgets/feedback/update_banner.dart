@@ -1,21 +1,23 @@
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_spacing.dart';
 import '../../theme/text_styles.dart';
+import '../../providers/version_update_provider.dart';
 
-class AppWithUpdateBanner extends StatefulWidget {
+class AppWithUpdateBanner extends ConsumerStatefulWidget {
   final Widget child;
   const AppWithUpdateBanner({super.key, required this.child});
 
   @override
-  State<AppWithUpdateBanner> createState() => _AppWithUpdateBannerState();
+  ConsumerState<AppWithUpdateBanner> createState() => _AppWithUpdateBannerState();
 }
 
-class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
+class _AppWithUpdateBannerState extends ConsumerState<AppWithUpdateBanner>
     with SingleTickerProviderStateMixin {
-  bool _updateAvailable = false;
+  bool _swUpdateAvailable = false;
   late AnimationController _animCtrl;
   late Animation<Offset> _slideAnim;
 
@@ -30,21 +32,19 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
       begin: const Offset(0, -1),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
-    _listenForUpdates();
+    _listenForSwUpdates();
   }
 
-  void _listenForUpdates() {
+  void _listenForSwUpdates() {
     if (!kIsWeb) return;
 
-    // Listen for custom event dispatched by index.html when SW update is detected
     html.window.addEventListener('sw-update-ready', (_) {
       if (mounted) {
-        setState(() => _updateAvailable = true);
+        setState(() => _swUpdateAvailable = true);
         _animCtrl.forward();
       }
     });
 
-    // Also try the standard SW updatefound API as fallback
     final sw = html.window.navigator.serviceWorker;
     if (sw == null) return;
     sw.getRegistration().then((reg) {
@@ -53,7 +53,7 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
         if (installing == null) return;
         installing.addEventListener('statechange', (e) {
           if (installing.state == 'installed' && mounted) {
-            setState(() => _updateAvailable = true);
+            setState(() => _swUpdateAvailable = true);
             _animCtrl.forward();
           }
         });
@@ -64,9 +64,20 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
   void _applyUpdate() {
     final sw = html.window.navigator.serviceWorker;
     sw?.getRegistration().then((reg) {
-      reg?.waiting?.postMessage('SKIP_WAITING');
+      reg.waiting?.postMessage('SKIP_WAITING');
     });
     html.window.location.reload();
+  }
+
+  void _openStore() {
+    // Web: reload to pick up new SW
+    // Android/iOS: open Play Store / App Store
+    if (kIsWeb) {
+      html.window.location.reload();
+    } else {
+      // Platform-specific store URLs can be added here
+      html.window.location.reload();
+    }
   }
 
   @override
@@ -77,10 +88,25 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
 
   @override
   Widget build(BuildContext context) {
+    final vState = ref.watch(versionUpdateProvider);
+    final showBanner = vState.isUpdateAvailable || _swUpdateAvailable;
+
+    if (vState.isLoading) {
+      return widget.child;
+    }
+
+    if (vState.isUpdateAvailable && vState.forceUpdate) {
+      return _ForceUpdateScreen(
+        newVersion: vState.remoteVersion,
+        changelog: vState.changelog,
+        onUpdate: _openStore,
+      );
+    }
+
     return Stack(
       children: [
         widget.child,
-        if (_updateAvailable)
+        if (showBanner)
           SafeArea(
             child: SlideTransition(
               position: _slideAnim,
@@ -132,7 +158,9 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Appuyez pour mettre à jour vers la dernière version',
+                              vState.remoteVersion != null
+                                  ? 'Version ${vState.remoteVersion} disponible'
+                                  : 'Appuyez pour mettre à jour',
                               style: AppTextStyles.labelMedium.copyWith(
                                 color: AppColors.white.withValues(alpha: 0.85),
                                 fontSize: 12,
@@ -145,7 +173,7 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
                       SizedBox(
                         height: 36,
                         child: ElevatedButton(
-                          onPressed: _applyUpdate,
+                          onPressed: kIsWeb ? _applyUpdate : _openStore,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.white,
                             foregroundColor: AppColors.primary,
@@ -173,6 +201,126 @@ class _AppWithUpdateBannerState extends State<AppWithUpdateBanner>
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ForceUpdateScreen extends StatelessWidget {
+  final String? newVersion;
+  final String? changelog;
+  final VoidCallback onUpdate;
+
+  const _ForceUpdateScreen({
+    this.newVersion,
+    this.changelog,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.background,
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.system_update_rounded,
+                    size: 64,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Mise à jour requise',
+                  style: AppTextStyles.titleLarge.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  newVersion != null
+                      ? 'Une nouvelle version ($newVersion) est disponible. Veuillez mettre à jour pour continuer à utiliser l\'application.'
+                      : 'Une nouvelle version est disponible. Veuillez mettre à jour pour continuer.',
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (changelog != null && changelog!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.border,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Nouveautés :',
+                          style: AppTextStyles.labelMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          changelog!,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: onUpdate,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Mettre à jour maintenant',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -18,13 +18,13 @@ as $$
     p.id,
     p.full_name,
     p.phone,
-    count(*) filter (where a.attendance_status is not null)::bigint as total_visits,
+    count(*)::bigint as total_visits,
     count(*) filter (where a.attendance_status = 'no_show')::bigint as no_show_count,
     case
       when count(*) >= 3
       then round(
-        ((count(*) filter (where a.attendance_status = 'present') + 1.0) /
-         nullif(count(*) + 1.0, 0)) * 100
+        ((count(*) - count(*) filter (where a.attendance_status = 'no_show'))::numeric /
+         nullif(count(*)::numeric, 0)) * 100
       )
     end as reliability_pct
   from public.profiles p

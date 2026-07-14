@@ -42,8 +42,16 @@ self.addEventListener('install', (event) => {
   );
 });
 
+const SUPA_API_PATHS = ['/rest/v1/', '/realtime/v1/', '/auth/v1/', '/storage/v1/'];
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+  if (SUPA_API_PATHS.some((path) => url.pathname.includes(path))) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {

@@ -38,15 +38,14 @@ class PatientState {
     this.cancelledAppointments = const [],
   });
 
-  static const double _bayesianPrior = 1.0;
   static const int _minHistory = 3;
 
-  int get totalGlobalAppts => globalPresentCount + globalNoShowCount;
+  int get totalGlobalAppts => globalPresentCount;
   bool get hasSufficientHistory => totalGlobalAppts >= _minHistory;
   double get attendanceRate {
     final total = totalGlobalAppts;
     if (total == 0) return 1.0;
-    return (globalPresentCount + _bayesianPrior) / (total + _bayesianPrior);
+    return (total - globalNoShowCount) / total;
   }
 
   PatientState copyWith({
@@ -236,16 +235,14 @@ class PatientNotifier extends AsyncNotifier<PatientState> {
     final attendanceData = await _client
         .from('appointments')
         .select('attendance_status')
-        .eq('patient_id', userId)
-        .not('attendance_status', 'is', null);
+        .eq('patient_id', userId);
 
     int globalPresentCount = 0;
     int globalNoShowCount = 0;
     for (final row in attendanceData as List) {
-      final status = row['attendance_status'] as String;
-      if (status == 'present') {
-        globalPresentCount++;
-      } else if (status == 'no_show') {
+      globalPresentCount++;
+      final status = row['attendance_status'] as String?;
+      if (status == 'no_show') {
         globalNoShowCount++;
       }
     }

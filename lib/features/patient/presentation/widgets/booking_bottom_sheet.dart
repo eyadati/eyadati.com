@@ -52,16 +52,14 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
       final attendanceData = await SupabaseInitializer.client
           .from('appointments')
           .select('attendance_status')
-          .eq('patient_id', userId)
-          .not('attendance_status', 'is', null);
+          .eq('patient_id', userId);
 
-      int present = 0;
+      int total = 0;
       int noShow = 0;
       for (final row in attendanceData as List) {
-        final status = row['attendance_status'] as String;
-        if (status == 'present') {
-          present++;
-        } else if (status == 'no_show') {
+        total++;
+        final status = row['attendance_status'] as String?;
+        if (status == 'no_show') {
           noShow++;
         }
       }
@@ -69,10 +67,9 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
       if (mounted) {
         setState(() {
           _noShowCount = noShow;
-          final total = present + noShow;
           _hasSufficientHistory = total >= 3;
           if (total > 0) {
-            _attendanceRate = (present + 1.0) / (total + 1.0);
+            _attendanceRate = (total - noShow) / total;
           } else {
             _attendanceRate = null;
           }
@@ -148,7 +145,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
     }
   }
 
-  bool get _isBlocked => _noShowCount >= 3 || (_attendanceRate != null && _attendanceRate! < 0.50);
+  bool get _isBlocked => _hasSufficientHistory && _attendanceRate != null && _attendanceRate! < 0.75;
 
   Widget _buildBookingChoice() {
     final l10n = AppLocalizations.of(context)!;

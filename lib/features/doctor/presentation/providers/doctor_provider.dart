@@ -204,11 +204,14 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   RealtimeChannel? _scheduleChannel;
   Timer? _debounceTimer;
   DateTime? _lastLocalMutation;
+  String? _lastMutationAppointmentId;
+  bool _isLoadingData = false;
 
   DoctorNotifier(this._ref) : super(const DoctorState()) {
-    _subscribeToAppointments();
-    _subscribeToSchedule();
-    loadDoctorData();
+    loadDoctorData().then((_) {
+      _subscribeToAppointments();
+      _subscribeToSchedule();
+    });
   }
 
   @override
@@ -234,7 +237,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             column: 'doctor_id',
             value: user.id,
           ),
-          callback: (payload) => _silentRefresh(),
+          callback: (payload) => _silentRefresh(payload),
         )
         .subscribe();
   }
@@ -249,15 +252,20 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'doctor_schedule',
-          callback: (payload) => _silentRefresh(),
+          callback: (payload) => _silentRefresh(payload),
         )
         .subscribe();
   }
 
-  void _silentRefresh() {
+  void _silentRefresh([PostgresChangePayload? payload]) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      if (_lastLocalMutation != null &&
+      final newId = payload?.newRecord['id'] as String?;
+      final oldId = payload?.oldRecord['id'] as String?;
+      final affectedId = newId ?? oldId;
+      if (affectedId != null &&
+          affectedId == _lastMutationAppointmentId &&
+          _lastLocalMutation != null &&
           DateTime.now().difference(_lastLocalMutation!) < const Duration(seconds: 2)) {
         return;
       }
@@ -307,6 +315,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
   }
 
   Future<void> loadDoctorData({bool silent = false}) async {
+    if (_isLoadingData) return;
+    _isLoadingData = true;
     if (!silent) {
       state = state.copyWith(isLoading: true);
     }
@@ -403,17 +413,15 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         final attendanceData = await _client
             .from('appointments')
             .select('patient_id, attendance_status')
-            .not('attendance_status', 'is', null)
             .inFilter('patient_id', patientIds);
 
-        final Map<String, int> presentCount = {};
+        final Map<String, int> totalCount = {};
         final Map<String, int> noShowCount = {};
         for (final row in attendanceData as List) {
           final pid = row['patient_id'] as String;
-          final status = row['attendance_status'] as String;
-          if (status == 'present') {
-            presentCount[pid] = (presentCount[pid] ?? 0) + 1;
-          } else if (status == 'no_show') {
+          final status = row['attendance_status'] as String?;
+          totalCount[pid] = (totalCount[pid] ?? 0) + 1;
+          if (status == 'no_show') {
             noShowCount[pid] = (noShowCount[pid] ?? 0) + 1;
           }
         }
@@ -421,7 +429,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         for (int i = 0; i < allAppointments.length; i++) {
           final pid = allAppointments[i].patientId;
           if (pid != null) {
-            final presents = presentCount[pid] ?? 0;
+            final total = totalCount[pid] ?? 0;
             final noshows = noShowCount[pid] ?? 0;
             allAppointments[i] = AppointmentData(
               id: allAppointments[i].id,
@@ -439,7 +447,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
               doctorId: allAppointments[i].doctorId,
               doctorName: allAppointments[i].doctorName,
               attendanceStatus: allAppointments[i].attendanceStatus,
-              totalVisits: presents + noshows,
+              totalVisits: total,
               noShowCount: noshows,
             );
           }
@@ -499,6 +507,8 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
       }
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
+    } finally {
+      _isLoadingData = false;
     }
   }
 
@@ -855,6 +865,7 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
           allAppointments: [newAppt, ...state.allAppointments],
         );
         _lastLocalMutation = DateTime.now();
+        _lastMutationAppointmentId = newAppt.id;
         return true;
       }
       return false;
@@ -899,13 +910,14 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
               doctorName: a.doctorName,
               attendanceStatus: 'no_show',
               totalVisits: a.totalVisits,
-              noShowCount: a.noShowCount,
+              noShowCount: (a.noShowCount ?? 0) + 1,
             );
           }
           return a;
         }).toList(),
       );
       _lastLocalMutation = DateTime.now();
+      _lastMutationAppointmentId = appointmentId;
       return true;
     } catch (e) {
       return false;
@@ -952,9 +964,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         }).toList(),
       );
       _lastLocalMutation = DateTime.now();
+      _lastMutationAppointmentId = appointmentId;
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
       return false;
     }
   }
@@ -997,9 +1009,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
         }).toList(),
       );
       _lastLocalMutation = DateTime.now();
+      _lastMutationAppointmentId = appointmentId;
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
       return false;
     }
   }
@@ -1024,9 +1036,9 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
             .toList(),
       );
       _lastLocalMutation = DateTime.now();
+      _lastMutationAppointmentId = appointmentId;
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
       return false;
     }
   }
