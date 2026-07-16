@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/constants/app_radius.dart';
 import '../../../../core/widgets/buttons/primary_button.dart';
 import '../../../../core/utils/supabase_client.dart';
+import '../../../../core/utils/phone_launcher.dart';
 import '../../../../core/engine/availability_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/models/doctor.dart';
@@ -43,6 +43,24 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
       14,
       (index) => DateTime(today.year, today.month, today.day + index + 1),
     );
+  }
+
+  String _localizedShortDay(AppLocalizations l10n, DateTime date) {
+    switch (date.weekday) {
+      case DateTime.monday:    return l10n.daysShortMon;
+      case DateTime.tuesday:   return l10n.daysShortTue;
+      case DateTime.wednesday: return l10n.daysShortWed;
+      case DateTime.thursday:  return l10n.daysShortThu;
+      case DateTime.friday:    return l10n.daysShortFri;
+      case DateTime.saturday:  return l10n.daysShortSat;
+      case DateTime.sunday:    return l10n.daysShortSun;
+      default:                 return '';
+    }
+  }
+
+  String _localizedShortMonth(AppLocalizations l10n, DateTime date, BuildContext context) {
+    final locale = Localizations.localeOf(context).languageCode;
+    return DateFormat('MMM', locale).format(date);
   }
 
   Future<void> _loadNoShowCount() async {
@@ -178,10 +196,15 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 final phone = widget.doctor.phone;
                 if (phone != null && phone.isNotEmpty) {
-                  launchUrl(Uri.parse('tel:$phone'));
+                  final launched = await launchPhoneUrl(phone, context);
+                  if (!launched && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
+                    );
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
@@ -523,7 +546,14 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                                   padding: const EdgeInsets.symmetric(vertical: 8),
                                   minimumSize: const Size.fromHeight(32),
                                 ),
-                                onPressed: () => launchUrl(Uri.parse('tel:${widget.doctor.phone}')),
+                                onPressed: () async {
+                                  final launched = await launchPhoneUrl(widget.doctor.phone!, context);
+                                  if (!launched && context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
+                                    );
+                                  }
+                                },
                               ),
                             ),
                           ],
@@ -696,7 +726,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                DateFormat('EEE').format(date).toUpperCase(),
+                                _localizedShortDay(l10n, date),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
@@ -717,7 +747,7 @@ class _BookingBottomSheetState extends ConsumerState<BookingBottomSheet> {
                                 ),
                               ),
                               Text(
-                                DateFormat('MMM').format(date),
+                                _localizedShortMonth(l10n, date, context),
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: isSelected

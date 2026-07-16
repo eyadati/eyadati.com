@@ -133,7 +133,7 @@ class _DoctorsBrowsePageState extends ConsumerState<DoctorsBrowsePage> {
                               doctor: doctor,
                               isFavorite: isFav,
                               onTap: () => context.push('/patient/doctors/${doctor.id}'),
-                              onFavoriteToggle: () => ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id),
+                              onFavoriteToggle: () => ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id, context: context),
 
                             ),
                           );

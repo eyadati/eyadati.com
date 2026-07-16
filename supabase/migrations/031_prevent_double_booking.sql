@@ -7,7 +7,18 @@
 create extension if not exists "btree_gist";
 
 -- ============================================
--- 2. Clean up existing overlapping appointments
+-- 2. Create immutable helper function for the exclusion constraint
+--    (tstzrange is not IMMUTABLE in all PG versions, but a wrapper fn is)
+-- ============================================
+create or replace function appointments_time_range(scheduled_at timestamptz, duration int)
+returns tstzrange
+language sql immutable
+as $$
+  select tstzrange(scheduled_at, scheduled_at + (duration || ' minutes')::interval, '[)');
+$$;
+
+-- ============================================
+-- 3. Clean up existing overlapping appointments
 -- ============================================
 do $$
 declare
@@ -30,8 +41,8 @@ begin
        and a1.id <> a2.id
        and a1.status = 'upcoming'
        and a2.status = 'upcoming'
-       and tstzrange(a1.scheduled_at, a1.scheduled_at + a1.duration * interval '1 minute') &&
-           tstzrange(a2.scheduled_at, a2.scheduled_at + a2.duration * interval '1 minute')
+       and appointments_time_range(a1.scheduled_at, a1.duration) &&
+           appointments_time_range(a2.scheduled_at, a2.duration)
     )
     select distinct on (least(id1::text, id2::text) || greatest(id1::text, id2::text))
       case when created1 > created2 then id1 else id2 end as to_cancel
@@ -48,11 +59,11 @@ begin
 end $$;
 
 -- ============================================
--- 3. Add exclusion constraint
+-- 4. Add exclusion constraint
 -- ============================================
 alter table public.appointments
   add constraint appointments_no_overlap
   exclude using gist (
     doctor_id with =,
-    tstzrange(scheduled_at, scheduled_at + duration * interval '1 minute') with &&
+    appointments_time_range(scheduled_at, duration) with &&
   ) where (status = 'upcoming');

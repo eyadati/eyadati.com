@@ -4,7 +4,6 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
-import 'package:eyadati/core/constants/app_breakpoints.dart';
 import 'package:eyadati/core/theme/text_styles.dart';
 import 'package:eyadati/models/appointment_data.dart';
 import '../providers/doctor_provider.dart';
@@ -26,10 +25,13 @@ class AppointmentDetailsSheet extends ConsumerWidget {
     final isUpcoming = appointment.status == 'upcoming';
     final isCancelled = appointment.status == 'cancelled';
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        width: double.infinity,
+        width: isMobile ? screenWidth * 0.9 : double.infinity,
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -58,12 +60,18 @@ class AppointmentDetailsSheet extends ConsumerWidget {
                       if (appointment.patientPhone != null)
                         Padding(
                           padding: const EdgeInsets.only(top: AppSpacing.xs),
-                          child: Text('📞 ${appointment.patientPhone}', style: AppTextStyles.patientId),
+                          child: Text(
+                            appointment.patientPhone!,
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
                         ),
                     ],
                   ),
                 ),
-                if (AppBreakpoints.isMobile(MediaQuery.of(context).size.width) && appointment.patientPhone != null)
+                if (appointment.patientPhone != null)
                   IconButton(
                     icon: Icon(Icons.phone, color: AppColors.primary, size: 24),
                     onPressed: () => launchUrl(Uri.parse('tel:${appointment.patientPhone}')),
@@ -241,12 +249,6 @@ class AppointmentDetailsSheet extends ConsumerWidget {
             ] else if (!isCancelled) ...[
               Row(
                 children: [
-                  if (appointment.patientPhone != null)
-                    IconButton(
-                      icon: Icon(Icons.phone, color: AppColors.primary, size: 24),
-                      onPressed: () => launchUrl(Uri.parse('tel:${appointment.patientPhone}')),
-                    ),
-                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: _ActionButton(
                       label: 'Annuler',

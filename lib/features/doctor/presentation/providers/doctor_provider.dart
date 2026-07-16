@@ -778,21 +778,6 @@ class DoctorNotifier extends StateNotifier<DoctorState> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> searchPatients(String query) async {
-    if (query.length < 2) return [];
-    try {
-      final results = await _client
-          .from('profiles')
-          .select('id, full_name, phone')
-          .eq('role', 'patient')
-          .ilike('full_name', '%$query%')
-          .limit(10);
-      return (results as List).cast<Map<String, dynamic>>();
-    } catch (e) {
-      return [];
-    }
-  }
-
   Future<bool> createAppointment({
     required DateTime scheduledAt,
     String? patientId,

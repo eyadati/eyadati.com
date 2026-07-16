@@ -17,8 +17,7 @@ class ForgotPasswordPage extends ConsumerStatefulWidget {
   const ForgotPasswordPage({super.key});
 
   @override
-  ConsumerState<ForgotPasswordPage> createState() =>
-      _ForgotPasswordPageState();
+  ConsumerState<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
 }
 
 class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
@@ -48,10 +47,12 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
       _phoneController.text.trim(),
     );
 
-    final success = await ref.read(authProvider.notifier).patientPasswordReset(
-      phone: phone,
-      newPassword: _newPasswordController.text,
-    );
+    final success = await ref
+        .read(authProvider.notifier)
+        .patientPasswordReset(
+          phone: phone,
+          newPassword: _newPasswordController.text,
+        );
     if (!mounted) return;
 
     if (success) {
@@ -68,9 +69,9 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
   Future<void> _handleEmailReset() async {
     if (!_emailFormKey.currentState!.validate()) return;
 
-    final success = await ref.read(authProvider.notifier).resetPassword(
-      _emailController.text.trim(),
-    );
+    final success = await ref
+        .read(authProvider.notifier)
+        .resetPassword(_emailController.text.trim());
     if (!mounted) return;
 
     if (success) {
@@ -155,15 +156,12 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           const SizedBox(height: AppSpacing.sm),
           const Text(
             'Entrez votre numéro de téléphone et votre nouveau mot de passe.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.lg),
           AppTextField(
             label: 'Téléphone',
-            hint: '+213 5 55 12 34 56',
+            hint: '5 55 12 34 56',
             controller: _phoneController,
             keyboardType: TextInputType.phone,
             prefixIcon: Icons.phone_outlined,
@@ -224,10 +222,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
           const SizedBox(height: AppSpacing.sm),
           const Text(
             'Entrez votre email pour recevoir un lien de réinitialisation.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: AppSpacing.lg),
           AppTextField(
@@ -262,11 +257,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             color: AppColors.success.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.check,
-            size: 48,
-            color: AppColors.success,
-          ),
+          child: const Icon(Icons.check, size: 48, color: AppColors.success),
         ),
         const SizedBox(height: AppSpacing.lg),
         const Text(
@@ -281,10 +272,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         const Text(
           'Vérifiez votre boîte de réception et cliquez sur le lien pour réinitialiser votre mot de passe.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
         const SizedBox(height: AppSpacing.lg),
         SecondaryButton(
@@ -304,11 +292,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             color: AppColors.success.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.check,
-            size: 48,
-            color: AppColors.success,
-          ),
+          child: const Icon(Icons.check, size: 48, color: AppColors.success),
         ),
         const SizedBox(height: AppSpacing.lg),
         const Text(
@@ -323,10 +307,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
         const Text(
           'Votre mot de passe a été modifié avec succès.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
         const SizedBox(height: AppSpacing.lg),
         SecondaryButton(
@@ -368,7 +349,9 @@ class _RoleToggle extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: !isDoctor ? AppColors.white : AppColors.textSecondary,
+                    color: !isDoctor
+                        ? AppColors.white
+                        : AppColors.textSecondary,
                   ),
                 ),
               ),

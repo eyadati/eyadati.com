@@ -13,7 +13,9 @@ import 'package:eyadati/models/patient_summary.dart';
 import '../providers/patient_history_provider.dart';
 
 class DoctorPatientsPage extends ConsumerStatefulWidget {
-  const DoctorPatientsPage({super.key});
+  final String? initialSearchQuery;
+
+  const DoctorPatientsPage({super.key, this.initialSearchQuery});
 
   @override
   ConsumerState<DoctorPatientsPage> createState() => _DoctorPatientsPageState();
@@ -24,10 +26,16 @@ class _DoctorPatientsPageState extends ConsumerState<DoctorPatientsPage> {
   final TextEditingController _noteController = TextEditingController();
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    _noteController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(patientHistoryProvider.notifier).setSearchQuery(widget.initialSearchQuery!);
+        }
+      });
+    }
   }
 
   @override

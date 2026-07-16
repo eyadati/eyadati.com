@@ -61,7 +61,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                       child: _FavoriteDoctorCard(
                         doctor: doctor,
                         onTap: () => context.push('/patient/doctors/${doctor.id}'),
-                        onRemove: () => ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id),
+                        onRemove: () => ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id, context: context),
                       ),
                     );
                   },

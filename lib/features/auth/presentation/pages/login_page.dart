@@ -41,18 +41,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     final bool success;
     if (_isDoctor) {
-      success = await ref.read(authProvider.notifier).login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      success = await ref
+          .read(authProvider.notifier)
+          .login(_emailController.text.trim(), _passwordController.text);
     } else {
       final phone = InputValidator.formatPhoneForE164(
         _phoneController.text.trim(),
       );
-      success = await ref.read(authProvider.notifier).loginWithPhone(
-        phone,
-        _passwordController.text,
-      );
+      success = await ref
+          .read(authProvider.notifier)
+          .loginWithPhone(phone, _passwordController.text);
     }
 
     if (!mounted) return;
@@ -66,10 +64,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     } else {
       final error = ref.read(authProvider).errorMessage;
-      AppSnackbar.showError(
-        context,
-        message: error ?? 'Erreur de connexion',
-      );
+      AppSnackbar.showError(context, message: error ?? 'Erreur de connexion');
     }
   }
 
@@ -127,7 +122,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       else
                         AppTextField(
                           label: 'Téléphone',
-                          hint: '+213 5 55 12 34 56',
+                          hint: '5 55 12 34 56',
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
                           textInputAction: TextInputAction.next,
@@ -223,9 +218,7 @@ class _RoleToggle extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: !isDoctor
-                      ? AppColors.primary
-                      : Colors.transparent,
+                  color: !isDoctor ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -248,9 +241,7 @@ class _RoleToggle extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
-                  color: isDoctor
-                      ? AppColors.primary
-                      : Colors.transparent,
+                  color: isDoctor ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -259,9 +250,7 @@ class _RoleToggle extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: isDoctor
-                        ? AppColors.white
-                        : AppColors.textSecondary,
+                    color: isDoctor ? AppColors.white : AppColors.textSecondary,
                   ),
                 ),
               ),

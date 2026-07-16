@@ -17,7 +17,6 @@ class AppWithUpdateBanner extends ConsumerStatefulWidget {
 
 class _AppWithUpdateBannerState extends ConsumerState<AppWithUpdateBanner>
     with SingleTickerProviderStateMixin {
-  bool _swUpdateAvailable = false;
   late AnimationController _animCtrl;
   late Animation<Offset> _slideAnim;
 
@@ -39,10 +38,7 @@ class _AppWithUpdateBannerState extends ConsumerState<AppWithUpdateBanner>
     if (!kIsWeb) return;
 
     html.window.addEventListener('sw-update-ready', (_) {
-      if (mounted) {
-        setState(() => _swUpdateAvailable = true);
-        _animCtrl.forward();
-      }
+      _applyUpdate();
     });
 
     final sw = html.window.navigator.serviceWorker;
@@ -53,8 +49,7 @@ class _AppWithUpdateBannerState extends ConsumerState<AppWithUpdateBanner>
         if (installing == null) return;
         installing.addEventListener('statechange', (e) {
           if (installing.state == 'installed' && mounted) {
-            setState(() => _swUpdateAvailable = true);
-            _animCtrl.forward();
+            _applyUpdate();
           }
         });
       });
@@ -89,7 +84,12 @@ class _AppWithUpdateBannerState extends ConsumerState<AppWithUpdateBanner>
   @override
   Widget build(BuildContext context) {
     final vState = ref.watch(versionUpdateProvider);
-    final showBanner = vState.isUpdateAvailable || _swUpdateAvailable;
+    ref.listen<VersionUpdateState>(versionUpdateProvider, (_, next) {
+      if (next.isUpdateAvailable && mounted) {
+        _animCtrl.forward();
+      }
+    });
+    final showBanner = vState.isUpdateAvailable;
 
     if (vState.isLoading) {
       return widget.child;

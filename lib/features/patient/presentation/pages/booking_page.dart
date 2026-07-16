@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:eyadati/core/routing/route_names.dart';
 import 'package:eyadati/core/constants/app_colors.dart';
 import 'package:eyadati/core/constants/app_spacing.dart';
 import 'package:eyadati/core/widgets/buttons/primary_button.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
+import 'package:eyadati/core/utils/phone_launcher.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/features/patient/presentation/providers/doctors_provider.dart';
 import 'package:eyadati/features/patient/presentation/providers/patient_provider.dart';
@@ -223,10 +223,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
+                onPressed: () async {
                   final phone = doctor.phone;
                   if (phone != null && phone.isNotEmpty) {
-                    launchUrl(Uri.parse('tel:$phone'));
+                    final launched = await launchPhoneUrl(phone, context);
+                    if (!launched && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
+                      );
+                    }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
@@ -503,7 +508,14 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          onPressed: () => launchUrl(Uri.parse('tel:${doctor.phone}')),
+                          onPressed: () async {
+                            final launched = await launchPhoneUrl(doctor.phone!, context);
+                            if (!launched && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(l10n.bookingPhoneUnavailable)),
+                              );
+                            }
+                          },
                         ),
                       ),
                     ],

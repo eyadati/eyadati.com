@@ -109,7 +109,7 @@ class _DoctorDetailsPageState extends ConsumerState<DoctorDetailsPage> {
               IconButton(
                 onPressed: () => ref
                     .read(favoritesProvider.notifier)
-                    .toggleFavorite(widget.doctorId),
+                    .toggleFavorite(widget.doctorId, context: context),
                 icon: Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
                   color: isFavorite ? AppColors.error : Colors.white,

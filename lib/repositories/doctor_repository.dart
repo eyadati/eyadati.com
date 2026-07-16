@@ -103,10 +103,20 @@ class DoctorRepository {
           .maybeSingle();
 
       if (response == null) return null;
-      
+
+      final profile = await _client
+          .from('profiles')
+          .select('phone')
+          .eq('id', doctorId)
+          .maybeSingle();
+
+      if (profile != null) {
+        response['phone'] = profile['phone'];
+      }
+
       final doctor = Doctor.fromDatabase(response);
       _cache.put(cacheKey, doctor, ttl: const Duration(minutes: 5));
-      
+
       return doctor;
     } catch (e) {
       return null;
@@ -126,6 +136,17 @@ class DoctorRepository {
           .maybeSingle();
 
       if (response == null) return null;
+
+      final profile = await _client
+          .from('profiles')
+          .select('phone')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (profile != null) {
+        response['phone'] = profile['phone'];
+      }
+
       return Doctor.fromDatabase(response);
     } catch (e) {
       return null;
@@ -208,6 +229,7 @@ class DoctorRepository {
     double? longitude,
     String? bio,
     String? photoUrl,
+    String? phone,
     int? appointmentDuration,
     int? consultationDuration,
     bool? manualPause,
@@ -289,7 +311,14 @@ class DoctorRepository {
       
       if (manualPause != null) updates['manual_pause'] = manualPause;
 
-      if (updates.isEmpty) {
+      if (phone != null) {
+        await _client
+            .from('profiles')
+            .update({'phone': phone})
+            .eq('id', doctorId);
+      }
+
+      if (updates.isEmpty && phone == null) {
         return DoctorResult.failure('No fields to update');
       }
 
@@ -302,6 +331,19 @@ class DoctorRepository {
 
       if (response == null) {
         return DoctorResult.failure('Failed to update doctor profile');
+      }
+
+      if (phone != null) {
+        response['phone'] = phone;
+      } else {
+        final profile = await _client
+            .from('profiles')
+            .select('phone')
+            .eq('id', doctorId)
+            .maybeSingle();
+        if (profile != null) {
+          response['phone'] = profile['phone'];
+        }
       }
 
       _cache.remove(CacheKeys.doctor(doctorId));

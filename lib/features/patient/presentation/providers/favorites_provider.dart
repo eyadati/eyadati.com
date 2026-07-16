@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
@@ -67,31 +68,53 @@ class FavoritesNotifier extends StateNotifier<FavoritesState> {
     return state.favoriteDoctorIds.contains(doctorId);
   }
 
-  Future<void> toggleFavorite(String doctorId) async {
-    try {
-      final authState = _ref.read(authProvider);
-      final userId = authState.userId;
-      if (userId == null) return;
+  Future<void> toggleFavorite(String doctorId, {BuildContext? context}) async {
+    final userId = _ref.read(authProvider).userId;
+    if (userId == null) return;
 
-      if (isFavorite(doctorId)) {
+    final wasFavorite = isFavorite(doctorId);
+
+    // Optimistic update
+    if (wasFavorite) {
+      state = state.copyWith(
+        favoriteDoctorIds: state.favoriteDoctorIds.where((id) => id != doctorId).toList(),
+      );
+    } else {
+      state = state.copyWith(
+        favoriteDoctorIds: [...state.favoriteDoctorIds, doctorId],
+      );
+    }
+
+    try {
+      if (wasFavorite) {
         await SupabaseInitializer.client
             .from('favorites')
             .delete()
             .eq('patient_id', userId)
             .eq('doctor_id', doctorId);
-        state = state.copyWith(
-          favoriteDoctorIds: state.favoriteDoctorIds.where((id) => id != doctorId).toList(),
-        );
       } else {
         await SupabaseInitializer.client
             .from('favorites')
             .insert({'patient_id': userId, 'doctor_id': doctorId});
-        state = state.copyWith(
-          favoriteDoctorIds: [...state.favoriteDoctorIds, doctorId],
-        );
       }
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
+      // Rollback on failure
+      if (wasFavorite) {
+        state = state.copyWith(
+          favoriteDoctorIds: [...state.favoriteDoctorIds, doctorId],
+          errorMessage: e.toString(),
+        );
+      } else {
+        state = state.copyWith(
+          favoriteDoctorIds: state.favoriteDoctorIds.where((id) => id != doctorId).toList(),
+          errorMessage: e.toString(),
+        );
+      }
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la mise à jour des favoris')),
+        );
+      }
     }
   }
 

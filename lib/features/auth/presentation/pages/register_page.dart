@@ -72,13 +72,15 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Future<void> _handleDoctorRegister() async {
     if (!_doctorFormKey.currentState!.validate()) return;
 
-    final success = await ref.read(authProvider.notifier).register(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      name: _nameController.text.trim(),
-      phone: '',
-      role: 'doctor',
-    );
+    final success = await ref
+        .read(authProvider.notifier)
+        .register(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          name: _nameController.text.trim(),
+          phone: '',
+          role: 'doctor',
+        );
 
     if (!mounted) return;
 
@@ -113,7 +115,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           const SizedBox(height: AppSpacing.md),
           AppTextField(
             label: 'Téléphone',
-            hint: '+213 5 55 12 34 56',
+            hint: '5 55 12 34 56',
             controller: _phoneController,
             keyboardType: TextInputType.phone,
             prefixIcon: Icons.phone_outlined,
@@ -332,9 +334,7 @@ class _RoleToggle extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: isDoctor
-                        ? AppColors.white
-                        : AppColors.textSecondary,
+                    color: isDoctor ? AppColors.white : AppColors.textSecondary,
                   ),
                 ),
               ),

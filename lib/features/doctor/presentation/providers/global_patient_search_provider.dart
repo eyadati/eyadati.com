@@ -20,6 +20,7 @@ class PatientSearchResult {
   });
 
   bool get hasSufficientHistory => totalVisits >= 3;
+  double? get reliabilityRate => reliabilityPct != null ? reliabilityPct! / 100 : null;
 }
 
 class GlobalPatientSearchState {
@@ -38,29 +39,39 @@ class GlobalPatientSearchState {
 
 class GlobalPatientSearchNotifier extends StateNotifier<GlobalPatientSearchState> {
   Timer? _debounce;
+  int _requestId = 0;
 
   GlobalPatientSearchNotifier() : super(const GlobalPatientSearchState());
 
   void search(String query) {
     _debounce?.cancel();
-    state = GlobalPatientSearchState(query: query, isLoading: true);
 
     if (query.trim().length < 2) {
       state = GlobalPatientSearchState(query: query);
       return;
     }
 
+    state = GlobalPatientSearchState(query: query, isLoading: true);
+
+    final currentRequestId = ++_requestId;
+
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      await _performSearch(query.trim());
+      await _performSearch(query.trim(), currentRequestId);
     });
   }
 
-  Future<void> _performSearch(String searchTerm) async {
+  void retry(String query) {
+    search(query);
+  }
+
+  Future<void> _performSearch(String searchTerm, int requestId) async {
     try {
       final data = await SupabaseInitializer.client.rpc(
         'search_patients',
         params: {'search_term': searchTerm},
       );
+
+      if (requestId < _requestId) return;
 
       final results = (data as List).map((row) {
         return PatientSearchResult(
@@ -73,10 +84,15 @@ class GlobalPatientSearchNotifier extends StateNotifier<GlobalPatientSearchState
         );
       }).toList();
 
+      if (requestId < _requestId) return;
+
       state = GlobalPatientSearchState(query: searchTerm, results: results);
     } catch (e) {
+      if (requestId < _requestId) return;
+
       state = GlobalPatientSearchState(
         query: searchTerm,
+        results: state.results,
         errorMessage: e.toString(),
       );
     }

@@ -69,6 +69,7 @@ class ProfileRepository {
     String? city,
     String? mapsLink,
     String? bio,
+    String? phone,
     int? appointmentDuration,
     int? consultationDuration,
     bool? manualPause,
@@ -88,7 +89,14 @@ class ProfileRepository {
       }
       if (manualPause != null) updates['manual_pause'] = manualPause;
 
-      if (updates.isEmpty) {
+      if (phone != null) {
+        await _client
+            .from('profiles')
+            .update({'phone': phone})
+            .eq('id', userId);
+      }
+
+      if (updates.isEmpty && phone == null) {
         return ProfileResult.failure('No fields to update');
       }
 

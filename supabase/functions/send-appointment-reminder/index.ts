@@ -2,8 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-const SUPABASE_SECRET_KEYS = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')
-const SECRET_KEY = SUPABASE_SECRET_KEYS['default'] || ''
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 const FIREBASE_SERVICE_ACCOUNT = (() => {
   try {
     return JSON.parse(Deno.env.get('FIREBASE_SERVICE_ACCOUNT') || '{}')
@@ -88,13 +87,21 @@ async function getFcmAccessToken(): Promise<string | null> {
   return data.access_token || null
 }
 
-async function sendFcmReminder(
+function formatDateForBody(d: Date): string {
+  const hours = d.getHours().toString().padStart(2, '0')
+  const minutes = d.getMinutes().toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  const month = (d.getMonth() + 1).toString().padStart(2, '0')
+  return `Rendez-vous le ${day}/${month} \u00e0 ${hours}:${minutes}`
+}
+
+async function sendFcmNotification(
   accessToken: string,
-  token: string,
-  doctorName: string,
-  appointmentTime: string,
+  pushToken: string,
+  title: string,
+  body: string,
   projectId: string,
-): Promise<boolean> {
+): Promise<'sent' | 'token_deleted' | 'failed'> {
   const response = await fetch(
     `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
     {
@@ -105,26 +112,89 @@ async function sendFcmReminder(
       },
       body: JSON.stringify({
         message: {
-          token,
-          data: {
-            type: 'appointment_reminder',
-          },
-          notification: {
-            title: 'Rappel de rendez-vous',
-            body: `Vous avez rendez-vous avec Dr. ${doctorName} à ${appointmentTime}`,
-          },
+          token: pushToken,
+          data: { type: 'appointment_reminder' },
+          notification: { title, body },
           webpush: {
-            notification: {
-              title: 'Rappel de rendez-vous',
-              body: `Vous avez rendez-vous avec Dr. ${doctorName} à ${appointmentTime}`,
-              icon: '/icons/Icon-192.png',
-            },
+            notification: { title, body, icon: '/icons/Icon-192.png' },
           },
         },
       }),
     },
   )
-  return response.ok
+
+  if (response.status === 404) {
+    return 'token_deleted'
+  }
+
+  return response.ok ? 'sent' : 'failed'
+}
+
+function calculateReminderAt(scheduledAt: Date, now: Date): Date | null {
+  const deltaMs = scheduledAt.getTime() - now.getTime()
+  if (deltaMs <= 0) return null
+
+  const deltaHours = deltaMs / (1000 * 60 * 60)
+
+  if (deltaHours > 6) {
+    return new Date(scheduledAt.getTime() - 6 * 60 * 60 * 1000)
+  }
+
+  if (deltaHours > 2) {
+    return new Date(scheduledAt.getTime() - 2 * 60 * 60 * 1000)
+  }
+
+  return now
+}
+
+async function processReminder(
+  supabase: ReturnType<typeof createClient>,
+  appointment: Record<string, unknown>,
+  accessToken: string,
+  projectId: string,
+) {
+  const appointmentId = appointment.id as string
+  const patientId = appointment.patient_id as string
+  const doctorData = appointment.doctor as Record<string, unknown> | undefined
+  const profile = doctorData?.profile as Record<string, unknown> | undefined
+  const doctorName = (profile?.full_name as string) || 'M\u00e9decin'
+
+  const scheduledAt = new Date(appointment.scheduled_at as string)
+  const title = `Dr. ${doctorName}`
+  const body = formatDateForBody(scheduledAt)
+
+  const { data: tokens } = await supabase
+    .from('push_tokens')
+    .select('token, id')
+    .eq('user_id', patientId)
+
+  if (!tokens || tokens.length === 0) {
+    await supabase
+      .from('appointments')
+      .update({ reminder_sent: true })
+      .eq('id', appointmentId)
+    return { appointmentId, sent: 0, failed: 0, reason: 'no_tokens' }
+  }
+
+  let sent = 0
+  let failed = 0
+
+  for (const t of tokens) {
+    const result = await sendFcmNotification(
+      accessToken, t.token as string, title, body, projectId,
+    )
+    if (result === 'sent') sent++
+    else if (result === 'token_deleted') {
+      await supabase.from('push_tokens').delete().eq('id', t.id)
+    } else failed++
+  }
+
+  await supabase
+    .from('appointments')
+    .update({ reminder_sent: true })
+    .eq('id', appointmentId)
+
+  return { appointmentId, sent, failed }
 }
 
 serve(async (req) => {
@@ -139,45 +209,67 @@ serve(async (req) => {
     })
   }
 
-  if (!SUPABASE_URL || !SECRET_KEY) {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     return new Response(JSON.stringify({ error: 'Server configuration error' }), {
       status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+  const body = await req.json().catch(() => ({}))
+  const appointmentId = body.appointment_id as string | undefined
+
+  const accessToken = await getFcmAccessToken()
+  if (!accessToken) {
+    return new Response(JSON.stringify({ error: 'Failed to get FCM access token' }), {
+      status: 500,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
-  const bearerToken = authHeader.replace('Bearer ', '')
-
-  let appointmentId: string
+  const projectId = FIREBASE_SERVICE_ACCOUNT.project_id || 'eydati-fcd79'
 
   try {
-    const body = await req.json()
-    appointmentId = body.appointment_id
-    if (!appointmentId) {
-      return new Response(JSON.stringify({ error: 'appointment_id is required' }), {
-        status: 400,
+    if (appointmentId) {
+      const { data: appointment, error: aptError } = await supabase
+        .from('appointments')
+        .select(`
+          id, scheduled_at, patient_id,
+          doctor:doctors!doctor_id (
+            id,
+            profile:profiles!doctor_id ( full_name )
+          )
+        `)
+        .eq('id', appointmentId)
+        .single()
+
+      if (aptError || !appointment) {
+        return new Response(JSON.stringify({ error: 'Appointment not found' }), {
+          status: 404,
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const scheduledAt = new Date(appointment.scheduled_at as string)
+      const now = new Date()
+      const reminderAt = calculateReminderAt(scheduledAt, now)
+
+      if (reminderAt) {
+        await supabase
+          .from('appointments')
+          .update({ reminder_at: reminderAt.toISOString() })
+          .eq('id', appointmentId)
+      }
+
+      return new Response(JSON.stringify({ appointmentId, reminder_at: reminderAt?.toISOString() ?? null }), {
+        status: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
-  } catch (e) {
-    return new Response(JSON.stringify({ error: 'Invalid request' }), {
-      status: 400,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
-  }
 
-  try {
-    const supabase = createClient(SUPABASE_URL, SECRET_KEY)
-
-    const { data: appointment, error: aptError } = await supabase
+    const { data: appointments, error: fetchError } = await supabase
       .from('appointments')
       .select(`
         id, scheduled_at, patient_id,
@@ -186,76 +278,27 @@ serve(async (req) => {
           profile:profiles!doctor_id ( full_name )
         )
       `)
-      .eq('id', appointmentId)
-      .single()
+      .eq('status', 'upcoming')
+      .eq('reminder_sent', false)
+      .lte('reminder_at', new Date().toISOString())
 
-    if (aptError || !appointment) {
-      return new Response(JSON.stringify({ error: 'Appointment not found' }), {
-        status: 404,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const patientId = appointment.patient_id as string
-    const doctorProfile = (appointment.doctor as any)?.profile
-    const doctorName = doctorProfile?.full_name || 'Médecin'
-
-    const scheduledAt = new Date(appointment.scheduled_at as string)
-    const hours = scheduledAt.getHours().toString().padStart(2, '0')
-    const minutes = scheduledAt.getMinutes().toString().padStart(2, '0')
-    const day = scheduledAt.getDate().toString().padStart(2, '0')
-    const month = (scheduledAt.getMonth() + 1).toString().padStart(2, '0')
-    const timeFormatted = `${hours}:${minutes}`
-    const dateFormatted = `${day}/${month}`
-
-    const { data: tokens, error: tokensError } = await supabase
-      .from('push_tokens')
-      .select('token')
-      .eq('user_id', patientId)
-
-    if (tokensError) throw tokensError
-    if (!tokens || tokens.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, message: 'No push tokens found' }), {
+    if (fetchError) throw fetchError
+    if (!appointments || appointments.length === 0) {
+      return new Response(JSON.stringify({ processed: 0 }), {
         status: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
 
-    const accessToken = await getFcmAccessToken()
-    if (!accessToken) {
-      return new Response(JSON.stringify({ error: 'Failed to get FCM access token' }), {
-        status: 500,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const notificationBody = `Rappel: Dr. ${doctorName} à ${timeFormatted} le ${dateFormatted}`
-
     const results = await Promise.all(
-      tokens.map((t) =>
-        sendFcmReminder(
-          accessToken,
-          t.token,
-          doctorName,
-          `${timeFormatted} le ${dateFormatted}`,
-          FIREBASE_SERVICE_ACCOUNT.project_id || 'eydati-fcd79',
-        )
-          .then((ok) => ok ? 'sent' : 'failed')
-          .catch(() => 'failed'),
+      appointments.map((apt) =>
+        processReminder(supabase, apt, accessToken, projectId),
       ),
     )
 
-    const sent = results.filter((r) => r === 'sent').length
-    const failed = results.filter((r) => r === 'failed').length
+    console.log(`Batch reminder: processed ${results.length} appointments`)
 
-    await supabase
-      .from('appointments')
-      .update({ fcm_reminder_sent: true })
-      .eq('id', appointmentId)
-
-    console.log(`Appointment reminder: ${sent} sent, ${failed} failed for appointment ${appointmentId}`)
-
-    return new Response(JSON.stringify({ sent, failed }), {
+    return new Response(JSON.stringify({ processed: results.length, results }), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })

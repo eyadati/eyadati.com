@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:eyadati/core/utils/supabase_client.dart';
 import 'package:eyadati/features/auth/presentation/providers/auth_provider.dart';
 import 'package:eyadati/repositories/profile_repository.dart';
-import 'package:eyadati/services/local_notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PatientState {
@@ -402,15 +401,27 @@ class PatientNotifier extends AsyncNotifier<PatientState> {
         notes: notes,
       );
 
+      final delta = scheduledAt.difference(DateTime.now());
+      final Duration reminderLead;
+      if (delta > const Duration(hours: 6)) {
+        reminderLead = const Duration(hours: 6);
+      } else if (delta > const Duration(hours: 2)) {
+        reminderLead = const Duration(hours: 2);
+      } else {
+        reminderLead = Duration.zero;
+      }
+      if (reminderLead > Duration.zero) {
+        final reminderAt = scheduledAt.subtract(reminderLead);
+        await _client
+            .from('appointments')
+            .update({'reminder_at': reminderAt.toIso8601String()})
+            .eq('id', appointmentId);
+      }
+
       state = AsyncData(currentState.copyWith(
         upcomingAppointments: [viewModel, ...currentState.upcomingAppointments],
         upcomingCount: currentState.upcomingCount + 1,
       ));
-
-      LocalNotificationService.scheduleAppointmentReminders(
-        appointmentId: appointmentId,
-        scheduledAt: scheduledAt,
-      );
 
       return appointmentId;
     } catch (e) {
@@ -419,23 +430,11 @@ class PatientNotifier extends AsyncNotifier<PatientState> {
     }
   }
 
-  Future<void> scheduleReminders({
-    required String appointmentId,
-    required DateTime scheduledAt,
-  }) async {
-    try {
-      await LocalNotificationService.scheduleAppointmentReminders(
-        appointmentId: appointmentId,
-        scheduledAt: scheduledAt,
-      );
-    } catch (_) {}
-  }
-
   Future<bool> cancelAppointment(String appointmentId) async {
     try {
       await _client
           .from('appointments')
-          .update({'status': 'cancelled', 'fcm_reminder_sent': true})
+          .update({'status': 'cancelled'})
           .eq('id', appointmentId);
       await loadPatientData();
       return true;

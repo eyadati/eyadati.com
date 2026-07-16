@@ -110,10 +110,10 @@ class DoctorCard extends ConsumerWidget {
               children: [
                 IconButton(
                   onPressed: () {
-                    ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id);
+                    ref.read(favoritesProvider.notifier).toggleFavorite(doctor.id, context: context);
                   },
                   icon: Icon(
-                    isFavorite ? LucideIcons.heart : LucideIcons.heart,
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
                     color: isFavorite ? AppColors.error : AppColors.textHint,
                     size: 22,
                   ),

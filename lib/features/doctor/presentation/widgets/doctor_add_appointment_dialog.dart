@@ -274,9 +274,13 @@ class _DoctorAddAppointmentDialogState
       remainingMinutes,
     );
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxWidth = screenWidth > 768 ? screenWidth * 0.5 : screenWidth * 0.95;
+
     return Dialog(
       backgroundColor: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: MediaQuery.of(context).size.height * 0.9),
       child: SingleChildScrollView(
         child: Container(
           width: double.infinity,

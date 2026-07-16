@@ -1,5 +1,7 @@
--- Global patient search by phone number for doctors
+-- Global patient search by name/phone for doctors
 -- Returns patient name, phone, and reliability score across all doctors
+
+create extension if not exists "pg_trgm";
 
 create or replace function public.search_patients(search_term text)
 returns table (
@@ -18,13 +20,13 @@ as $$
     p.id,
     p.full_name,
     p.phone,
-    count(*)::bigint as total_visits,
-    count(*) filter (where a.attendance_status = 'no_show')::bigint as no_show_count,
+    count(a.id)::bigint as total_visits,
+    count(a.id) filter (where a.attendance_status = 'no_show')::bigint as no_show_count,
     case
-      when count(*) >= 3
+      when count(a.id) >= 3
       then round(
-        ((count(*) - count(*) filter (where a.attendance_status = 'no_show'))::numeric /
-         nullif(count(*)::numeric, 0)) * 100
+        ((count(a.id) - count(a.id) filter (where a.attendance_status = 'no_show'))::numeric /
+         nullif(count(a.id)::numeric, 0)) * 100
       )
     end as reliability_pct
   from public.profiles p
@@ -40,5 +42,6 @@ $$;
 
 grant execute on function public.search_patients to authenticated;
 
--- Index for phone-based searches
+-- Indexes for search performance
 create index if not exists idx_profiles_phone on public.profiles(phone);
+create index if not exists idx_profiles_full_name_trgm on public.profiles using gin (full_name gin_trgm_ops);

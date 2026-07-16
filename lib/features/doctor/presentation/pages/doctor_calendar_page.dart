@@ -15,6 +15,7 @@ import '../providers/doctor_provider.dart';
 import '../widgets/doctor_add_appointment_dialog.dart';
 import '../widgets/appointment_details_sheet.dart';
 import '../widgets/doctor_day_list_view.dart';
+import '../widgets/doctor_search_dialog.dart';
 import '../widgets/doctor_week_strip.dart';
 
 class DoctorCalendarPage extends ConsumerStatefulWidget {
@@ -41,6 +42,14 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
 
   void _toggleExpanded() {
     setState(() => _isExpanded = !_isExpanded);
+  }
+
+  Color _reliabilityColor(_AppointmentWrapper apt) {
+    if (apt.totalVisits == null || apt.totalVisits == 0) return AppColors.textHint;
+    final rate = apt.noShowCount! / apt.totalVisits!;
+    if (rate <= 0.25) return AppColors.success;
+    if (rate <= 0.50) return AppColors.warning;
+    return AppColors.error;
   }
 
   void _syncSelectedDate() {
@@ -677,6 +686,22 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
                                       : AppColors.textPrimary,
                                 ),
                               ),
+                              if (apt.patientId != null) ...[
+                                const SizedBox(width: 6),
+                                Tooltip(
+                                  message: apt.totalVisits != null && apt.totalVisits! > 0
+                                      ? '${apt.noShowCount} absence${apt.noShowCount! > 1 ? 's' : ''} sur ${apt.totalVisits} visite${apt.totalVisits! > 1 ? 's' : ''}'
+                                      : 'Aucun historique',
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _reliabilityColor(apt),
+                                    ),
+                                  ),
+                                ),
+                              ],
                               if (apt.status == 'cancelled') ...[
                                 const SizedBox(width: 6),
                                 Container(
@@ -752,67 +777,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             });
           }
         },
-      ),
-    );
-  }
-
-  void _showReliabilityInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.shield_outlined, size: 22, color: AppColors.success),
-            const SizedBox(width: 8),
-            const Text('Score de fiabilité'),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Le score de fiabilité mesure l\'assiduité du patient à ses rendez-vous (en ligne et en cabinet).',
-              style: TextStyle(fontSize: 14),
-            ),
-            SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.circle, size: 12, color: AppColors.success),
-                SizedBox(width: 6),
-                Text(' > 75% : Bonne assiduité', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-            SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.circle, size: 12, color: AppColors.warning),
-                SizedBox(width: 6),
-                Text(' 50% – 75% : Assiduité moyenne', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-            SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.circle, size: 12, color: AppColors.error),
-                SizedBox(width: 6),
-                Text(' < 50% : Faible assiduité', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Un score inférieur à 50% empêche le patient de réserver en ligne. '
-              'Le patient peut contacter le cabinet directement.',
-              style: TextStyle(fontSize: 13, color: AppColors.error),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Compris'),
-          ),
-        ],
       ),
     );
   }
@@ -909,7 +873,10 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
               color: AppColors.textPrimary,
             ),
             tooltip: 'Recherche patient',
-            onPressed: () => context.push(RouteNames.doctorSearch),
+            onPressed: () => showDialog(
+              context: context,
+              builder: (_) => const DoctorSearchDialog(),
+            ),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             padding: EdgeInsets.zero,
           ),
@@ -920,17 +887,6 @@ class _DoctorCalendarPageState extends ConsumerState<DoctorCalendarPage>
             ),
             onPressed: () => context.push(RouteNames.doctorSettings),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            padding: EdgeInsets.zero,
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.help_outline,
-              color: AppColors.textHint,
-              size: 20,
-            ),
-            tooltip: 'Score de fiabilité',
-            onPressed: () => _showReliabilityInfo(context),
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
           const SizedBox(width: 4),

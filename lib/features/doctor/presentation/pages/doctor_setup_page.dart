@@ -37,6 +37,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
   int _appointmentDuration = 30;
   String? _specialty;
   String? _city;
+  final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _mapsLinkController = TextEditingController();
   String? _photoUrl;
@@ -76,6 +77,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
 
   @override
   void dispose() {
+    _phoneController.dispose();
     _addressController.dispose();
     _mapsLinkController.dispose();
     super.dispose();
@@ -151,6 +153,7 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
         specialty: _specialty!,
         city: _city!,
         address: _addressController.text.trim(),
+        phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
         workingDays: _selectedDays.toList(),
         mapsLink: _mapsLinkController.text.trim().isEmpty ? null : _mapsLinkController.text.trim(),
         photoUrl: _photoUrl,
@@ -300,6 +303,23 @@ class _DoctorSetupPageState extends ConsumerState<DoctorSetupPage> {
                             children: [
                               _buildPhotoUpload(),
                               const SizedBox(height: AppSpacing.lg),
+                              AppTextField(
+                                label: 'Numéro de téléphone',
+                                hint: '05 XX XX XX XX',
+                                controller: _phoneController,
+                                keyboardType: TextInputType.phone,
+                                prefixIcon: LucideIcons.phone,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Numéro de téléphone requis';
+                                  }
+                                  if (!RegExp(r'^(05|06|07|03)\d{8}$').hasMatch(value.replaceAll(' ', ''))) {
+                                    return 'Format invalide (ex: 05XX XX XX XX)';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: AppSpacing.md),
                               AppDropdown(
                                 label: 'Spécialité',
                                 value: _specialty,
